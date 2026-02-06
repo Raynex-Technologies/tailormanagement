@@ -1,0 +1,151 @@
+<?php
+
+namespace App\Reports;
+
+use App\Models\OrderPayment;
+use App\Support\BranchContext;
+use Carbon\Carbon;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Facades\DB;
+
+class SalesReport
+{
+    protected ?string $dateFrom;
+
+    protected ?string $dateTo;
+
+    protected ?string $method;
+
+    protected ?string $search;
+
+    public function __construct(array $filters = [])
+    {
+        $this->dateFrom = $filters['date_from'] ?? Carbon::now()->startOfMonth()->toDateString();
+        $this->dateTo = $filters['date_to'] ?? Carbon::now()->endOfMonth()->toDateString();
+        $this->method = $filters['method'] ?? null;
+        $this->search = $filters['search'] ?? null;
+    }
+
+    /**
+     * Get summary statistics for the report.
+     */
+    public function summary(): array
+    {
+        $query = $this->baseQuery();
+
+        $stats = $query->selectRaw('
+            COUNT(*) as total_count,
+            COALESCE(SUM(order_payments.amount), 0) as total_received,
+            COALESCE(AVG(order_payments.amount), 0) as avg_payment
+        ')->first();
+
+        // Get top payment method
+        $topMethod = $this->baseQuery()
+            ->select('order_payments.method', DB::raw('SUM(order_payments.amount) as total'))
+            ->groupBy('order_payments.method')
+            ->orderByDesc('total')
+            ->first();
+
+        return [
+            'total_received' => (float) ($stats->total_received ?? 0),
+            'total_count' => (int) ($stats->total_count ?? 0),
+            'avg_payment' => (float) ($stats->avg_payment ?? 0),
+            'top_method' => $topMethod?->method ?? 'N/A',
+            'top_method_amount' => (float) ($topMethod?->total ?? 0),
+        ];
+    }
+
+    /**
+     * Get paginated rows for the report table.
+     */
+    public function rows(int $perPage = 15): LengthAwarePaginator
+    {
+        return $this->baseQuery()
+            ->select([
+                'order_payments.*',
+                'orders.order_no',
+                'customers.name as customer_name',
+                'users.name as received_by_name',
+            ])
+            ->join('orders', 'order_payments.order_id', '=', 'orders.id')
+            ->join('customers', 'orders.customer_id', '=', 'customers.id')
+            ->leftJoin('users', 'order_payments.received_by', '=', 'users.id')
+            ->orderByDesc('order_payments.paid_at')
+            ->paginate($perPage);
+    }
+
+    /**
+     * Export data for CSV.
+     */
+    public function export(): array
+    {
+        $rows = $this->baseQuery()
+            ->select([
+                'order_payments.paid_at',
+                'orders.order_no',
+                'customers.name as customer_name',
+                'order_payments.amount',
+                'order_payments.method',
+                'order_payments.reference',
+                'users.name as received_by_name',
+            ])
+            ->join('orders', 'order_payments.order_id', '=', 'orders.id')
+            ->join('customers', 'orders.customer_id', '=', 'customers.id')
+            ->leftJoin('users', 'order_payments.received_by', '=', 'users.id')
+            ->orderByDesc('order_payments.paid_at')
+            ->get();
+
+        $data = [];
+        $data[] = ['Date', 'Order No', 'Customer', 'Amount', 'Method', 'Reference', 'Received By'];
+
+        foreach ($rows as $row) {
+            $data[] = [
+                Carbon::parse($row->paid_at)->format('Y-m-d H:i'),
+                $row->order_no,
+                $row->customer_name,
+                number_format($row->amount, 2),
+                ucfirst($row->method),
+                $row->reference ?? '',
+                $row->received_by_name ?? '',
+            ];
+        }
+
+        return $data;
+    }
+
+    /**
+     * Build the base query with filters.
+     */
+    protected function baseQuery()
+    {
+        $query = OrderPayment::query();
+
+        // Date range filter
+        if ($this->dateFrom) {
+            $query->whereDate('order_payments.paid_at', '>=', $this->dateFrom);
+        }
+
+        if ($this->dateTo) {
+            $query->whereDate('order_payments.paid_at', '<=', $this->dateTo);
+        }
+
+        // Method filter
+        if ($this->method) {
+            $query->where('order_payments.method', $this->method);
+        }
+
+        // Search filter (order_no or customer name)
+        if ($this->search) {
+            $query->where(function ($q) {
+                $q->whereHas('order', function ($oq) {
+                    $oq->where('order_no', 'like', "%{$this->search}%")
+                        ->orWhereHas('customer', function ($cq) {
+                            $cq->where('name', 'like', "%{$this->search}%");
+                        });
+                });
+            });
+        }
+
+        return $query;
+    }
+}
