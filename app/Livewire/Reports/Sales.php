@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Reports;
 
+use App\Models\PaymentMethod;
 use App\Reports\SalesReport;
 use Carbon\Carbon;
 use Livewire\Attributes\Computed;
@@ -70,9 +71,12 @@ class Sales extends Component
     }
 
     #[Computed]
-    public function paymentMethods(): array
+    public function paymentMethods()
     {
-        return ['cash', 'mpesa', 'bank_transfer', 'card', 'other'];
+        return PaymentMethod::query()
+            ->orderByRaw('CASE WHEN id = 1 THEN 0 ELSE 1 END')
+            ->orderBy('name')
+            ->get(['id', 'name']);
     }
 
     public function applyFilters(): void

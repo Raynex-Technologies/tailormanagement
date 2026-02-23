@@ -24,17 +24,25 @@ class BranchSwitcher extends Component
     /**
      * Handle branch selection change.
      */
-    public function updatedSelectedBranchId(?int $value): void
+    public function updatedSelectedBranchId(mixed $value): void
     {
-        if ($value === null || $value === 0) {
-            // Clear selection
+        $this->switchBranch($value);
+    }
+
+    /**
+     * Explicit action handler for branch switch requests from the select.
+     */
+    public function switchBranch(mixed $value): void
+    {
+        $branchId = $this->normalizeBranchId($value);
+
+        if ($branchId === null) {
             $this->clearSelection();
 
             return;
         }
 
-        // Validate branch exists and is active
-        $branch = Branch::where('id', $value)
+        $branch = Branch::whereKey($branchId)
             ->where('is_active', true)
             ->first();
 
@@ -45,11 +53,10 @@ class BranchSwitcher extends Component
             return;
         }
 
-        // Set active branch in session and context
-        BranchContext::setActiveBranch($value);
+        BranchContext::setActiveBranch($branchId);
+        $this->selectedBranchId = $branchId;
 
-        // Refresh the page to apply the new branch context
-        $this->redirect(request()->header('Referer', route('dashboard')), navigate: true);
+        $this->redirectToPreviousPage();
     }
 
     /**
@@ -58,10 +65,37 @@ class BranchSwitcher extends Component
     public function clearSelection(): void
     {
         BranchContext::clearActiveBranch();
-        $this->selectedBranchId = null;
+        $this->selectedBranchId = BranchContext::id();
 
-        // Refresh to apply change
-        $this->redirect(request()->header('Referer', route('dashboard')), navigate: true);
+        $this->redirectToPreviousPage();
+    }
+
+    /**
+     * Normalize branch values coming from the select input.
+     */
+    protected function normalizeBranchId(mixed $value): ?int
+    {
+        if ($value === null || $value === '' || $value === 0 || $value === '0') {
+            return null;
+        }
+
+        if (is_int($value)) {
+            return $value;
+        }
+
+        if (is_string($value) && ctype_digit($value)) {
+            return (int) $value;
+        }
+
+        return null;
+    }
+
+    /**
+     * Force a full reload so branch-scoped data refreshes immediately.
+     */
+    protected function redirectToPreviousPage(): void
+    {
+        $this->redirect(request()->header('Referer', route('dashboard')), navigate: false);
     }
 
     /**

@@ -4,12 +4,17 @@ namespace App\Livewire\Orders;
 
 use App\Enums\OrderStatus;
 use App\Enums\PaymentStatus;
+use App\Events\OrderCreated;
+use App\Events\OrderPaymentRecorded;
 use App\Enums\Priority;
 use App\Models\Branch;
 use App\Models\Customer;
+use App\Models\Invoice;
 use App\Models\Order;
 use App\Models\OrderLine;
 use App\Models\OrderMeasurement;
+use App\Models\OrderPayment;
+use App\Models\PaymentMethod;
 use App\Models\User;
 use App\Support\BranchContext;
 use Illuminate\Support\Facades\DB;
@@ -49,6 +54,9 @@ class Form extends Component
     public string $newCustomerAddress = '';
 
     // Order details
+    #[Validate('required|date|before_or_equal:today', as: 'order date')]
+    public string $order_date = '';
+
     #[Validate('nullable|date|after_or_equal:today', as: 'due date')]
     public ?string $due_date = null;
 
@@ -65,6 +73,16 @@ class Form extends Component
     // Order lines
     public array $lines = [];
 
+    // Deposit (create only, optional)
+    #[Validate('nullable|numeric|min:0', as: 'deposit amount')]
+    public ?float $deposit_amount = null;
+
+    #[Validate('nullable|integer|exists:payment_methods,id', as: 'payment method')]
+    public ?int $deposit_payment_method_id = null;
+
+    #[Validate('nullable|string|max:100', as: 'reference')]
+    public ?string $deposit_reference = null;
+
     // Computed totals
     public float $subtotal = 0;
     public float $total = 0;
@@ -80,8 +98,16 @@ class Form extends Component
         } else {
             $this->authorize('create', Order::class);
             $this->initializeBranchContext();
+            $this->order_date = now()->toDateString();
+            $this->deposit_payment_method_id = $this->getDefaultPaymentMethodId();
             $this->addLine();
         }
+    }
+
+    protected function getDefaultPaymentMethodId(): ?int
+    {
+        return PaymentMethod::query()->whereKey(1)->value('id')
+            ?? PaymentMethod::query()->orderBy('name')->value('id');
     }
 
     /**
@@ -112,6 +138,9 @@ class Form extends Component
     {
         $this->customer_id = $this->order->customer_id;
         $this->customerSearch = $this->order->customer?->name ?? '';
+        $this->order_date = $this->order->order_date?->format('Y-m-d')
+            ?? $this->order->created_at?->format('Y-m-d')
+            ?? now()->toDateString();
         $this->due_date = $this->order->due_date?->format('Y-m-d');
         $this->priority = $this->order->priority?->value ?? 'normal';
         $this->notes = $this->order->notes ?? '';
@@ -196,6 +225,15 @@ class Form extends Component
         $this->calculateTotals();
     }
 
+    public function updatedDepositAmount(): void
+    {
+        $this->calculateTotals();
+        $amount = $this->deposit_amount === null || $this->deposit_amount === '' ? 0 : (float) $this->deposit_amount;
+        if ($amount > $this->total) {
+            $this->deposit_amount = $this->total;
+        }
+    }
+
     protected function calculateTotals(): void
     {
         $this->subtotal = 0;
@@ -220,11 +258,22 @@ class Form extends Component
 
     public function selectCustomer(int $customerId): void
     {
-        $customer = Customer::find($customerId);
+        $branchId = $this->getEffectiveBranchIdForCustomerSearch();
+        $customer = Customer::query()
+            ->where('branch_id', $branchId)
+            ->where('id', $customerId)
+            ->first();
         if ($customer) {
             $this->customer_id = $customer->id;
             $this->customerSearch = $customer->name;
         }
+        $this->showCustomerDropdown = false;
+    }
+
+    public function clearSelectedCustomer(): void
+    {
+        $this->customer_id = null;
+        $this->customerSearch = '';
         $this->showCustomerDropdown = false;
     }
 
@@ -238,6 +287,34 @@ class Form extends Component
         }
     }
 
+    /**
+     * Effective branch for customer search/create (current order branch or selected branch for new orders).
+     */
+    protected function getEffectiveBranchIdForCustomerSearch(): ?int
+    {
+        if ($this->isEdit && $this->order) {
+            return $this->order->branch_id;
+        }
+        if (auth()->user()?->isGlobalAdmin()) {
+            return $this->branch_id;
+        }
+
+        return auth()->user()?->branch_id;
+    }
+
+    public function getSelectedCustomerProperty(): ?Customer
+    {
+        if (! $this->customer_id) {
+            return null;
+        }
+        $branchId = $this->getEffectiveBranchIdForCustomerSearch();
+
+        return Customer::query()
+            ->where('branch_id', $branchId)
+            ->where('id', $this->customer_id)
+            ->first();
+    }
+
     public function getTitle(): string
     {
         return $this->isEdit ? "Edit Order {$this->order->order_no}" : 'Create Order';
@@ -249,9 +326,11 @@ class Form extends Component
 
         // Build validation rules
         $rules = [
+            'order_date' => ['required', 'date', 'before_or_equal:today'],
             'due_date' => ['nullable', 'date'],
             'notes' => ['nullable', 'max:1000'],
             'discount' => ['nullable', 'numeric', 'min:0'],
+            'deposit_payment_method_id' => ['nullable', 'integer', 'exists:payment_methods,id'],
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.item_name' => ['required', 'string', 'max:191'],
             'lines.*.qty' => ['required', 'numeric', 'min:0.01'],
@@ -288,6 +367,27 @@ class Form extends Component
             return;
         }
 
+        $this->calculateTotals();
+
+        // Deposit cannot exceed order total (create only)
+        if (! $this->isEdit && $this->deposit_amount !== null && (float) $this->deposit_amount > 0) {
+            if ((float) $this->deposit_amount > $this->total) {
+                $this->addError('deposit_amount', __('Deposit cannot exceed order total.'));
+
+                return;
+            }
+
+            if (! $this->deposit_payment_method_id) {
+                $this->deposit_payment_method_id = $this->getDefaultPaymentMethodId();
+            }
+
+            if (! $this->deposit_payment_method_id) {
+                $this->addError('deposit_payment_method_id', __('Please configure at least one payment method in Settings.'));
+
+                return;
+            }
+        }
+
         // Determine effective branch_id for create
         $effectiveBranchId = $this->isEdit
             ? $this->order->branch_id
@@ -318,6 +418,7 @@ class Form extends Component
                 // Create or update order
                 $orderData = [
                     'customer_id' => $this->customer_id,
+                    'order_date' => $this->order_date ?: now()->toDateString(),
                     'due_date' => $this->due_date ?: null,
                     'priority' => Priority::from($this->priority),
                     'notes' => $this->notes ?: null,
@@ -336,6 +437,7 @@ class Form extends Component
                     $orderData['payment_status'] = PaymentStatus::Unpaid;
                     $orderData['created_by'] = auth()->id();
                     $order = Order::create($orderData);
+                    event(new OrderCreated($order->load('customer'), auth()->user()));
                 }
 
                 // Handle lines
@@ -392,6 +494,25 @@ class Form extends Component
                     $order->lines()->whereNotIn('id', $existingLineIds)->delete();
                 }
 
+                // Create deposit payment on new order if amount given
+                if (! $this->isEdit && $this->deposit_amount !== null && (float) $this->deposit_amount > 0) {
+                    $payment = OrderPayment::create([
+                        'branch_id' => $order->branch_id,
+                        'order_id' => $order->id,
+                        'amount' => (float) $this->deposit_amount,
+                        'payment_method_id' => $this->deposit_payment_method_id ?: $this->getDefaultPaymentMethodId(),
+                        'reference' => $this->deposit_reference ?: null,
+                        'paid_at' => now(),
+                        'received_by' => auth()->id(),
+                    ]);
+                    $order->refresh();
+                    $order->update(['payment_status' => $order->computed_payment_status]);
+                    event(new OrderPaymentRecorded($order->fresh(), $payment, auth()->user()));
+                }
+
+                // Keep invoice aligned with current order details and lines.
+                Invoice::syncFromOrder($order->fresh(['lines']), auth()->id());
+
                 $this->order = $order;
             });
 
@@ -406,14 +527,18 @@ class Form extends Component
     public function render()
     {
         $customers = [];
-        if ($this->showCustomerDropdown && strlen($this->customerSearch) >= 2) {
+        $branchId = $this->getEffectiveBranchIdForCustomerSearch();
+        if ($branchId && $this->showCustomerDropdown && strlen($this->customerSearch) >= 2) {
+            $search = $this->customerSearch;
             $customers = Customer::query()
-                ->where(function ($q) {
-                    $q->where('name', 'like', "%{$this->customerSearch}%")
-                        ->orWhere('phone', 'like', "%{$this->customerSearch}%");
+                ->where('branch_id', $branchId)
+                ->where(function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%")
+                        ->orWhere('phone', 'like', "%{$search}%")
+                        ->orWhere('email', 'like', "%{$search}%");
                 })
                 ->limit(10)
-                ->get(['id', 'name', 'phone', 'code']);
+                ->get(['id', 'name', 'phone', 'email', 'address', 'code']);
         }
 
         // Filter tailors by branch if a branch is selected
@@ -424,6 +549,10 @@ class Form extends Component
         $tailors = $tailorsQuery->orderBy('name')->get(['id', 'name']);
 
         $priorities = Priority::cases();
+        $paymentMethods = PaymentMethod::query()
+            ->orderByRaw('CASE WHEN id = 1 THEN 0 ELSE 1 END')
+            ->orderBy('name')
+            ->get(['id', 'name', 'account_number', 'account_holder_name']);
 
         // Get branches for global admin selector
         $branches = $this->showBranchSelector
@@ -432,9 +561,11 @@ class Form extends Component
 
         return view('livewire.orders.form', [
             'customers' => $customers,
+            'selectedCustomer' => $this->selectedCustomer,
             'tailors' => $tailors,
             'priorities' => $priorities,
             'branches' => $branches,
+            'paymentMethods' => $paymentMethods,
         ])->title($this->getTitle());
     }
 }

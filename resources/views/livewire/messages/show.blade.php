@@ -21,12 +21,12 @@
         <div class="flex items-center justify-between">
             <div class="flex items-center gap-3">
                 <a href="{{ route('messages.index') }}" wire:navigate class="text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200">
-                    <flux:icon name="arrow-left" class="size-5" />
+                    <x-icon name="arrow_back" class="size-5" />
                 </a>
 
                 @if($conversation->isGroup())
                     <div class="size-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white">
-                        <flux:icon name="user-group" class="size-5" />
+                        <x-icon name="group" class="size-5" />
                     </div>
                 @else
                     @php
@@ -57,11 +57,11 @@
             @if($conversation->isGroup())
                 <div class="flex items-center gap-2">
                     <flux:button size="sm" variant="ghost" wire:click="$set('showParticipantsModal', true)">
-                        <flux:icon name="users" class="size-4" />
+                        <x-icon name="group" class="size-4" />
                     </flux:button>
                     @can('addParticipants', $conversation)
                         <flux:button size="sm" variant="ghost" wire:click="openAddParticipantsModal">
-                            <flux:icon name="user-plus" class="size-4" />
+                            <x-icon name="person_add" class="size-4" />
                         </flux:button>
                     @endcan
                 </div>
@@ -87,7 +87,7 @@
         @if($this->hasMoreMessages)
             <div class="text-center py-2">
                 <flux:button size="sm" variant="ghost" wire:click="loadMoreMessages">
-                    <flux:icon name="arrow-up" class="size-4 mr-1" />
+                    <x-icon name="arrow_upward" class="size-4 mr-1" />
                     Load older messages
                 </flux:button>
             </div>
@@ -137,7 +137,7 @@
         @empty
             <div class="flex flex-col items-center justify-center h-full text-center py-12">
                 <div class="size-16 rounded-full bg-zinc-200 dark:bg-zinc-700 flex items-center justify-center mb-4">
-                    <flux:icon name="chat-bubble-left-right" class="size-8 text-zinc-400" />
+                    <x-icon name="chat" class="size-8 text-zinc-400" />
                 </div>
                 <h3 class="font-medium text-zinc-900 dark:text-white mb-1">No messages yet</h3>
                 <p class="text-sm text-zinc-500 dark:text-zinc-400">
@@ -178,7 +178,7 @@
             </div>
 
             <flux:button type="submit" variant="primary" class="flex-shrink-0">
-                <flux:icon name="paper-airplane" class="size-5" />
+                <x-icon name="send" class="size-5" />
             </flux:button>
         </form>
     </div>

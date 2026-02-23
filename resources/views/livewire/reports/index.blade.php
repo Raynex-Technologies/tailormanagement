@@ -22,9 +22,9 @@
             >
                 <div class="flex items-start justify-between">
                     <div class="flex items-center justify-center size-12 rounded-xl bg-{{ $report['color'] }}-100 text-{{ $report['color'] }}-600 dark:bg-{{ $report['color'] }}-900/30 dark:text-{{ $report['color'] }}-400">
-                        <flux:icon :name="$report['icon']" class="size-6" />
+                        <x-icon :name="$report['icon']" class="size-6" />
                     </div>
-                    <flux:icon name="arrow-right" class="size-5 text-zinc-400 transition-transform group-hover:translate-x-1" />
+                    <x-icon name="arrow_forward" class="size-5 text-zinc-400 transition-transform group-hover:translate-x-1" />
                 </div>
 
                 <h3 class="mt-4 text-lg font-semibold text-zinc-900 dark:text-white">

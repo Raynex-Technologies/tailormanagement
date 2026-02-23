@@ -1,18 +1,23 @@
 <?php
 
+use App\Livewire\Administration\BusinessSettings as AdministrationBusinessSettings;
 use App\Livewire\DeliveryNotes\Show as DeliveryNoteShow;
 use App\Livewire\Inventory\Categories\Index as CategoriesIndex;
 use App\Livewire\Inventory\Items\Index as ItemsIndex;
 use App\Livewire\Inventory\Stock\Index as StockIndex;
 use App\Livewire\Inventory\Transactions\Index as TransactionsIndex;
+use App\Livewire\Invoices\Index as InvoicesIndex;
+use App\Livewire\Invoices\Show as InvoicesShow;
 use App\Livewire\Orders\Board as OrdersBoard;
 use App\Livewire\Orders\Form as OrdersForm;
 use App\Livewire\Orders\Index as OrdersIndex;
 use App\Livewire\Orders\Show as OrdersShow;
 use App\Livewire\Orders\StockRequests\Index as OrderStockRequestsIndex;
+use App\Models\BusinessSetting;
 use App\Livewire\Store\StockRequests\Index as StoreStockRequestsIndex;
 use App\Livewire\Store\StockRequests\Show as StoreStockRequestShow;
 use App\Models\Branch;
+use App\Models\Invoice;
 use App\Support\BranchContext;
 use Illuminate\Support\Facades\Route;
 
@@ -40,9 +45,8 @@ Route::get('/health', function () {
 |--------------------------------------------------------------------------
 */
 Route::middleware(['auth', 'verified', 'branch.context'])->group(function () {
-    // Dashboard - requires dashboard.view permission
+    // Dashboard - accessible to all authenticated users
     Route::get('dashboard', \App\Livewire\Dashboard::class)
-        ->middleware('can:dashboard.view')
         ->name('dashboard');
 
     // My Tasks - personal todo management
@@ -61,9 +65,12 @@ Route::middleware(['auth', 'verified', 'branch.context'])->group(function () {
     });
 
     // Access Control (Roles & Permissions) - requires roles.manage permission
-    Route::get('access-control', function () {
-        return view('pages.access-control.index');
-    })->middleware('can:roles.manage')->name('access-control.index');
+    Route::get('access-control', fn () => redirect()->route('access-control.roles.index'))->middleware('can:roles.manage')->name('access-control.index');
+    Route::prefix('access-control/roles')->middleware('can:roles.manage')->group(function () {
+        Route::get('/', \App\Livewire\Roles\Index::class)->name('access-control.roles.index');
+        Route::get('/create', \App\Livewire\Roles\Form::class)->name('access-control.roles.create');
+        Route::get('/{role}/edit', \App\Livewire\Roles\Form::class)->name('access-control.roles.edit');
+    });
 
     /*
     |--------------------------------------------------------------------------
@@ -87,6 +94,47 @@ Route::middleware(['auth', 'verified', 'branch.context'])->group(function () {
     Route::get('order-board', OrdersBoard::class)
         ->middleware('can:orders.view')
         ->name('orders.board');
+
+    /*
+    |--------------------------------------------------------------------------
+    | Invoices
+    |--------------------------------------------------------------------------
+    */
+    Route::prefix('invoices')->middleware('can:orders.view')->group(function () {
+        Route::get('/', InvoicesIndex::class)->name('invoices.index');
+        Route::get('/{invoice}', InvoicesShow::class)->name('invoices.show');
+
+        Route::get('/{invoice}/print', function (Invoice $invoice) {
+            if (! auth()->user()->can('view', $invoice)) {
+                abort(403);
+            }
+
+            return view('invoices.print', [
+                'invoice' => $invoice->load(['order.customer', 'order.branch', 'lines', 'branch']),
+                'settings' => BusinessSetting::instance(),
+            ]);
+        })->name('invoices.print');
+
+        Route::get('/{invoice}/download', function (Invoice $invoice) {
+            if (! auth()->user()->can('view', $invoice)) {
+                abort(403);
+            }
+
+            $invoice->load(['order.customer', 'order.branch', 'lines', 'branch']);
+            $settings = BusinessSetting::instance();
+            $html = view('invoices.print', [
+                'invoice' => $invoice,
+                'settings' => $settings,
+                'downloadMode' => true,
+            ])->render();
+
+            return response()->streamDownload(
+                fn () => print($html),
+                "{$invoice->invoice_no}.html",
+                ['Content-Type' => 'text/html; charset=UTF-8']
+            );
+        })->name('invoices.download');
+    });
 
     /*
     |--------------------------------------------------------------------------
@@ -254,6 +302,15 @@ Route::middleware(['auth', 'verified', 'branch.context'])->group(function () {
     | Admin Branch Switching (for testing / future UI)
     |--------------------------------------------------------------------------
     */
+    // Beem SMS Configurations (credentials, templates, marketing)
+    Route::get('administration/beem-configurations', \App\Livewire\Sms\BeemConfigurations::class)
+        ->middleware('can:sms.templates.manage')
+        ->name('beem-configurations.index');
+
+    Route::get('administration/settings', AdministrationBusinessSettings::class)
+        ->middleware('can:roles.manage')
+        ->name('administration.settings');
+
     Route::prefix('admin')->middleware('can:roles.manage')->group(function () {
         // Set active branch for admin
         Route::post('active-branch/{branch}', function (Branch $branch) {

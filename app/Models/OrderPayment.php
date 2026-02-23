@@ -15,7 +15,7 @@ class OrderPayment extends Model
         'branch_id',
         'order_id',
         'amount',
-        'method',
+        'payment_method_id',
         'reference',
         'paid_at',
         'received_by',
@@ -26,6 +26,7 @@ class OrderPayment extends Model
     {
         return [
             'amount' => 'decimal:2',
+            'payment_method_id' => 'integer',
             'paid_at' => 'datetime',
         ];
     }
@@ -38,5 +39,10 @@ class OrderPayment extends Model
     public function receiver(): BelongsTo
     {
         return $this->belongsTo(User::class, 'received_by');
+    }
+
+    public function paymentMethod(): BelongsTo
+    {
+        return $this->belongsTo(PaymentMethod::class);
     }
 }

@@ -23,7 +23,7 @@
     {{-- Search --}}
     <flux:card>
         <div class="w-full md:w-1/3">
-            <flux:input wire:model.live.debounce.300ms="search" placeholder="Search by PO no or supplier..." icon="magnifying-glass" />
+            <flux:input wire:model.blur="search" placeholder="Search by PO no or supplier..." icon="magnifying-glass" />
         </div>
     </flux:card>
 
@@ -31,7 +31,7 @@
     <flux:card>
         @if ($purchaseOrders->isEmpty())
             <div class="py-12 text-center">
-                <flux:icon name="truck" class="mx-auto size-12 text-zinc-300 dark:text-zinc-600" />
+                <x-icon name="local_shipping" class="mx-auto size-12 text-zinc-300 dark:text-zinc-600" />
                 <flux:heading size="lg" class="mt-4">{{ __('No orders pending receiving') }}</flux:heading>
                 <flux:text class="text-zinc-500">{{ __('All sent purchase orders have been fully received.') }}</flux:text>
             </div>
@@ -77,7 +77,7 @@
                             </flux:table.cell>
                             <flux:table.cell>
                                 <flux:button size="xs" variant="primary" :href="route('procurement.receiving.show', $po)" wire:navigate>
-                                    <flux:icon name="truck" class="mr-1 size-4" />
+                                    <x-icon name="local_shipping" class="mr-1 size-4" />
                                     {{ __('Receive') }}
                                 </flux:button>
                             </flux:table.cell>

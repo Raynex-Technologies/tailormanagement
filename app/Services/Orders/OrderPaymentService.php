@@ -2,10 +2,10 @@
 
 namespace App\Services\Orders;
 
-use App\Enums\PaymentMethod;
 use App\Enums\PaymentStatus;
 use App\Events\OrderPaymentRecorded;
 use App\Models\Order;
+use App\Models\PaymentMethod;
 use App\Models\OrderPayment;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
@@ -17,7 +17,7 @@ class OrderPaymentService
      * Record a payment for an order.
      *
      * @param  Order  $order  The order to record payment for
-     * @param  array  $data  Payment data (amount, method, reference, paid_at, note)
+     * @param  array  $data  Payment data (amount, payment_method_id, reference, paid_at, note)
      * @param  User  $actor  The user recording the payment
      *
      * @throws ValidationException
@@ -32,15 +32,15 @@ class OrderPaymentService
             ]);
         }
 
-        // Validate method
-        $method = $data['method'] ?? null;
-        if (! $method || ! in_array($method, PaymentMethod::values())) {
+        // Validate payment method
+        $paymentMethodId = isset($data['payment_method_id']) ? (int) $data['payment_method_id'] : null;
+        if (! $paymentMethodId || ! PaymentMethod::query()->whereKey($paymentMethodId)->exists()) {
             throw ValidationException::withMessages([
-                'method' => 'Invalid payment method.',
+                'payment_method_id' => 'Invalid payment method.',
             ]);
         }
 
-        return DB::transaction(function () use ($order, $data, $actor, $amount, $method) {
+        return DB::transaction(function () use ($order, $data, $actor, $amount, $paymentMethodId) {
             // Lock the order for update
             $order = Order::lockForUpdate()->find($order->id);
 
@@ -63,7 +63,7 @@ class OrderPaymentService
                 'branch_id' => $order->branch_id,
                 'order_id' => $order->id,
                 'amount' => $amount,
-                'method' => $method,
+                'payment_method_id' => $paymentMethodId,
                 'reference' => $data['reference'] ?? null,
                 'paid_at' => $data['paid_at'] ?? now(),
                 'received_by' => $actor->id,
@@ -76,7 +76,7 @@ class OrderPaymentService
             // Fire event
             event(new OrderPaymentRecorded($order->fresh(), $payment, $actor));
 
-            return $payment->load('receiver', 'order');
+            return $payment->load('receiver', 'order', 'paymentMethod');
         });
     }
 

@@ -17,7 +17,7 @@
             </div>
             @can('reports.export')
                 <flux:button wire:click="export" variant="primary" size="sm">
-                    <flux:icon name="arrow-down-tray" class="mr-1 size-4" />
+                    <x-icon name="download" class="mr-1 size-4" />
                     Export CSV
                 </flux:button>
             @endcan
@@ -28,16 +28,16 @@
     <flux:card class="mb-6">
         <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
             <flux:input
-                wire:model.live.debounce.300ms="dateFrom"
+                wire:model.blur="dateFrom"
                 type="date"
                 label="Movement From"
             />
             <flux:input
-                wire:model.live.debounce.300ms="dateTo"
+                wire:model.blur="dateTo"
                 type="date"
                 label="Movement To"
             />
-            <flux:select wire:model.live="categoryId" label="Category">
+            <flux:select wire:model.blur="categoryId" label="Category">
                 <option value="">All Categories</option>
                 @foreach($this->categories as $cat)
                     <option value="{{ $cat->id }}">{{ $cat->name }}</option>
@@ -45,19 +45,19 @@
             </flux:select>
             <div class="flex items-end">
                 <label class="flex items-center gap-2 cursor-pointer">
-                    <input type="checkbox" wire:model.live="lowStockOnly" class="rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500">
+                    <input type="checkbox" wire:model.blur="lowStockOnly" class="rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500">
                     <span class="text-sm text-zinc-700 dark:text-zinc-300">Low Stock Only</span>
                 </label>
             </div>
             <flux:input
-                wire:model.live.debounce.300ms="search"
+                wire:model.blur="search"
                 placeholder="Search SKU/name..."
                 label="Search"
                 icon="magnifying-glass"
             />
             <div class="flex items-end">
                 <flux:button wire:click="resetFilters" variant="ghost" size="sm">
-                    <flux:icon name="x-mark" class="mr-1 size-4" />
+                    <x-icon name="close" class="mr-1 size-4" />
                     Reset
                 </flux:button>
             </div>

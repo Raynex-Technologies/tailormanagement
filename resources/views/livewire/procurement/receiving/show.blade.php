@@ -74,8 +74,8 @@
                                 @if ($pendingQty > 0)
                                     <flux:input
                                         type="number"
-                                        wire:model.live="receivingItems.{{ $item->id }}.qty_received"
-                                        step="0.01"
+                                        wire:model.blur="receivingItems.{{ $item->id }}.qty_received"
+                                        step="1"
                                         min="0"
                                         max="{{ $pendingQty }}"
                                         class="w-24"
@@ -121,7 +121,7 @@
                     {{ __('Cancel') }}
                 </flux:button>
                 <flux:button type="submit" variant="primary" :disabled="$totalToReceive <= 0">
-                    <flux:icon name="truck" class="mr-1 size-4" />
+                    <x-icon name="local_shipping" class="mr-1 size-4" />
                     {{ __('Receive Goods') }}
                 </flux:button>
             </div>

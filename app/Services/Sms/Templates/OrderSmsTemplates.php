@@ -5,27 +5,96 @@ namespace App\Services\Sms\Templates;
 use App\Enums\OrderStatus;
 use App\Models\Order;
 use App\Models\OrderPayment;
+use App\Models\SmsTemplate;
 
 class OrderSmsTemplates
 {
+    /**
+     * Resolve a template from DB and replace variables.
+     */
+    public static function resolveTemplate(string $category, array $replacements): string
+    {
+        $row = SmsTemplate::instance();
+        $templates = $row->templates ?? [];
+        $body = $templates[$category] ?? '';
+
+        if ($body === '') {
+            return self::fallbackMessage($category, $replacements);
+        }
+
+        foreach ($replacements as $key => $value) {
+            $body = str_replace('{' . $key . '}', (string) $value, $body);
+        }
+
+        return $body;
+    }
+
+    /**
+     * Fallback when no template is set in DB.
+     */
+    protected static function fallbackMessage(string $category, array $replacements): string
+    {
+        $appName = config('app.name', 'TailorPro');
+        $orderNo = $replacements['order_number'] ?? '';
+        $customerName = $replacements['customer_name'] ?? 'Customer';
+
+        return match ($category) {
+            'order_created' => "[{$appName}] Order {$orderNo} created. Total: " . ($replacements['total_amount'] ?? '') . '. Thank you!',
+            'order_status_change' => "[{$appName}] Order {$orderNo} status: " . ($replacements['status'] ?? '') . '.',
+            'order_delivered' => "[{$appName}] Order {$orderNo} has been DELIVERED. Thank you!",
+            'order_cancelled' => "[{$appName}] Order {$orderNo} has been cancelled.",
+            'order_payment' => "[{$appName}] Payment received for order {$orderNo}. Balance: " . ($replacements['balance_due'] ?? '') . '.',
+            'order_due_date_reminder' => "[{$appName}] Reminder: Order {$orderNo} is due on " . ($replacements['expected_delivery_date'] ?? '') . '.',
+            default => "[{$appName}] Order {$orderNo} update.",
+        };
+    }
+
+    /**
+     * Build replacements array from Order (and optional Payment).
+     */
+    public static function replacementsForOrder(Order $order, ?OrderPayment $payment = null): array
+    {
+        $order->loadMissing('customer');
+        $dueDate = $order->due_date?->format('M d, Y');
+
+        $replacements = [
+            'customer_name' => $order->customer?->name ?? 'Customer',
+            'order_number' => $order->order_no,
+            'status' => $order->status?->label() ?? $order->status,
+            'expected_delivery_date' => $dueDate ?? '',
+            'total_amount' => money_tzs($order->total),
+            'amount_paid' => $payment ? money_tzs($payment->amount) : money_tzs($order->paid_amount),
+            'balance_due' => money_tzs($order->balance_due),
+        ];
+
+        return $replacements;
+    }
+
+    /**
+     * Get SMS message for order creation.
+     */
+    public static function orderCreated(Order $order): string
+    {
+        $replacements = self::replacementsForOrder($order);
+
+        return self::resolveTemplate('order_created', $replacements);
+    }
+
     /**
      * Get SMS message for order status change.
      */
     public static function statusChanged(Order $order, string $newStatus): string
     {
-        $appName = config('app.name', 'TailorPro');
-        $orderNo = $order->order_no;
-        $statusLabel = self::getStatusLabel($newStatus);
-        $balance = money_tzs($order->balance_amount);
+        $replacements = self::replacementsForOrder($order);
+        $replacements['status'] = self::getStatusLabel($newStatus);
 
-        // Different messages based on status
-        return match ($newStatus) {
-            'in_progress' => "[{$appName}] Order {$orderNo} is now IN PROGRESS. We are working on your order. Balance: {$balance}.",
-            'ready' => "[{$appName}] Order {$orderNo} is READY for pickup! Balance: {$balance}. Please visit us to collect your order.",
-            'delivered' => "[{$appName}] Order {$orderNo} has been DELIVERED. Balance: {$balance}. Thank you for your business!",
-            'completed' => "[{$appName}] Order {$orderNo} is now COMPLETED. Balance: {$balance}. Thank you for choosing us!",
-            default => "[{$appName}] Order {$orderNo} status: {$statusLabel}. Balance: {$balance}.",
+        $category = match ($newStatus) {
+            OrderStatus::Delivered->value => 'order_delivered',
+            OrderStatus::Cancelled->value => 'order_cancelled',
+            default => 'order_status_change',
         };
+
+        return self::resolveTemplate($category, $replacements);
     }
 
     /**
@@ -33,34 +102,21 @@ class OrderSmsTemplates
      */
     public static function paymentReceived(Order $order, OrderPayment $payment): string
     {
-        $appName = config('app.name', 'TailorPro');
-        $orderNo = $order->order_no;
-        $amountPaid = money_tzs($payment->amount);
-        $balance = money_tzs($order->balance_amount);
+        $replacements = self::replacementsForOrder($order, $payment);
 
-        if ($order->balance_amount <= 0) {
-            return "[{$appName}] Payment received {$amountPaid} for order {$orderNo}. FULLY PAID. Thank you!";
-        }
-
-        return "[{$appName}] Payment received {$amountPaid} for order {$orderNo}. Balance: {$balance}. Thank you!";
+        return self::resolveTemplate('order_payment', $replacements);
     }
 
     /**
-     * Get SMS message for order creation (optional).
+     * Get SMS message for due date reminder.
      */
-    public static function orderCreated(Order $order): string
+    public static function dueDateReminder(Order $order): string
     {
-        $appName = config('app.name', 'TailorPro');
-        $orderNo = $order->order_no;
-        $total = money_tzs($order->total);
-        $balance = money_tzs($order->balance_amount);
+        $replacements = self::replacementsForOrder($order);
 
-        return "[{$appName}] Order {$orderNo} created. Total: {$total}, Balance: {$balance}. Thank you for your order!";
+        return self::resolveTemplate('order_due_date_reminder', $replacements);
     }
 
-    /**
-     * Get human-readable status label.
-     */
     protected static function getStatusLabel(string $status): string
     {
         return match ($status) {
@@ -84,12 +140,10 @@ class OrderSmsTemplates
             OrderStatus::Ready->value,
             OrderStatus::Delivered->value,
             OrderStatus::Completed->value,
+            OrderStatus::Cancelled->value,
         ];
     }
 
-    /**
-     * Check if a status should trigger SMS notification.
-     */
     public static function shouldNotifyForStatus(string $status): bool
     {
         return in_array($status, self::getNotifiableStatuses());

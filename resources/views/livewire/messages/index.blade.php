@@ -28,7 +28,7 @@
             <div class="flex items-center gap-2">
                 @can('createGroup', App\Models\Conversation::class)
                     <flux:button wire:click="openNewGroupModal" variant="primary" size="sm">
-                        <flux:icon name="user-group" class="mr-1 size-4" />
+                        <x-icon name="group" class="mr-1 size-4" />
                         New Group
                     </flux:button>
                 @endcan
@@ -38,7 +38,7 @@
         {{-- Search Users to Start Chat --}}
         <div class="mb-6 relative">
             <flux:input
-                wire:model.live.debounce.300ms="userSearch"
+                wire:model.blur="userSearch"
                 placeholder="Search users to start a conversation..."
                 icon="magnifying-glass"
             />
@@ -70,7 +70,7 @@
         {{-- Search Conversations --}}
         <div class="mb-6">
             <flux:input
-                wire:model.live.debounce.300ms="search"
+                wire:model.blur="search"
                 placeholder="Search conversations..."
                 icon="magnifying-glass"
             />
@@ -94,7 +94,7 @@
                     <div class="relative flex-shrink-0">
                         @if($conversation->isGroup())
                             <div class="size-12 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-white">
-                                <flux:icon name="user-group" class="size-6" />
+                                <x-icon name="group" class="size-6" />
                             </div>
                         @else
                             @php
@@ -146,12 +146,12 @@
                     </div>
 
                     {{-- Arrow --}}
-                    <flux:icon name="chevron-right" class="size-5 text-zinc-400" />
+                    <x-icon name="chevron_right" class="size-5 text-zinc-400" />
                 </a>
             @empty
                 <div class="p-12 text-center">
                     <div class="mx-auto size-16 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center mb-4">
-                        <flux:icon name="chat-bubble-left-right" class="size-8 text-zinc-400" />
+                        <x-icon name="chat" class="size-8 text-zinc-400" />
                     </div>
                     <h3 class="font-medium text-zinc-900 dark:text-white mb-1">No conversations yet</h3>
                     <p class="text-sm text-zinc-500 dark:text-zinc-400">

@@ -26,7 +26,7 @@
     <flux:card>
         <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div class="w-full md:w-1/3">
-                <flux:input wire:model.live.debounce.300ms="search" placeholder="Search orders..." icon="magnifying-glass" />
+                <flux:input wire:model.blur="search" placeholder="Search orders..." icon="magnifying-glass" />
             </div>
             <div class="flex flex-wrap gap-2">
                 <flux:button size="sm" :variant="$statusFilter === null ? 'primary' : 'ghost'" wire:click="setStatusFilter(null)">
@@ -48,7 +48,7 @@
     <flux:card>
         @if ($purchaseOrders->isEmpty())
             <div class="py-12 text-center">
-                <flux:icon name="shopping-cart" class="mx-auto size-12 text-zinc-300 dark:text-zinc-600" />
+                <x-icon name="shopping_cart" class="mx-auto size-12 text-zinc-300 dark:text-zinc-600" />
                 <flux:heading size="lg" class="mt-4">{{ __('No purchase orders found') }}</flux:heading>
                 <flux:text class="text-zinc-500">{{ __('Purchase orders are created from approved purchase requests.') }}</flux:text>
             </div>
@@ -95,7 +95,7 @@
                             </flux:table.cell>
                             <flux:table.cell>
                                 <flux:button size="xs" variant="ghost" :href="route('procurement.pos.show', $po)" wire:navigate>
-                                    <flux:icon name="eye" class="size-4" />
+                                    <x-icon name="visibility" class="size-4" />
                                 </flux:button>
                             </flux:table.cell>
                         </flux:table.row>

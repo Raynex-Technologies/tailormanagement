@@ -32,7 +32,7 @@
             <flux:card class="mb-6">
                 <flux:heading size="lg" class="mb-4">{{ __('Branch Assignment') }}</flux:heading>
                 <div class="max-w-md">
-                    <flux:select wire:model.live="branchId" label="{{ __('Branch') }}" required>
+                    <flux:select wire:model.blur="branchId" label="{{ __('Branch') }}" required>
                         <flux:select.option value="">{{ __('-- Select Branch --') }}</flux:select.option>
                         @foreach ($branches as $branch)
                             <flux:select.option value="{{ $branch->id }}">{{ $branch->name }}</flux:select.option>
@@ -121,7 +121,7 @@
                     <flux:label for="capitalAllocationId">{{ __('Link to Capital Allocation') }}</flux:label>
                     <flux:select
                         id="capitalAllocationId"
-                        wire:model.live="capitalAllocationId"
+                        wire:model.blur="capitalAllocationId"
                         :disabled="$isLinkedToCapital"
                     >
                         <flux:select.option value="">{{ __('-- None --') }}</flux:select.option>
@@ -146,7 +146,7 @@
                             </flux:text>
                             @if ($amount && $amount > $availableBalance)
                                 <flux:text class="mt-1 text-sm text-red-600 dark:text-red-400">
-                                    <flux:icon name="exclamation-triangle" class="mr-1 inline size-4" />
+                                    <x-icon name="warning" class="mr-1 inline size-4" />
                                     {{ __('Amount exceeds available balance!') }}
                                 </flux:text>
                             @endif
@@ -172,7 +172,7 @@
                 {{ __('Cancel') }}
             </flux:button>
             <flux:button type="submit" variant="primary">
-                <flux:icon name="check" class="mr-1 size-4" />
+                <x-icon name="check" class="mr-1 size-4" />
                 {{ $isEdit ? __('Update Expense') : __('Create Expense') }}
             </flux:button>
         </div>

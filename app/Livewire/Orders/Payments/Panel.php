@@ -2,8 +2,8 @@
 
 namespace App\Livewire\Orders\Payments;
 
-use App\Enums\PaymentMethod;
 use App\Models\Order;
+use App\Models\PaymentMethod;
 use App\Services\Orders\OrderPaymentService;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Component;
@@ -21,7 +21,7 @@ class Panel extends Component
     // Payment form fields
     public bool $showPaymentModal = false;
     public ?float $amount = null;
-    public ?string $method = null;
+    public ?int $payment_method_id = null;
     public ?string $reference = null;
     public ?string $paidAt = null;
     public ?string $note = null;
@@ -35,7 +35,7 @@ class Panel extends Component
     {
         return [
             'amount' => ['required', 'numeric', 'min:0.01', 'max:' . ($this->balanceAmount + 0.01)],
-            'method' => ['required', 'string', 'in:' . implode(',', PaymentMethod::values())],
+            'payment_method_id' => ['required', 'integer', 'exists:payment_methods,id'],
             'reference' => ['nullable', 'string', 'max:100'],
             'paidAt' => ['nullable', 'date'],
             'note' => ['nullable', 'string', 'max:500'],
@@ -62,9 +62,9 @@ class Panel extends Component
             abort(403, 'You do not have permission to view payments.');
         }
 
-        $this->order = $order->load('payments.receiver');
+        $this->order = $order->load('payments.receiver', 'payments.paymentMethod');
         $this->refreshSummary();
-        $this->method = PaymentMethod::Cash->value;
+        $this->payment_method_id = $this->getDefaultPaymentMethodId();
     }
 
     public function refreshSummary(): void
@@ -78,6 +78,12 @@ class Panel extends Component
     {
         // Use policy-based authorization
         $this->authorize('recordPayments', $this->order);
+
+        if ($this->paymentMethods->isEmpty()) {
+            session()->flash('error', 'No payment methods configured. Please add one in Administration Settings.');
+
+            return;
+        }
 
         $this->resetPaymentForm();
         $this->amount = $this->balanceAmount > 0 ? $this->balanceAmount : null;
@@ -95,7 +101,7 @@ class Panel extends Component
         try {
             $paymentService->recordPayment($this->order, [
                 'amount' => $this->amount,
-                'method' => $this->method,
+                'payment_method_id' => $this->payment_method_id,
                 'reference' => $this->reference,
                 'paid_at' => $this->paidAt ? \Carbon\Carbon::parse($this->paidAt) : now(),
                 'note' => $this->note,
@@ -103,7 +109,7 @@ class Panel extends Component
 
             // Refresh order and summary
             $this->order->refresh();
-            $this->order->load('payments.receiver');
+            $this->order->load('payments.receiver', 'payments.paymentMethod');
             $this->refreshSummary();
 
             $this->showPaymentModal = false;
@@ -123,22 +129,31 @@ class Panel extends Component
     protected function resetPaymentForm(): void
     {
         $this->amount = null;
-        $this->method = PaymentMethod::Cash->value;
+        $this->payment_method_id = $this->getDefaultPaymentMethodId();
         $this->reference = null;
         $this->paidAt = null;
         $this->note = null;
         $this->resetValidation();
     }
 
-    public function getPaymentMethodsProperty(): array
+    protected function getDefaultPaymentMethodId(): ?int
     {
-        return PaymentMethod::cases();
+        return PaymentMethod::query()->whereKey(1)->value('id')
+            ?? PaymentMethod::query()->orderBy('name')->value('id');
+    }
+
+    public function getPaymentMethodsProperty()
+    {
+        return PaymentMethod::query()
+            ->orderByRaw('CASE WHEN id = 1 THEN 0 ELSE 1 END')
+            ->orderBy('name')
+            ->get(['id', 'name', 'account_number', 'account_holder_name']);
     }
 
     public function render()
     {
         return view('livewire.orders.payments.panel', [
-            'payments' => $this->order->payments()->with('receiver')->latest('paid_at')->get(),
+            'payments' => $this->order->payments()->with(['receiver', 'paymentMethod'])->latest('paid_at')->get(),
             'paymentMethods' => $this->paymentMethods,
             'canRecordPayments' => $this->canRecordPayments,
         ]);

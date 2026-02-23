@@ -3,6 +3,7 @@
 namespace App\Services\Sms;
 
 use App\Enums\SmsStatus;
+use App\Models\BeemConfig;
 use App\Models\SmsLog;
 use App\Models\User;
 use App\Support\BranchContext;
@@ -30,13 +31,18 @@ class SmsService
      */
     public function send(string $to, string $message, ?Model $reference = null, ?User $actor = null): SmsLog
     {
+        Log::debug('SmsService::send called', [
+            'to_raw' => $to,
+            'message_length' => strlen($message),
+            'reference' => $reference ? $reference->getMorphClass() . '#' . $reference->getKey() : null,
+            'actor_id' => $actor?->id,
+        ]);
+
         // Normalize phone number to E.164
         $normalizedPhone = Phone::toE164Tz($to);
 
-        // Determine branch_id from reference or context
-        $branchId = $reference && property_exists($reference, 'branch_id')
-            ? $reference->branch_id
-            : BranchContext::id();
+        // Determine branch_id from reference or context (use getAttribute: Eloquent models don't have literal branch_id property)
+        $branchId = $reference?->getAttribute('branch_id') ?? BranchContext::id();
 
         // Create initial log entry with queued status
         $smsLog = SmsLog::create([
@@ -52,11 +58,19 @@ class SmsService
             'created_by' => $actor?->id,
         ]);
 
-        // Check if SMS is enabled
-        if (! config('beem.enabled', false)) {
+        // Check if SMS is enabled (DB config takes precedence; fallback to env)
+        $beemConfig = BeemConfig::instance();
+        $smsEnabled = $beemConfig->sms_enabled || config('beem.enabled', false);
+        Log::info('SMS enabled check', [
+            'beem_config_sms_enabled' => $beemConfig->sms_enabled,
+            'env_beem_enabled' => config('beem.enabled', false),
+            'sms_enabled_result' => $smsEnabled,
+            'log_id' => $smsLog->id,
+        ]);
+        if (! $smsEnabled) {
             $smsLog->update([
                 'status' => SmsStatus::Failed,
-                'provider_response' => json_encode(['error' => 'SMS disabled in configuration']),
+                'provider_response' => json_encode(['error' => 'SMS disabled']),
             ]);
 
             Log::info('SMS disabled - not sent', ['to' => $to, 'log_id' => $smsLog->id]);
@@ -77,18 +91,21 @@ class SmsService
         }
 
         // Check if client is properly configured
-        if (! $this->beemClient->isConfigured()) {
+        $isConfigured = $this->beemClient->isConfigured();
+        Log::info('Beem client configured check', ['is_configured' => $isConfigured, 'log_id' => $smsLog->id]);
+        if (! $isConfigured) {
             $smsLog->update([
                 'status' => SmsStatus::Failed,
-                'provider_response' => json_encode(['error' => 'SMS provider not configured']),
+                'provider_response' => json_encode(['error' => 'SMS provider not configured (missing api_key or secret_key)']),
             ]);
 
-            Log::error('SMS failed - Beem not configured', ['log_id' => $smsLog->id]);
+            Log::warning('SMS failed - Beem not configured (check Beem Configurations or BEEM_* env vars)', ['log_id' => $smsLog->id]);
 
             return $smsLog;
         }
 
         try {
+            Log::info('SMS sending to Beem API', ['to' => $normalizedPhone, 'log_id' => $smsLog->id]);
             // Send via Beem client
             $response = $this->beemClient->send($normalizedPhone, $message);
 
@@ -139,10 +156,11 @@ class SmsService
     public function sendIfPhonePresent(?string $to, string $message, ?Model $reference = null, ?User $actor = null): ?SmsLog
     {
         if (empty($to)) {
-            // Create a failed log entry for missing phone
-            $branchId = $reference && property_exists($reference, 'branch_id')
-                ? $reference->branch_id
-                : BranchContext::id();
+            Log::info('SMS skipped - no phone number', [
+                'reference' => $reference ? $reference->getMorphClass() . '#' . $reference->getKey() : null,
+            ]);
+            // Create a failed log entry for missing phone (use getAttribute: Eloquent models don't have literal branch_id property)
+            $branchId = $reference?->getAttribute('branch_id') ?? BranchContext::id();
 
             return SmsLog::create([
                 'branch_id' => $branchId,

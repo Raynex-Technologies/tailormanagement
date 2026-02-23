@@ -58,18 +58,18 @@
             <div class="flex items-center gap-4">
                 <div class="flex-1">
                     <flux:input
-                        wire:model.live.debounce.300ms="search"
+                        wire:model.blur="search"
                         placeholder="Search by order number, customer, or requester..."
                         icon="magnifying-glass"
                     />
                 </div>
-                <flux:select wire:model.live="perPage" class="w-24">
+                <flux:select wire:model.blur="perPage" class="w-24">
                     <flux:select.option value="15">15</flux:select.option>
                     <flux:select.option value="25">25</flux:select.option>
                     <flux:select.option value="50">50</flux:select.option>
                 </flux:select>
                 <flux:button size="sm" variant="ghost" wire:click="clearFilters" title="Clear Filters">
-                    <flux:icon name="x-mark" class="size-4" />
+                    <x-icon name="close" class="size-4" />
                 </flux:button>
             </div>
         </flux:card>
@@ -132,7 +132,7 @@
                             <tr>
                                 <td colspan="7" class="px-4 py-12 text-center">
                                     <div class="flex flex-col items-center gap-2">
-                                        <flux:icon name="inbox-stack" class="size-12 text-zinc-300 dark:text-zinc-600" />
+                                        <x-icon name="inventory_2" class="size-12 text-zinc-300 dark:text-zinc-600" />
                                         <flux:text class="text-zinc-500 dark:text-zinc-400">
                                             {{ __('No stock requests found.') }}
                                         </flux:text>

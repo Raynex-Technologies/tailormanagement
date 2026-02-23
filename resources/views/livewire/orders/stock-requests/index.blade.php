@@ -18,7 +18,7 @@
 
                 @if ($canCreate)
                     <flux:button wire:click="openNewRequestModal">
-                        <flux:icon name="plus" class="mr-1 size-4" />
+                        <x-icon name="add" class="mr-1 size-4" />
                         New Request
                     </flux:button>
                 @endif
@@ -72,7 +72,7 @@
                             variant="ghost"
                             wire:click="viewRequest({{ $request->id }})"
                         >
-                            <flux:icon name="{{ $viewingRequestId === $request->id ? 'chevron-up' : 'chevron-down' }}" class="size-4" />
+                            <x-icon name="{{ $viewingRequestId === $request->id ? 'expand_less' : 'expand_more' }}" class="size-4" />
                         </flux:button>
                     </div>
 
@@ -126,14 +126,14 @@
             @empty
                 <flux:card>
                     <div class="flex flex-col items-center justify-center py-12 text-center">
-                        <flux:icon name="inbox" class="size-12 text-zinc-300 dark:text-zinc-600" />
+                        <x-icon name="inbox" class="size-12 text-zinc-300 dark:text-zinc-600" />
                         <flux:heading size="lg" class="mt-4">No Stock Requests</flux:heading>
                         <flux:text class="mt-1 text-zinc-500">
                             No stock requests have been made for this order yet.
                         </flux:text>
                         @if ($canCreate)
                             <flux:button class="mt-4" wire:click="openNewRequestModal">
-                                <flux:icon name="plus" class="mr-1 size-4" />
+                                <x-icon name="add" class="mr-1 size-4" />
                                 Create First Request
                             </flux:button>
                         @endif
@@ -145,18 +145,20 @@
         {{-- Back Button --}}
         <div class="mt-6">
             <flux:button variant="ghost" :href="route('orders.show', $order)" wire:navigate>
-                <flux:icon name="arrow-left" class="mr-1 size-4" />
+                <x-icon name="arrow_back" class="mr-1 size-4" />
                 Back to Order
             </flux:button>
         </div>
 
         {{-- New Request Modal --}}
-        <flux:modal wire:model="showNewRequestModal" class="max-w-2xl">
-            <div class="space-y-4">
-                <flux:heading size="lg">New Stock Request</flux:heading>
-                <flux:text class="text-zinc-600 dark:text-zinc-400">
-                    Request inventory items for order {{ $order->order_no }}.
-                </flux:text>
+        <flux:modal wire:model="showNewRequestModal" class="w-full max-w-lg sm:max-w-2xl lg:max-w-4xl xl:max-w-5xl">
+            <div class="space-y-5">
+                <div>
+                    <flux:heading size="lg">New Stock Request</flux:heading>
+                    <flux:text class="mt-1 text-zinc-600 dark:text-zinc-400">
+                        Request inventory items for order {{ $order->order_no }}.
+                    </flux:text>
+                </div>
 
                 {{-- Error Messages --}}
                 @if ($errors->any())
@@ -172,78 +174,104 @@
                     <div class="flex items-center justify-between">
                         <label class="text-sm font-medium text-zinc-700 dark:text-zinc-300">Items</label>
                         <flux:button size="xs" variant="ghost" wire:click="addRequestItem" type="button">
-                            <flux:icon name="plus" class="mr-1 size-3" />
+                            <x-icon name="add" class="mr-1 size-3" />
                             Add Item
                         </flux:button>
                     </div>
 
+                    {{-- Column labels (visible on large screens) --}}
+                    <div class="hidden lg:flex items-center gap-3 px-3 text-xs font-medium text-zinc-500 dark:text-zinc-400">
+                        <div class="flex-[2] min-w-0">Item</div>
+                        <div class="w-28 text-center">Quantity</div>
+                        <div class="flex-1 min-w-0">Note</div>
+                        <div class="w-8"></div>
+                    </div>
+
                     @foreach ($requestItems as $index => $item)
-                        <div class="flex items-start gap-3 rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-800/50" wire:key="request-item-{{ $index }}">
-                            <div class="flex-1 space-y-2">
-                                {{-- Item Search/Select --}}
-                                @if (empty($item['inventory_item_id']))
-                                    <div class="relative">
-                                        <flux:input
-                                            wire:model.live.debounce.300ms="itemSearch"
-                                            placeholder="Search inventory items..."
-                                            icon="magnifying-glass"
-                                        />
-                                        @if (strlen($itemSearch) >= 2 && count($inventoryItems) > 0)
-                                            <div class="absolute z-50 mt-1 w-full rounded-lg border border-zinc-200 bg-white shadow-lg dark:border-zinc-700 dark:bg-zinc-800">
-                                                @foreach ($inventoryItems as $invItem)
-                                                    <button
-                                                        type="button"
-                                                        wire:click="selectItem({{ $index }}, {{ $invItem->id }})"
-                                                        class="flex w-full items-center justify-between px-3 py-2 text-left hover:bg-zinc-50 dark:hover:bg-zinc-700"
-                                                    >
-                                                        <div>
-                                                            <span class="font-medium">{{ $invItem->name }}</span>
-                                                            <span class="ml-2 text-xs text-zinc-500">{{ $invItem->sku }}</span>
-                                                        </div>
-                                                        <span class="text-sm text-zinc-500">
-                                                            Stock: {{ number_format($invItem->stock?->qty_on_hand ?? 0, 0) }}
-                                                        </span>
-                                                    </button>
-                                                @endforeach
-                                            </div>
-                                        @endif
-                                    </div>
-                                @else
-                                    <div class="flex items-center gap-2">
-                                        <flux:badge color="blue">{{ $item['inventory_item_name'] }}</flux:badge>
-                                        <button
-                                            type="button"
-                                            wire:click="$set('requestItems.{{ $index }}.inventory_item_id', null)"
-                                            class="text-zinc-400 hover:text-zinc-600"
-                                        >
-                                            <flux:icon name="x-mark" class="size-4" />
-                                        </button>
-                                    </div>
-                                @endif
+                        <div class="rounded-lg border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-800/50" wire:key="request-item-{{ $index }}">
+                            <div class="flex flex-col gap-3 lg:flex-row lg:items-start">
+                                {{-- Item Search / Selected Badge --}}
+                                <div class="flex-[2] min-w-0">
+                                    @if (empty($item['inventory_item_id']))
+                                        <div class="relative" x-data="{ open: false }" @click.outside="open = false">
+                                            <flux:input
+                                                wire:model.live.debounce.300ms="itemSearch"
+                                                wire:focus="setActiveSearch({{ $index }})"
+                                                @focus="open = true"
+                                                placeholder="Search inventory items..."
+                                                icon="magnifying-glass"
+                                            />
+                                            @if ($activeSearchIndex === $index && $inventoryItems->count() > 0)
+                                                <div class="absolute z-50 mt-1 w-full max-h-52 overflow-y-auto rounded-lg border border-zinc-200 bg-white shadow-lg dark:border-zinc-700 dark:bg-zinc-800">
+                                                    @foreach ($inventoryItems as $invItem)
+                                                        <button
+                                                            type="button"
+                                                            wire:click="selectItem({{ $index }}, {{ $invItem->id }})"
+                                                            class="flex w-full items-center justify-between px-3 py-2 text-left text-sm hover:bg-zinc-100 dark:hover:bg-zinc-700 border-b border-zinc-100 dark:border-zinc-700/50 last:border-b-0"
+                                                        >
+                                                            <div class="min-w-0">
+                                                                <span class="font-medium text-zinc-900 dark:text-white">{{ $invItem->name }}</span>
+                                                                @if ($invItem->sku)
+                                                                    <span class="ml-2 text-xs text-zinc-500">{{ $invItem->sku }}</span>
+                                                                @endif
+                                                            </div>
+                                                            <span class="ml-3 shrink-0 text-xs text-zinc-500">
+                                                                Stock: {{ number_format($invItem->stock?->qty_on_hand ?? 0, 0) }}
+                                                            </span>
+                                                        </button>
+                                                    @endforeach
+                                                </div>
+                                            @elseif ($activeSearchIndex === $index && strlen($itemSearch) >= 1 && $inventoryItems->count() === 0)
+                                                <div class="absolute z-50 mt-1 w-full rounded-lg border border-zinc-200 bg-white p-3 text-center text-sm text-zinc-500 shadow-lg dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-400">
+                                                    No items found matching "{{ $itemSearch }}"
+                                                </div>
+                                            @endif
+                                        </div>
+                                    @else
+                                        <div class="flex items-center gap-2 min-h-[38px]">
+                                            <flux:badge color="blue" size="sm">{{ $item['inventory_item_name'] }}</flux:badge>
+                                            <button
+                                                type="button"
+                                                wire:click="clearItem({{ $index }})"
+                                                class="text-zinc-400 hover:text-red-500 transition-colors"
+                                                title="Change item"
+                                            >
+                                                <x-icon name="close" class="size-4" />
+                                            </button>
+                                        </div>
+                                    @endif
+                                </div>
 
                                 {{-- Quantity --}}
-                                <div class="flex items-center gap-2">
+                                <div class="lg:w-28">
                                     <flux:input
                                         wire:model="requestItems.{{ $index }}.qty_requested"
                                         type="number"
                                         min="1"
                                         step="1"
                                         placeholder="Qty"
-                                        class="w-24"
                                     />
+                                </div>
+
+                                {{-- Note --}}
+                                <div class="flex-1 min-w-0">
                                     <flux:input
                                         wire:model="requestItems.{{ $index }}.note"
                                         placeholder="Note (optional)"
-                                        class="flex-1"
                                     />
                                 </div>
-                            </div>
 
-                            @if (count($requestItems) > 1)
-                                <flux:button size="xs" variant="ghost" wire:click="removeRequestItem({{ $index }})" type="button">
-                                    <flux:icon name="trash" class="size-4 text-red-500" />
-                                </flux:button>
-                            @endif
+                                {{-- Remove Button --}}
+                                <div class="flex items-center lg:pt-1">
+                                    @if (count($requestItems) > 1)
+                                        <flux:button size="xs" variant="ghost" wire:click="removeRequestItem({{ $index }})" type="button" title="Remove item">
+                                            <x-icon name="delete" class="size-4 text-red-500" />
+                                        </flux:button>
+                                    @else
+                                        <div class="w-8"></div>
+                                    @endif
+                                </div>
+                            </div>
                         </div>
                     @endforeach
                 </div>
@@ -257,7 +285,7 @@
                 />
 
                 {{-- Actions --}}
-                <div class="flex justify-end gap-2 pt-4">
+                <div class="flex justify-end gap-2 border-t border-zinc-200 pt-4 dark:border-zinc-700">
                     <flux:button variant="ghost" wire:click="$set('showNewRequestModal', false)">
                         Cancel
                     </flux:button>

@@ -26,7 +26,7 @@
             <flux:card class="mb-6">
                 <flux:heading size="lg" class="mb-4">{{ __('Branch Assignment') }}</flux:heading>
                 <div class="max-w-md">
-                    <flux:select wire:model.live="branchId" label="{{ __('Branch') }}" required>
+                    <flux:select wire:model.blur="branchId" label="{{ __('Branch') }}" required>
                         <flux:select.option value="">{{ __('-- Select Branch --') }}</flux:select.option>
                         @foreach ($branches as $branch)
                             <flux:select.option value="{{ $branch->id }}">{{ $branch->name }}</flux:select.option>
@@ -55,10 +55,10 @@
                 <flux:label class="mb-2">{{ __('Search Products') }}</flux:label>
                 <div class="relative">
                     <div class="relative">
-                        <flux:icon name="magnifying-glass" class="absolute left-3 top-1/2 size-5 -translate-y-1/2 text-zinc-400" />
+                        <x-icon name="search" class="absolute left-3 top-1/2 size-5 -translate-y-1/2 text-zinc-400" />
                         <input
                             type="text"
-                            wire:model.live.debounce.300ms="productSearch"
+                            wire:model.blur="productSearch"
                             wire:keydown.escape="closeSearchDropdown"
                             placeholder="{{ $canSearch ? __('Search by product name or SKU...') : __('Select a branch first...') }}"
                             class="w-full rounded-lg border border-zinc-300 bg-white py-3 pl-10 pr-4 text-sm shadow-sm transition focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-zinc-600 dark:bg-zinc-800 dark:text-white dark:focus:border-indigo-400 {{ !$canSearch ? 'cursor-not-allowed opacity-60' : '' }}"
@@ -70,7 +70,7 @@
                                 wire:click="$set('productSearch', '')"
                                 class="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-zinc-600"
                             >
-                                <flux:icon name="x-mark" class="size-5" />
+                                <x-icon name="close" class="size-5" />
                             </button>
                         @endif
                     </div>
@@ -111,13 +111,13 @@
                                             @endif
                                         </div>
                                     </div>
-                                    <flux:icon name="plus-circle" class="size-6 text-indigo-600 dark:text-indigo-400" />
+                                    <x-icon name="add_circle" class="size-6 text-indigo-600 dark:text-indigo-400" />
                                 </button>
                             @endforeach
                         </div>
                     @elseif ($productSearch && strlen($productSearch) >= 2 && count($searchResults) === 0)
                         <div class="absolute z-50 mt-1 w-full rounded-lg border border-zinc-200 bg-white p-4 text-center shadow-xl dark:border-zinc-700 dark:bg-zinc-800">
-                            <flux:icon name="magnifying-glass" class="mx-auto size-8 text-zinc-300 dark:text-zinc-600" />
+                            <x-icon name="search" class="mx-auto size-8 text-zinc-300 dark:text-zinc-600" />
                             <p class="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
                                 {{ __('No products found for') }} "{{ $productSearch }}"
                             </p>
@@ -134,7 +134,7 @@
 
                 @if (!$canSearch && $showBranchSelector)
                     <flux:text class="mt-2 text-sm text-amber-600 dark:text-amber-400">
-                        <flux:icon name="exclamation-triangle" class="inline-block size-4 mr-1" />
+                        <x-icon name="warning" class="inline-block size-4 mr-1" />
                         {{ __('Please select a branch above to search products.') }}
                     </flux:text>
                 @endif
@@ -145,7 +145,7 @@
                 <div class="flex items-center justify-between">
                     <flux:heading size="md">{{ __('Request Items') }} ({{ count($items) }})</flux:heading>
                     <flux:button type="button" size="sm" variant="ghost" wire:click="addManualItem">
-                        <flux:icon name="plus" class="mr-1 size-4" />
+                        <x-icon name="add" class="mr-1 size-4" />
                         {{ __('Add Manual Item') }}
                     </flux:button>
                 </div>
@@ -158,7 +158,7 @@
 
                 @if (count($items) === 0)
                     <div class="rounded-lg border-2 border-dashed border-zinc-300 p-8 text-center dark:border-zinc-700">
-                        <flux:icon name="shopping-cart" class="mx-auto size-12 text-zinc-300 dark:text-zinc-600" />
+                        <x-icon name="shopping_cart" class="mx-auto size-12 text-zinc-300 dark:text-zinc-600" />
                         <p class="mt-4 text-zinc-500 dark:text-zinc-400">
                             {{ __('No items added yet. Use the search bar above to find and add products.') }}
                         </p>
@@ -221,7 +221,7 @@
                                         <input
                                             type="number"
                                             wire:model.blur="items.{{ $index }}.qty"
-                                            step="0.01"
+                                            step="1"
                                             min="0.01"
                                             class="w-full rounded-lg border border-zinc-300 px-3 py-2 text-center text-sm dark:border-zinc-600 dark:bg-zinc-700 dark:text-white sm:w-20"
                                         />
@@ -250,7 +250,7 @@
                                             class="rounded p-1 text-zinc-400 transition hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
                                             title="{{ __('Remove') }}"
                                         >
-                                            <flux:icon name="trash" class="size-5" />
+                                            <x-icon name="delete" class="size-5" />
                                         </button>
                                     </div>
                                 </div>
@@ -305,8 +305,8 @@
                     {{ __('Cancel') }}
                 </flux:button>
                 <flux:button type="submit" variant="primary" wire:loading.attr="disabled">
-                    <flux:icon name="check" class="mr-1 size-4" wire:loading.remove wire:target="save" />
-                    <flux:icon name="arrow-path" class="mr-1 size-4 animate-spin" wire:loading wire:target="save" />
+                    <x-icon name="check" class="mr-1 size-4" wire:loading.remove wire:target="save" />
+                    <x-icon name="refresh" class="mr-1 size-4 animate-spin" wire:loading wire:target="save" />
                     {{ $isEdit ? __('Update Request') : __('Save as Draft') }}
                 </flux:button>
             </div>

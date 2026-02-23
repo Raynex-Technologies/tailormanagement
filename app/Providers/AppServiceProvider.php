@@ -2,13 +2,6 @@
 
 namespace App\Providers;
 
-use App\Events\OrderPaymentRecorded;
-use App\Events\OrderStatusChanged;
-use App\Listeners\ClearBranchContextOnLogout;
-use App\Listeners\CreateInAppNotificationForPayment;
-use App\Listeners\SendOrderPaymentSms;
-use App\Listeners\SendOrderStatusSms;
-use Illuminate\Auth\Events\Logout;
 use App\Models\Branch;
 use App\Models\CapitalAllocation;
 use App\Models\Conversation;
@@ -17,6 +10,7 @@ use App\Models\Expense;
 use App\Models\ExpenseCategory;
 use App\Models\InventoryCategory;
 use App\Models\InventoryItem;
+use App\Models\Invoice;
 use App\Models\Message;
 use App\Models\Order;
 use App\Models\OrderStockRequest;
@@ -31,6 +25,7 @@ use App\Policies\ExpenseCategoryPolicy;
 use App\Policies\ExpensePolicy;
 use App\Policies\InventoryCategoryPolicy;
 use App\Policies\InventoryItemPolicy;
+use App\Policies\InvoicePolicy;
 use App\Policies\MessagePolicy;
 use App\Policies\OrderPolicy;
 use App\Policies\OrderStockRequestPolicy;
@@ -42,7 +37,7 @@ use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Event;
+
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Schema;
@@ -65,6 +60,7 @@ class AppServiceProvider extends ServiceProvider
         ExpenseCategory::class => ExpenseCategoryPolicy::class,
         InventoryCategory::class => InventoryCategoryPolicy::class,
         InventoryItem::class => InventoryItemPolicy::class,
+        Invoice::class => InvoicePolicy::class,
         Message::class => MessagePolicy::class,
         Order::class => OrderPolicy::class,
         OrderStockRequest::class => OrderStockRequestPolicy::class,
@@ -98,20 +94,19 @@ class AppServiceProvider extends ServiceProvider
 
     /**
      * Register event listeners.
+     *
+     * NOTE: Listeners in app/Listeners are auto-discovered by Laravel 11+
+     * via their handle() type hints. Do NOT manually register them here
+     * or they will fire twice.
      */
     protected function registerEventListeners(): void
     {
-        // Order Status Changed
-        Event::listen(OrderStatusChanged::class, SendOrderStatusSms::class);
-
-        // Order Payment Recorded
-        Event::listen(OrderPaymentRecorded::class, [
-            SendOrderPaymentSms::class,
-            CreateInAppNotificationForPayment::class,
-        ]);
-
-        // Clear branch context on logout
-        Event::listen(Logout::class, ClearBranchContextOnLogout::class);
+        // All listeners are auto-discovered:
+        // - SendOrderCreatedSms      -> OrderCreated
+        // - SendOrderStatusSms       -> OrderStatusChanged
+        // - SendOrderPaymentSms      -> OrderPaymentRecorded
+        // - CreateInAppNotificationForPayment -> OrderPaymentRecorded
+        // - ClearBranchContextOnLogout -> Logout
     }
 
     protected function configureDefaults(): void

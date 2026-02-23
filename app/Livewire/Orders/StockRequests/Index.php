@@ -19,6 +19,7 @@ class Index extends Component
     public array $requestItems = [];
     public string $requestNote = '';
     public string $itemSearch = '';
+    public ?int $activeSearchIndex = null;
 
     // View request detail
     public ?int $viewingRequestId = null;
@@ -45,7 +46,7 @@ class Index extends Component
     {
         $this->authorize('create', [OrderStockRequest::class, $this->order]);
 
-        $this->reset(['requestItems', 'requestNote', 'itemSearch']);
+        $this->reset(['requestItems', 'requestNote', 'itemSearch', 'activeSearchIndex']);
         $this->addRequestItem();
         $this->showNewRequestModal = true;
     }
@@ -74,7 +75,27 @@ class Index extends Component
         if ($item) {
             $this->requestItems[$index]['inventory_item_id'] = $item->id;
             $this->requestItems[$index]['inventory_item_name'] = $item->name;
+            $this->activeSearchIndex = null;
+            $this->itemSearch = '';
         }
+    }
+
+    /**
+     * Set which row's search dropdown is active.
+     */
+    public function setActiveSearch(int $index): void
+    {
+        $this->activeSearchIndex = $index;
+        $this->itemSearch = '';
+    }
+
+    /**
+     * Clear a selected item from a row so the user can search again.
+     */
+    public function clearItem(int $index): void
+    {
+        $this->requestItems[$index]['inventory_item_id'] = null;
+        $this->requestItems[$index]['inventory_item_name'] = '';
     }
 
     public function createRequest(StockRequestService $service): void
@@ -135,14 +156,33 @@ class Index extends Component
             ->get();
 
         // Get available inventory items for the new request modal
-        $inventoryItems = [];
-        if ($this->showNewRequestModal && strlen($this->itemSearch) >= 2) {
-            $inventoryItems = InventoryItem::query()
-                ->where('name', 'like', "%{$this->itemSearch}%")
-                ->orWhere('sku', 'like', "%{$this->itemSearch}%")
-                ->with('stock')
-                ->limit(10)
-                ->get();
+        $inventoryItems = collect();
+        if ($this->showNewRequestModal && $this->activeSearchIndex !== null) {
+            $query = InventoryItem::query()
+                ->where('is_active', true)
+                ->with('stock');
+
+            // Filter by search term if the user has typed something
+            if (strlen($this->itemSearch) >= 1) {
+                $search = $this->itemSearch;
+                $query->where(function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%")
+                      ->orWhere('sku', 'like', "%{$search}%");
+                });
+            }
+
+            // Exclude items already selected in other rows
+            $selectedIds = collect($this->requestItems)
+                ->pluck('inventory_item_id')
+                ->filter()
+                ->values()
+                ->toArray();
+
+            if (! empty($selectedIds)) {
+                $query->whereNotIn('id', $selectedIds);
+            }
+
+            $inventoryItems = $query->orderBy('name')->limit(20)->get();
         }
 
         // Can user create requests?

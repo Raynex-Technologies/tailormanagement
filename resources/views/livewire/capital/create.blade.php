@@ -28,7 +28,7 @@
             @if ($showBranchSelector)
                 <div class="rounded-lg border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-900/20">
                     <flux:label for="branchId">{{ __('Branch') }} *</flux:label>
-                    <flux:select id="branchId" wire:model.live="branchId">
+                    <flux:select id="branchId" wire:model.blur="branchId">
                         <flux:select.option value="">{{ __('-- Select Branch --') }}</flux:select.option>
                         @foreach ($branches as $branch)
                             <flux:select.option value="{{ $branch->id }}">{{ $branch->name }}</flux:select.option>
@@ -104,7 +104,7 @@
                     {{ __('Cancel') }}
                 </flux:button>
                 <flux:button type="submit" variant="primary">
-                    <flux:icon name="check" class="mr-1 size-4" />
+                    <x-icon name="check" class="mr-1 size-4" />
                     {{ __('Create Allocation') }}
                 </flux:button>
             </div>

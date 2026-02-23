@@ -27,7 +27,7 @@
             </div>
             @can('expenses.manage')
                 <flux:button :href="route('expenses.create')" wire:navigate>
-                    <flux:icon name="plus" class="mr-1 size-4" />
+                    <x-icon name="add" class="mr-1 size-4" />
                     {{ __('New Expense') }}
                 </flux:button>
             @endcan
@@ -76,13 +76,13 @@
             {{-- Search --}}
             <div class="w-full lg:w-1/4">
                 <flux:label for="search">{{ __('Search') }}</flux:label>
-                <flux:input id="search" wire:model.live.debounce.300ms="search" placeholder="Vendor, reference, note..." icon="magnifying-glass" />
+                <flux:input id="search" wire:model.blur="search" placeholder="Vendor, reference, note..." icon="magnifying-glass" />
             </div>
 
             {{-- Category --}}
             <div class="w-full lg:w-1/5">
                 <flux:label for="categoryFilter">{{ __('Category') }}</flux:label>
-                <flux:select id="categoryFilter" wire:model.live="categoryFilter">
+                <flux:select id="categoryFilter" wire:model.blur="categoryFilter">
                     <flux:select.option value="">{{ __('All Categories') }}</flux:select.option>
                     @foreach ($categories as $category)
                         <flux:select.option value="{{ $category->id }}">{{ $category->name }}</flux:select.option>
@@ -93,7 +93,7 @@
             {{-- Linked to Capital --}}
             <div class="w-full lg:w-1/5">
                 <flux:label for="linkedToCapitalFilter">{{ __('Capital Linked') }}</flux:label>
-                <flux:select id="linkedToCapitalFilter" wire:model.live="linkedToCapitalFilter">
+                <flux:select id="linkedToCapitalFilter" wire:model.blur="linkedToCapitalFilter">
                     <flux:select.option value="">{{ __('All') }}</flux:select.option>
                     <flux:select.option value="yes">{{ __('Yes') }}</flux:select.option>
                     <flux:select.option value="no">{{ __('No') }}</flux:select.option>
@@ -103,19 +103,19 @@
             {{-- Date From --}}
             <div class="w-full lg:w-1/6">
                 <flux:label for="dateFrom">{{ __('From') }}</flux:label>
-                <flux:input type="date" id="dateFrom" wire:model.live="dateFrom" />
+                <flux:input type="date" id="dateFrom" wire:model.blur="dateFrom" />
             </div>
 
             {{-- Date To --}}
             <div class="w-full lg:w-1/6">
                 <flux:label for="dateTo">{{ __('To') }}</flux:label>
-                <flux:input type="date" id="dateTo" wire:model.live="dateTo" />
+                <flux:input type="date" id="dateTo" wire:model.blur="dateTo" />
             </div>
 
             {{-- Clear Filters --}}
             <div>
                 <flux:button size="sm" variant="ghost" wire:click="clearFilters">
-                    <flux:icon name="x-mark" class="mr-1 size-4" />
+                    <x-icon name="close" class="mr-1 size-4" />
                     {{ __('Clear') }}
                 </flux:button>
             </div>
@@ -126,7 +126,7 @@
     <flux:card>
         @if ($expenses->isEmpty())
             <div class="py-12 text-center">
-                <flux:icon name="receipt-percent" class="mx-auto size-12 text-zinc-300 dark:text-zinc-600" />
+                <x-icon name="receipt" class="mx-auto size-12 text-zinc-300 dark:text-zinc-600" />
                 <flux:heading size="lg" class="mt-4">{{ __('No expenses found') }}</flux:heading>
                 <flux:text class="text-zinc-500">{{ __('Create a new expense to get started.') }}</flux:text>
             </div>
@@ -178,11 +178,11 @@
                             <flux:table.cell>
                                 <div class="flex items-center gap-1">
                                     <flux:button size="xs" variant="ghost" :href="route('expenses.show', $expense)" wire:navigate>
-                                        <flux:icon name="eye" class="size-4" />
+                                        <x-icon name="visibility" class="size-4" />
                                     </flux:button>
                                     @can('update', $expense)
                                         <flux:button size="xs" variant="ghost" :href="route('expenses.edit', $expense)" wire:navigate>
-                                            <flux:icon name="pencil" class="size-4" />
+                                            <x-icon name="edit" class="size-4" />
                                         </flux:button>
                                     @endcan
                                 </div>
@@ -195,7 +195,7 @@
             <div class="mt-4 flex items-center justify-between">
                 <div class="flex items-center gap-2">
                     <flux:label for="perPage" class="text-sm">{{ __('Show') }}</flux:label>
-                    <flux:select id="perPage" wire:model.live="perPage" class="w-20">
+                    <flux:select id="perPage" wire:model.blur="perPage" class="w-20">
                         <flux:select.option value="15">15</flux:select.option>
                         <flux:select.option value="25">25</flux:select.option>
                         <flux:select.option value="50">50</flux:select.option>

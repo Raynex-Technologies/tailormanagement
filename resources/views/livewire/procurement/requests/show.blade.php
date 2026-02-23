@@ -41,7 +41,7 @@
                 {{-- Storekeeper: Edit (if draft) --}}
                 @can('update', $purchaseRequest)
                     <flux:button size="sm" variant="subtle" :href="route('procurement.requests.edit', $purchaseRequest)" wire:navigate>
-                        <flux:icon name="pencil" class="mr-1 size-4" />
+                        <x-icon name="edit" class="mr-1 size-4" />
                         {{ __('Edit') }}
                     </flux:button>
                 @endcan
@@ -49,7 +49,7 @@
                 {{-- Storekeeper: Submit (if draft) --}}
                 @can('submit', $purchaseRequest)
                     <flux:button size="sm" variant="primary" wire:click="submit" wire:confirm="Are you sure you want to submit this request for review?">
-                        <flux:icon name="paper-airplane" class="mr-1 size-4" />
+                        <x-icon name="send" class="mr-1 size-4" />
                         {{ __('Submit for Review') }}
                     </flux:button>
                 @endcan
@@ -57,7 +57,7 @@
                 {{-- Accountant: Convert to PO (if approved) --}}
                 @can('convertToPo', $purchaseRequest)
                     <flux:button size="sm" variant="primary" wire:click="openConvertModal">
-                        <flux:icon name="shopping-cart" class="mr-1 size-4" />
+                        <x-icon name="shopping_cart" class="mr-1 size-4" />
                         {{ __('Convert to PO') }}
                     </flux:button>
                 @endcan
@@ -109,7 +109,7 @@
                     {{-- Accountant Review Mode --}}
                     <div class="mb-4 rounded-lg bg-blue-50 p-4 dark:bg-blue-900/30">
                         <flux:text class="text-sm text-blue-700 dark:text-blue-300">
-                            <flux:icon name="information-circle" class="mr-1 inline size-4" />
+                            <x-icon name="info" class="mr-1 inline size-4" />
                             {{ __('Review mode: You can adjust quantities and prices before approving.') }}
                         </flux:text>
                         @if ($availableBalance !== null)
@@ -141,8 +141,8 @@
                                     <flux:table.cell>
                                         <flux:input
                                             type="number"
-                                            wire:model.live="reviewedItems.{{ $item->id }}.qty"
-                                            step="0.01"
+                                            wire:model.blur="reviewedItems.{{ $item->id }}.qty"
+                                            step="1"
                                             min="0.01"
                                             class="w-24"
                                         />
@@ -150,7 +150,7 @@
                                     <flux:table.cell>
                                         <flux:input
                                             type="number"
-                                            wire:model.live="reviewedItems.{{ $item->id }}.unit_price_est"
+                                            wire:model.blur="reviewedItems.{{ $item->id }}.unit_price_est"
                                             step="1"
                                             min="0"
                                             class="w-28"
@@ -186,11 +186,11 @@
 
                     <div class="mt-4 flex justify-end gap-3">
                         <flux:button variant="danger" wire:click="decline" wire:confirm="Are you sure you want to decline this request?">
-                            <flux:icon name="x-circle" class="mr-1 size-4" />
+                            <x-icon name="cancel" class="mr-1 size-4" />
                             {{ __('Decline') }}
                         </flux:button>
                         <flux:button variant="primary" wire:click="approve" wire:confirm="Are you sure you want to approve this request?">
-                            <flux:icon name="check-circle" class="mr-1 size-4" />
+                            <x-icon name="check_circle" class="mr-1 size-4" />
                             {{ __('Approve') }}
                         </flux:button>
                     </div>
@@ -318,7 +318,7 @@
                     {{ __('Cancel') }}
                 </flux:button>
                 <flux:button type="button" variant="primary" wire:click="convertToPo">
-                    <flux:icon name="shopping-cart" class="mr-1 size-4" />
+                    <x-icon name="shopping_cart" class="mr-1 size-4" />
                     {{ __('Create PO') }}
                 </flux:button>
             </div>

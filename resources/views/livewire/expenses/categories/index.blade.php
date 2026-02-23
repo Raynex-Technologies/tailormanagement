@@ -27,7 +27,7 @@
                 <flux:text class="text-zinc-500">{{ __('Manage expense categories for organizing expenses.') }}</flux:text>
             </div>
             <flux:button wire:click="openCreateModal">
-                <flux:icon name="plus" class="mr-1 size-4" />
+                <x-icon name="add" class="mr-1 size-4" />
                 {{ __('New Category') }}
             </flux:button>
         </div>
@@ -36,7 +36,7 @@
     {{-- Search --}}
     <flux:card>
         <div class="w-full md:w-1/3">
-            <flux:input wire:model.live.debounce.300ms="search" placeholder="Search categories..." icon="magnifying-glass" />
+            <flux:input wire:model.blur="search" placeholder="Search categories..." icon="magnifying-glass" />
         </div>
     </flux:card>
 
@@ -44,7 +44,7 @@
     <flux:card>
         @if ($categories->isEmpty())
             <div class="py-12 text-center">
-                <flux:icon name="tag" class="mx-auto size-12 text-zinc-300 dark:text-zinc-600" />
+                <x-icon name="sell" class="mx-auto size-12 text-zinc-300 dark:text-zinc-600" />
                 <flux:heading size="lg" class="mt-4">{{ __('No categories found') }}</flux:heading>
                 <flux:text class="text-zinc-500">{{ __('Create a new category to get started.') }}</flux:text>
             </div>
@@ -74,11 +74,11 @@
                             <flux:table.cell>
                                 <div class="flex items-center gap-2">
                                     <flux:button size="xs" variant="ghost" wire:click="openEditModal({{ $category->id }})">
-                                        <flux:icon name="pencil" class="size-4" />
+                                        <x-icon name="edit" class="size-4" />
                                     </flux:button>
                                     @if ($category->expenses_count === 0)
                                         <flux:button size="xs" variant="ghost" wire:click="delete({{ $category->id }})" wire:confirm="Are you sure you want to delete this category?">
-                                            <flux:icon name="trash" class="size-4 text-red-500" />
+                                            <x-icon name="delete" class="size-4 text-red-500" />
                                         </flux:button>
                                     @endif
                                 </div>
@@ -115,7 +115,7 @@
                         {{ __('Cancel') }}
                     </flux:button>
                     <flux:button type="submit" variant="primary">
-                        <flux:icon name="check" class="mr-1 size-4" />
+                        <x-icon name="check" class="mr-1 size-4" />
                         {{ $editingId ? __('Update') : __('Create') }}
                     </flux:button>
                 </div>

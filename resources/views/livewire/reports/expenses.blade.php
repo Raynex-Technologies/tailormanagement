@@ -17,7 +17,7 @@
             </div>
             @can('reports.export')
                 <flux:button wire:click="export" variant="primary" size="sm">
-                    <flux:icon name="arrow-down-tray" class="mr-1 size-4" />
+                    <x-icon name="download" class="mr-1 size-4" />
                     Export CSV
                 </flux:button>
             @endcan
@@ -28,35 +28,35 @@
     <flux:card class="mb-6">
         <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
             <flux:input
-                wire:model.live.debounce.300ms="dateFrom"
+                wire:model.blur="dateFrom"
                 type="date"
                 label="From Date"
             />
             <flux:input
-                wire:model.live.debounce.300ms="dateTo"
+                wire:model.blur="dateTo"
                 type="date"
                 label="To Date"
             />
-            <flux:select wire:model.live="categoryId" label="Category">
+            <flux:select wire:model.blur="categoryId" label="Category">
                 <option value="">All Categories</option>
                 @foreach($this->categories as $cat)
                     <option value="{{ $cat->id }}">{{ $cat->name }}</option>
                 @endforeach
             </flux:select>
-            <flux:select wire:model.live="linkedToCapital" label="Capital Linked">
+            <flux:select wire:model.blur="linkedToCapital" label="Capital Linked">
                 <option value="">All</option>
                 <option value="1">Yes - Linked</option>
                 <option value="0">No - Not Linked</option>
             </flux:select>
             <flux:input
-                wire:model.live.debounce.300ms="search"
+                wire:model.blur="search"
                 placeholder="Search vendor..."
                 label="Search"
                 icon="magnifying-glass"
             />
             <div class="flex items-end">
                 <flux:button wire:click="resetFilters" variant="ghost" size="sm">
-                    <flux:icon name="x-mark" class="mr-1 size-4" />
+                    <x-icon name="close" class="mr-1 size-4" />
                     Reset
                 </flux:button>
             </div>

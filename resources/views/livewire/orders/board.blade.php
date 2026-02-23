@@ -32,7 +32,7 @@
         {{-- Search --}}
         <div class="mb-6">
             <flux:input
-                wire:model.live.debounce.300ms="search"
+                wire:model.blur="search"
                 placeholder="Search by order no, customer name, or phone..."
                 icon="magnifying-glass"
                 class="max-w-md"
@@ -56,7 +56,7 @@
                         @include('livewire.orders.partials.board-card', ['order' => $order])
                     @empty
                         <div class="flex flex-col items-center justify-center py-8 text-center">
-                            <flux:icon name="inbox" class="size-10 text-zinc-300 dark:text-zinc-600" />
+                            <x-icon name="inbox" class="size-10 text-zinc-300 dark:text-zinc-600" />
                             <flux:text class="mt-2 text-zinc-500">No new orders</flux:text>
                         </div>
                     @endforelse
@@ -84,7 +84,7 @@
                         @include('livewire.orders.partials.board-card', ['order' => $order])
                     @empty
                         <div class="flex flex-col items-center justify-center py-8 text-center">
-                            <flux:icon name="inbox" class="size-10 text-zinc-300 dark:text-zinc-600" />
+                            <x-icon name="inbox" class="size-10 text-zinc-300 dark:text-zinc-600" />
                             <flux:text class="mt-2 text-zinc-500">No orders in progress</flux:text>
                         </div>
                     @endforelse
@@ -112,7 +112,7 @@
                         @include('livewire.orders.partials.board-card', ['order' => $order, 'hideCompleteButton' => true])
                     @empty
                         <div class="flex flex-col items-center justify-center py-8 text-center">
-                            <flux:icon name="inbox" class="size-10 text-zinc-300 dark:text-zinc-600" />
+                            <x-icon name="inbox" class="size-10 text-zinc-300 dark:text-zinc-600" />
                             <flux:text class="mt-2 text-zinc-500">No completed orders</flux:text>
                         </div>
                     @endforelse

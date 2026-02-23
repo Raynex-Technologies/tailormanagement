@@ -40,21 +40,21 @@
             <div class="flex flex-wrap items-center gap-2">
                 @can('markSent', $purchaseOrder)
                     <flux:button size="sm" variant="primary" wire:click="markAsSent" wire:confirm="Mark this PO as sent to supplier?">
-                        <flux:icon name="paper-airplane" class="mr-1 size-4" />
+                        <x-icon name="send" class="mr-1 size-4" />
                         {{ __('Mark as Sent') }}
                     </flux:button>
                 @endcan
 
                 @can('receive', $purchaseOrder)
                     <flux:button size="sm" variant="primary" :href="route('procurement.receiving.show', $purchaseOrder)" wire:navigate>
-                        <flux:icon name="truck" class="mr-1 size-4" />
+                        <x-icon name="local_shipping" class="mr-1 size-4" />
                         {{ __('Fulfill / Receive Stock') }}
                     </flux:button>
                 @endcan
 
                 @can('cancel', $purchaseOrder)
                     <flux:button size="sm" variant="ghost" class="text-red-600 hover:text-red-800" wire:click="cancel" wire:confirm="Are you sure you want to cancel this PO?">
-                        <flux:icon name="x-circle" class="mr-1 size-4" />
+                        <x-icon name="cancel" class="mr-1 size-4" />
                         {{ __('Cancel') }}
                     </flux:button>
                 @endcan
@@ -76,7 +76,7 @@
                     <p class="mt-1 text-sm">{{ __('Click "Fulfill / Receive Stock" to record incoming goods and update inventory.') }}</p>
                 </div>
                 <flux:button size="sm" variant="primary" :href="route('procurement.receiving.show', $purchaseOrder)" wire:navigate>
-                    <flux:icon name="arrow-right" class="mr-1 size-4" />
+                    <x-icon name="arrow_forward" class="mr-1 size-4" />
                     {{ __('Receive Now') }}
                 </flux:button>
             </div>

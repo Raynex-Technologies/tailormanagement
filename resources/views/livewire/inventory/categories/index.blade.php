@@ -34,13 +34,13 @@
             <div class="flex flex-col gap-4 sm:flex-row sm:items-center">
                 <div class="flex-1">
                     <flux:input
-                        wire:model.live.debounce.300ms="search"
+                        wire:model.blur="search"
                         placeholder="Search categories..."
                         icon="magnifying-glass"
                     />
                 </div>
 
-                <flux:select wire:model.live="perPage" class="w-32">
+                <flux:select wire:model.blur="perPage" class="w-32">
                     <flux:select.option value="15">15 per page</flux:select.option>
                     <flux:select.option value="25">25 per page</flux:select.option>
                     <flux:select.option value="50">50 per page</flux:select.option>
@@ -100,7 +100,7 @@
                             <tr>
                                 <td colspan="4" class="px-4 py-12 text-center">
                                     <div class="flex flex-col items-center gap-2">
-                                        <flux:icon name="folder-open" class="size-12 text-zinc-300 dark:text-zinc-600" />
+                                        <x-icon name="folder_open" class="size-12 text-zinc-300 dark:text-zinc-600" />
                                         <flux:text class="text-zinc-500 dark:text-zinc-400">
                                             {{ __('No categories found.') }}
                                         </flux:text>
@@ -154,7 +154,7 @@
                 @endif
 
                 <flux:input
-                    wire:model.live="name"
+                    wire:model.blur="name"
                     label="{{ __('Category Name') }}"
                     placeholder="e.g., Fabrics"
                     required
@@ -190,7 +190,7 @@
         <div class="space-y-6">
             <div class="flex items-center gap-4">
                 <div class="flex size-12 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
-                    <flux:icon name="exclamation-triangle" class="size-6 text-red-600 dark:text-red-400" />
+                    <x-icon name="warning" class="size-6 text-red-600 dark:text-red-400" />
                 </div>
                 <div>
                     <flux:heading size="lg">{{ __('Delete Category') }}</flux:heading>

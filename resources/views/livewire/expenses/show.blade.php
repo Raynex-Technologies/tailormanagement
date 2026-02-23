@@ -32,7 +32,7 @@
 
             @if ($this->canEdit)
                 <flux:button size="sm" variant="subtle" :href="route('expenses.edit', $expense)" wire:navigate>
-                    <flux:icon name="pencil" class="mr-1 size-4" />
+                    <x-icon name="edit" class="mr-1 size-4" />
                     {{ __('Edit') }}
                 </flux:button>
             @endif
@@ -121,7 +121,7 @@
                     </div>
 
                     <flux:text class="mt-4 text-sm text-zinc-500">
-                        <flux:icon name="information-circle" class="mr-1 inline size-4" />
+                        <x-icon name="info" class="mr-1 inline size-4" />
                         {{ __('This expense is linked to a capital allocation. The amount and allocation cannot be changed.') }}
                     </flux:text>
                 </flux:card>

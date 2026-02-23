@@ -18,11 +18,11 @@
             @can('reports.export')
                 <div class="flex gap-2">
                     <flux:button wire:click="exportAllocations" variant="ghost" size="sm">
-                        <flux:icon name="arrow-down-tray" class="mr-1 size-4" />
+                        <x-icon name="download" class="mr-1 size-4" />
                         Export Allocations
                     </flux:button>
                     <flux:button wire:click="exportTransactions" variant="primary" size="sm">
-                        <flux:icon name="arrow-down-tray" class="mr-1 size-4" />
+                        <x-icon name="download" class="mr-1 size-4" />
                         Export Transactions
                     </flux:button>
                 </div>
@@ -34,22 +34,22 @@
     <flux:card class="mb-6">
         <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
             <flux:input
-                wire:model.live.debounce.300ms="dateFrom"
+                wire:model.blur="dateFrom"
                 type="date"
                 label="Transaction From"
             />
             <flux:input
-                wire:model.live.debounce.300ms="dateTo"
+                wire:model.blur="dateTo"
                 type="date"
                 label="Transaction To"
             />
-            <flux:select wire:model.live="accountantId" label="Accountant">
+            <flux:select wire:model.blur="accountantId" label="Accountant">
                 <option value="">All Accountants</option>
                 @foreach($this->accountants as $acc)
                     <option value="{{ $acc->id }}">{{ $acc->name }}</option>
                 @endforeach
             </flux:select>
-            <flux:select wire:model.live="status" label="Status">
+            <flux:select wire:model.blur="status" label="Status">
                 <option value="">All Statuses</option>
                 @foreach($this->statuses as $s)
                     <option value="{{ $s->value }}">{{ $s->label() }}</option>
@@ -57,7 +57,7 @@
             </flux:select>
             <div class="flex items-end">
                 <flux:button wire:click="resetFilters" variant="ghost" size="sm">
-                    <flux:icon name="x-mark" class="mr-1 size-4" />
+                    <x-icon name="close" class="mr-1 size-4" />
                     Reset
                 </flux:button>
             </div>

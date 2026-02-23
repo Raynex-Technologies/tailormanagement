@@ -21,7 +21,7 @@
             </div>
             @can('capital.assign')
                 <flux:button :href="route('capital.create')" wire:navigate>
-                    <flux:icon name="plus" class="mr-1 size-4" />
+                    <x-icon name="add" class="mr-1 size-4" />
                     {{ __('New Allocation') }}
                 </flux:button>
             @endcan
@@ -52,7 +52,7 @@
     <flux:card>
         <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div class="w-full md:w-1/3">
-                <flux:input wire:model.live.debounce.300ms="search" placeholder="Search allocations..." icon="magnifying-glass" />
+                <flux:input wire:model.blur="search" placeholder="Search allocations..." icon="magnifying-glass" />
             </div>
             <div class="flex flex-wrap gap-2">
                 <flux:button size="sm" :variant="$statusFilter === null ? 'primary' : 'ghost'" wire:click="setStatusFilter(null)">
@@ -71,7 +71,7 @@
     <flux:card>
         @if ($allocations->isEmpty())
             <div class="py-12 text-center">
-                <flux:icon name="banknotes" class="mx-auto size-12 text-zinc-300 dark:text-zinc-600" />
+                <x-icon name="payments" class="mx-auto size-12 text-zinc-300 dark:text-zinc-600" />
                 <flux:heading size="lg" class="mt-4">{{ __('No allocations found') }}</flux:heading>
                 <flux:text class="text-zinc-500">{{ __('Create a new capital allocation to get started.') }}</flux:text>
             </div>
@@ -121,7 +121,7 @@
                             </flux:table.cell>
                             <flux:table.cell>
                                 <flux:button size="xs" variant="ghost" :href="route('capital.show', $allocation)" wire:navigate>
-                                    <flux:icon name="eye" class="size-4" />
+                                    <x-icon name="visibility" class="size-4" />
                                 </flux:button>
                             </flux:table.cell>
                         </flux:table.row>

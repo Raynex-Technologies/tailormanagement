@@ -37,7 +37,7 @@
             @can('close', $allocation)
                 @if ($allocation->status === \App\Enums\CapitalAllocationStatus::Open)
                     <flux:button variant="subtle" wire:click="openCloseModal">
-                        <flux:icon name="lock-closed" class="mr-1 size-4" />
+                        <x-icon name="lock" class="mr-1 size-4" />
                         {{ __('Close Allocation') }}
                     </flux:button>
                 @endif
@@ -84,7 +84,7 @@
 
                 @if ($allocation->transactions->isEmpty())
                     <div class="py-8 text-center">
-                        <flux:icon name="document-text" class="mx-auto size-10 text-zinc-300 dark:text-zinc-600" />
+                        <x-icon name="description" class="mx-auto size-10 text-zinc-300 dark:text-zinc-600" />
                         <flux:text class="mt-2 text-zinc-500">{{ __('No transactions yet.') }}</flux:text>
                     </div>
                 @else
@@ -196,7 +196,7 @@
                     {{ __('Cancel') }}
                 </flux:button>
                 <flux:button type="button" variant="danger" wire:click="closeAllocation">
-                    <flux:icon name="lock-closed" class="mr-1 size-4" />
+                    <x-icon name="lock" class="mr-1 size-4" />
                     {{ __('Close Allocation') }}
                 </flux:button>
             </div>

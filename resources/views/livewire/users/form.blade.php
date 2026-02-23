@@ -41,7 +41,7 @@
                 {{-- Role --}}
                 <div>
                     <flux:label for="role">{{ __('Role') }} *</flux:label>
-                    <flux:select id="role" wire:model.live="role">
+                    <flux:select id="role" wire:model.blur="role">
                         <flux:select.option value="">{{ __('-- Select Role --') }}</flux:select.option>
                         @foreach ($assignableRoles as $r)
                             <flux:select.option value="{{ $r }}">{{ ucfirst(str_replace('_', ' ', $r)) }}</flux:select.option>
@@ -86,7 +86,7 @@
                 @if ($isEdit)
                     <div class="mb-4">
                         <label class="flex items-center gap-2 cursor-pointer">
-                            <input type="checkbox" wire:model.live="resetPassword" class="rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500">
+                            <input type="checkbox" wire:model.blur="resetPassword" class="rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500">
                             <span class="text-sm text-zinc-700 dark:text-zinc-300">{{ __('Reset Password') }}</span>
                         </label>
                     </div>
@@ -123,7 +123,7 @@
                 {{ __('Cancel') }}
             </flux:button>
             <flux:button type="submit" variant="primary">
-                <flux:icon name="check" class="mr-1 size-4" />
+                <x-icon name="check" class="mr-1 size-4" />
                 {{ $isEdit ? __('Update User') : __('Create User') }}
             </flux:button>
         </div>

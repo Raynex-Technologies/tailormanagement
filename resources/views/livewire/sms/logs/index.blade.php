@@ -57,7 +57,7 @@
                 <flux:input
                     type="text"
                     id="search"
-                    wire:model.live.debounce.300ms="search"
+                    wire:model.blur="search"
                     placeholder="Phone, message, order no..."
                 />
             </div>
@@ -87,15 +87,15 @@
         <div class="mt-4 flex flex-col gap-4 md:flex-row md:items-end">
             <div class="w-full md:w-1/4">
                 <flux:label for="dateFrom">{{ __('From Date') }}</flux:label>
-                <flux:input type="date" id="dateFrom" wire:model.live="dateFrom" />
+                <flux:input type="date" id="dateFrom" wire:model.blur="dateFrom" />
             </div>
             <div class="w-full md:w-1/4">
                 <flux:label for="dateTo">{{ __('To Date') }}</flux:label>
-                <flux:input type="date" id="dateTo" wire:model.live="dateTo" />
+                <flux:input type="date" id="dateTo" wire:model.blur="dateTo" />
             </div>
             @if ($search || $statusFilter || $dateFrom || $dateTo)
                 <flux:button size="sm" variant="ghost" wire:click="clearFilters">
-                    <flux:icon name="x-mark" class="mr-1 size-4" />
+                    <x-icon name="close" class="mr-1 size-4" />
                     {{ __('Clear Filters') }}
                 </flux:button>
             @endif
@@ -106,7 +106,7 @@
     <flux:card>
         @if ($logs->isEmpty())
             <div class="py-12 text-center">
-                <flux:icon name="chat-bubble-left-ellipsis" class="mx-auto size-12 text-zinc-300 dark:text-zinc-600" />
+                <x-icon name="chat" class="mx-auto size-12 text-zinc-300 dark:text-zinc-600" />
                 <flux:heading size="lg" class="mt-4">{{ __('No SMS logs found') }}</flux:heading>
                 <flux:text class="text-zinc-500">{{ __('SMS logs will appear here when messages are sent.') }}</flux:text>
             </div>
@@ -161,7 +161,7 @@
                             </flux:table.cell>
                             <flux:table.cell>
                                 <flux:button size="xs" variant="ghost" wire:click="showDetails({{ $log->id }})">
-                                    <flux:icon name="eye" class="size-4" />
+                                    <x-icon name="visibility" class="size-4" />
                                 </flux:button>
                             </flux:table.cell>
                         </flux:table.row>

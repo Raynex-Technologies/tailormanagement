@@ -55,52 +55,59 @@
 
                 {{-- Actions --}}
                 <div class="flex flex-wrap items-center gap-2">
-                    {{-- Materials/Stock Requests - for storekeeper --}}
-                    @if ($canViewMaterials)
+                    {{-- Materials/Stock Requests - for storekeeper (hide when order is completed/delivered) --}}
+                    @if ($canViewMaterials && !$orderIsFinal)
                         <flux:button size="sm" variant="subtle" :href="route('orders.stock-requests', $order)" wire:navigate>
-                            <flux:icon name="archive-box-arrow-down" class="mr-1 size-4" />
+                            <x-icon name="download" class="mr-1 size-4" />
                             Stock Requests
                         </flux:button>
                     @endif
 
                     @if ($canEdit)
                         <flux:button size="sm" variant="subtle" :href="route('orders.edit', $order)" wire:navigate>
-                            <flux:icon name="pencil" class="mr-1 size-4" />
+                            <x-icon name="edit" class="mr-1 size-4" />
                             Edit
+                        </flux:button>
+                    @endif
+
+                    @if ($order->invoice)
+                        <flux:button size="sm" variant="subtle" :href="route('invoices.show', $order->invoice)" wire:navigate>
+                            <x-icon name="description" class="mr-1 size-4" />
+                            Invoice
                         </flux:button>
                     @endif
 
                     @if ($canChangeStatus && $nextStatuses->isNotEmpty())
                         <flux:button size="sm" variant="subtle" wire:click="openStatusModal">
-                            <flux:icon name="arrow-path" class="mr-1 size-4" />
+                            <x-icon name="refresh" class="mr-1 size-4" />
                             Change Status
                         </flux:button>
                     @endif
 
-                    @if ($canAssignTailor)
+                    @if ($showAssignTailorButton)
                         <flux:button size="sm" variant="subtle" wire:click="openAssignTailorModal">
-                            <flux:icon name="user" class="mr-1 size-4" />
+                            <x-icon name="person" class="mr-1 size-4" />
                             Assign Tailor
                         </flux:button>
                     @endif
 
                     @if ($canCreateDeliveryNote)
                         <flux:button size="sm" wire:click="openDeliveryNoteModal">
-                            <flux:icon name="document-text" class="mr-1 size-4" />
+                            <x-icon name="description" class="mr-1 size-4" />
                             Create Delivery Note
                         </flux:button>
                     @endif
 
                     @if ($canMarkCompleted && $order->status === \App\Enums\OrderStatus::Delivered)
                         <flux:button size="sm" variant="primary" wire:click="markCompleted" wire:confirm="Are you sure you want to mark this order as completed?">
-                            <flux:icon name="check" class="mr-1 size-4" />
+                            <x-icon name="check" class="mr-1 size-4" />
                             Mark Completed
                         </flux:button>
                     @endif
 
                     @if ($canChangeStatus && !in_array($order->status, [\App\Enums\OrderStatus::Completed, \App\Enums\OrderStatus::Cancelled]))
                         <flux:button size="sm" variant="ghost" wire:click="cancelOrder" wire:confirm="Are you sure you want to cancel this order?">
-                            <flux:icon name="x-mark" class="mr-1 size-4 text-red-500" />
+                            <x-icon name="close" class="mr-1 size-4 text-red-500" />
                             Cancel
                         </flux:button>
                     @endif
@@ -268,9 +275,9 @@
                     <flux:card>
                         <div class="mb-4 flex items-center justify-between">
                             <flux:heading size="lg">Materials</flux:heading>
-                            @if ($canManageMaterials)
+                            @if ($canManageMaterials && !$orderIsFinal)
                                 <flux:button size="sm" variant="subtle" :href="route('orders.stock-requests', $order)" wire:navigate>
-                                    <flux:icon name="plus" class="mr-1 size-4" />
+                                    <x-icon name="add" class="mr-1 size-4" />
                                     Request Materials
                                 </flux:button>
                             @endif
@@ -306,9 +313,9 @@
                             </div>
                         @else
                             <div class="flex flex-col items-center justify-center py-8 text-center">
-                                <flux:icon name="archive-box" class="size-12 text-zinc-300 dark:text-zinc-600" />
+                                <x-icon name="archive" class="size-12 text-zinc-300 dark:text-zinc-600" />
                                 <flux:text class="mt-2 text-zinc-500">No materials requested yet.</flux:text>
-                                @if ($canManageMaterials)
+                                @if ($canManageMaterials && !$orderIsFinal)
                                     <flux:button size="sm" class="mt-4" :href="route('orders.stock-requests', $order)" wire:navigate>
                                         Request Materials
                                     </flux:button>
@@ -377,7 +384,7 @@
                                     View
                                 </flux:button>
                                 <flux:button size="sm" variant="subtle" :href="route('delivery-notes.print', $order->deliveryNote)" target="_blank">
-                                    <flux:icon name="printer" class="mr-1 size-4" />
+                                    <x-icon name="print" class="mr-1 size-4" />
                                     Print
                                 </flux:button>
                             </div>

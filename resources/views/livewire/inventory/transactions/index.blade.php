@@ -13,7 +13,7 @@
             <flux:card class="p-4">
                 <div class="flex items-center gap-4">
                     <div class="flex size-10 items-center justify-center rounded-lg bg-green-100 dark:bg-green-900/30">
-                        <flux:icon name="arrow-down-tray" class="size-5 text-green-600 dark:text-green-400" />
+                        <x-icon name="download" class="size-5 text-green-600 dark:text-green-400" />
                     </div>
                     <div>
                         <flux:text class="text-xs text-zinc-500 dark:text-zinc-400">Received</flux:text>
@@ -27,7 +27,7 @@
             <flux:card class="p-4">
                 <div class="flex items-center gap-4">
                     <div class="flex size-10 items-center justify-center rounded-lg bg-red-100 dark:bg-red-900/30">
-                        <flux:icon name="arrow-up-tray" class="size-5 text-red-600 dark:text-red-400" />
+                        <x-icon name="upload" class="size-5 text-red-600 dark:text-red-400" />
                     </div>
                     <div>
                         <flux:text class="text-xs text-zinc-500 dark:text-zinc-400">Issued</flux:text>
@@ -41,7 +41,7 @@
             <flux:card class="p-4">
                 <div class="flex items-center gap-4">
                     <div class="flex size-10 items-center justify-center rounded-lg bg-amber-100 dark:bg-amber-900/30">
-                        <flux:icon name="adjustments-horizontal" class="size-5 text-amber-600 dark:text-amber-400" />
+                        <x-icon name="tune" class="size-5 text-amber-600 dark:text-amber-400" />
                     </div>
                     <div>
                         <flux:text class="text-xs text-zinc-500 dark:text-zinc-400">Adjusted</flux:text>
@@ -55,7 +55,7 @@
             <flux:card class="p-4">
                 <div class="flex items-center gap-4">
                     <div class="flex size-10 items-center justify-center rounded-lg bg-blue-100 dark:bg-blue-900/30">
-                        <flux:icon name="document-text" class="size-5 text-blue-600 dark:text-blue-400" />
+                        <x-icon name="description" class="size-5 text-blue-600 dark:text-blue-400" />
                     </div>
                     <div>
                         <flux:text class="text-xs text-zinc-500 dark:text-zinc-400">Transactions</flux:text>
@@ -69,19 +69,19 @@
         <flux:card class="mb-6">
             <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
                 <flux:input
-                    wire:model.live.debounce.300ms="search"
+                    wire:model.blur="search"
                     placeholder="Search item..."
                     icon="magnifying-glass"
                 />
 
-                <flux:select wire:model.live="typeFilter">
+                <flux:select wire:model.blur="typeFilter">
                     <flux:select.option value="">All Types</flux:select.option>
                     @foreach ($transactionTypes as $value => $label)
                         <flux:select.option value="{{ $value }}">{{ $label }}</flux:select.option>
                     @endforeach
                 </flux:select>
 
-                <flux:select wire:model.live="itemFilter">
+                <flux:select wire:model.blur="itemFilter">
                     <flux:select.option value="">All Items</flux:select.option>
                     @foreach ($items as $id => $name)
                         <flux:select.option value="{{ $id }}">{{ $name }}</flux:select.option>
@@ -89,26 +89,26 @@
                 </flux:select>
 
                 <flux:input
-                    wire:model.live="dateFrom"
+                    wire:model.blur="dateFrom"
                     type="date"
                     label=""
                 />
 
                 <flux:input
-                    wire:model.live="dateTo"
+                    wire:model.blur="dateTo"
                     type="date"
                     label=""
                 />
 
                 <div class="flex items-center gap-2">
-                    <flux:select wire:model.live="perPage" class="flex-1">
+                    <flux:select wire:model.blur="perPage" class="flex-1">
                         <flux:select.option value="15">15</flux:select.option>
                         <flux:select.option value="25">25</flux:select.option>
                         <flux:select.option value="50">50</flux:select.option>
                     </flux:select>
 
                     <flux:button size="sm" variant="ghost" wire:click="clearFilters" title="Clear Filters">
-                        <flux:icon name="x-mark" class="size-4" />
+                        <x-icon name="close" class="size-4" />
                     </flux:button>
                 </div>
             </div>
@@ -189,7 +189,7 @@
                             <tr>
                                 <td colspan="8" class="px-4 py-12 text-center">
                                     <div class="flex flex-col items-center gap-2">
-                                        <flux:icon name="document-text" class="size-12 text-zinc-300 dark:text-zinc-600" />
+                                        <x-icon name="description" class="size-12 text-zinc-300 dark:text-zinc-600" />
                                         <flux:text class="text-zinc-500 dark:text-zinc-400">
                                             {{ __('No transactions found for the selected filters.') }}
                                         </flux:text>

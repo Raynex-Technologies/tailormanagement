@@ -33,26 +33,26 @@
         <flux:card class="mb-6">
             <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 <flux:input
-                    wire:model.live.debounce.300ms="search"
+                    wire:model.blur.debounce.300ms="search"
                     placeholder="Search by name or SKU..."
                     icon="magnifying-glass"
                 />
 
-                <flux:select wire:model.live="categoryFilter">
+                <flux:select wire:model.blur="categoryFilter">
                     <flux:select.option value="">All Categories</flux:select.option>
                     @foreach ($categories as $id => $name)
                         <flux:select.option value="{{ $id }}">{{ $name }}</flux:select.option>
                     @endforeach
                 </flux:select>
 
-                <flux:select wire:model.live="statusFilter">
+                <flux:select wire:model.blur="statusFilter">
                     <flux:select.option value="">All Status</flux:select.option>
                     <flux:select.option value="active">Active</flux:select.option>
                     <flux:select.option value="inactive">Inactive</flux:select.option>
                     <flux:select.option value="low">Low Stock</flux:select.option>
                 </flux:select>
 
-                <flux:select wire:model.live="perPage">
+                <flux:select wire:model.blur="perPage">
                     <flux:select.option value="15">15 per page</flux:select.option>
                     <flux:select.option value="25">25 per page</flux:select.option>
                     <flux:select.option value="50">50 per page</flux:select.option>
@@ -160,7 +160,7 @@
                             <tr>
                                 <td colspan="7" class="px-4 py-12 text-center">
                                     <div class="flex flex-col items-center gap-2">
-                                        <flux:icon name="cube" class="size-12 text-zinc-300 dark:text-zinc-600" />
+                                        <x-icon name="inventory_2" class="size-12 text-zinc-300 dark:text-zinc-600" />
                                         <flux:text class="text-zinc-500 dark:text-zinc-400">
                                             {{ __('No items found.') }}
                                         </flux:text>
@@ -256,7 +256,7 @@
                     <flux:input
                         wire:model="default_buy_price"
                         type="number"
-                        step="0.01"
+                        step="1"
                         label="{{ __('Default Buy Price') }}"
                         min="0"
                     />
@@ -264,7 +264,7 @@
                     <flux:input
                         wire:model="default_sell_price"
                         type="number"
-                        step="0.01"
+                        step="1"
                         label="{{ __('Default Sell Price') }}"
                         min="0"
                     />
@@ -303,7 +303,7 @@
                 <flux:input
                     wire:model="receiveQty"
                     type="number"
-                    step="0.01"
+                    step="1"
                     min="0.01"
                     label="{{ __('Quantity to Receive') }}"
                     required
@@ -313,7 +313,7 @@
                 <flux:input
                     wire:model="receiveUnitCost"
                     type="number"
-                    step="0.01"
+                    step="1"
                     min="0"
                     label="{{ __('Unit Cost (Optional)') }}"
                 />
@@ -359,7 +359,7 @@
                     <flux:input
                         wire:model="adjustQty"
                         type="number"
-                        step="0.01"
+                        step="1"
                         label="{{ __('Adjustment Quantity') }}"
                         placeholder="Use negative for reduction"
                         required

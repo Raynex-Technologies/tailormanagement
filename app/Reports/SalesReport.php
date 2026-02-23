@@ -3,7 +3,6 @@
 namespace App\Reports;
 
 use App\Models\OrderPayment;
-use App\Support\BranchContext;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
@@ -14,7 +13,7 @@ class SalesReport
 
     protected ?string $dateTo;
 
-    protected ?string $method;
+    protected ?int $paymentMethodId;
 
     protected ?string $search;
 
@@ -22,7 +21,7 @@ class SalesReport
     {
         $this->dateFrom = $filters['date_from'] ?? Carbon::now()->startOfMonth()->toDateString();
         $this->dateTo = $filters['date_to'] ?? Carbon::now()->endOfMonth()->toDateString();
-        $this->method = $filters['method'] ?? null;
+        $this->paymentMethodId = isset($filters['method']) ? (int) $filters['method'] : null;
         $this->search = $filters['search'] ?? null;
     }
 
@@ -41,8 +40,9 @@ class SalesReport
 
         // Get top payment method
         $topMethod = $this->baseQuery()
-            ->select('order_payments.method', DB::raw('SUM(order_payments.amount) as total'))
-            ->groupBy('order_payments.method')
+            ->leftJoin('payment_methods', 'order_payments.payment_method_id', '=', 'payment_methods.id')
+            ->select('payment_methods.name', DB::raw('SUM(order_payments.amount) as total'))
+            ->groupBy('payment_methods.name')
             ->orderByDesc('total')
             ->first();
 
@@ -50,7 +50,7 @@ class SalesReport
             'total_received' => (float) ($stats->total_received ?? 0),
             'total_count' => (int) ($stats->total_count ?? 0),
             'avg_payment' => (float) ($stats->avg_payment ?? 0),
-            'top_method' => $topMethod?->method ?? 'N/A',
+            'top_method' => $topMethod?->name ?? 'N/A',
             'top_method_amount' => (float) ($topMethod?->total ?? 0),
         ];
     }
@@ -66,10 +66,12 @@ class SalesReport
                 'orders.order_no',
                 'customers.name as customer_name',
                 'users.name as received_by_name',
+                'payment_methods.name as payment_method_name',
             ])
             ->join('orders', 'order_payments.order_id', '=', 'orders.id')
             ->join('customers', 'orders.customer_id', '=', 'customers.id')
             ->leftJoin('users', 'order_payments.received_by', '=', 'users.id')
+            ->leftJoin('payment_methods', 'order_payments.payment_method_id', '=', 'payment_methods.id')
             ->orderByDesc('order_payments.paid_at')
             ->paginate($perPage);
     }
@@ -85,13 +87,14 @@ class SalesReport
                 'orders.order_no',
                 'customers.name as customer_name',
                 'order_payments.amount',
-                'order_payments.method',
+                'payment_methods.name as payment_method_name',
                 'order_payments.reference',
                 'users.name as received_by_name',
             ])
             ->join('orders', 'order_payments.order_id', '=', 'orders.id')
             ->join('customers', 'orders.customer_id', '=', 'customers.id')
             ->leftJoin('users', 'order_payments.received_by', '=', 'users.id')
+            ->leftJoin('payment_methods', 'order_payments.payment_method_id', '=', 'payment_methods.id')
             ->orderByDesc('order_payments.paid_at')
             ->get();
 
@@ -104,7 +107,7 @@ class SalesReport
                 $row->order_no,
                 $row->customer_name,
                 number_format($row->amount, 2),
-                ucfirst($row->method),
+                $row->payment_method_name ?? 'Default',
                 $row->reference ?? '',
                 $row->received_by_name ?? '',
             ];
@@ -130,8 +133,8 @@ class SalesReport
         }
 
         // Method filter
-        if ($this->method) {
-            $query->where('order_payments.method', $this->method);
+        if ($this->paymentMethodId) {
+            $query->where('order_payments.payment_method_id', $this->paymentMethodId);
         }
 
         // Search filter (order_no or customer name)

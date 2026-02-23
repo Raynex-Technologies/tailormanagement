@@ -17,7 +17,7 @@
             </div>
             @can('reports.export')
                 <flux:button wire:click="export" variant="primary" size="sm">
-                    <flux:icon name="arrow-down-tray" class="mr-1 size-4" />
+                    <x-icon name="download" class="mr-1 size-4" />
                     Export CSV
                 </flux:button>
             @endcan
@@ -28,30 +28,30 @@
     <flux:card class="mb-6">
         <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
             <flux:input
-                wire:model.live.debounce.300ms="dateFrom"
+                wire:model.blur="dateFrom"
                 type="date"
                 label="From Date"
             />
             <flux:input
-                wire:model.live.debounce.300ms="dateTo"
+                wire:model.blur="dateTo"
                 type="date"
                 label="To Date"
             />
-            <flux:select wire:model.live="method" label="Payment Method">
+            <flux:select wire:model.blur="method" label="Payment Method">
                 <option value="">All Methods</option>
                 @foreach($this->paymentMethods as $m)
-                    <option value="{{ $m }}">{{ ucfirst(str_replace('_', ' ', $m)) }}</option>
+                    <option value="{{ $m->id }}">{{ $m->name }}</option>
                 @endforeach
             </flux:select>
             <flux:input
-                wire:model.live.debounce.300ms="search"
+                wire:model.blur="search"
                 placeholder="Search order/customer..."
                 label="Search"
                 icon="magnifying-glass"
             />
             <div class="flex items-end">
                 <flux:button wire:click="resetFilters" variant="ghost" size="sm">
-                    <flux:icon name="x-mark" class="mr-1 size-4" />
+                    <x-icon name="close" class="mr-1 size-4" />
                     Reset
                 </flux:button>
             </div>
@@ -81,7 +81,7 @@
         <flux:card>
             <flux:text class="text-sm font-medium text-zinc-500 dark:text-zinc-400">Top Method</flux:text>
             <flux:heading size="xl" class="mt-1">
-                {{ ucfirst(str_replace('_', ' ', $this->summary['top_method'])) }}
+                {{ $this->summary['top_method'] }}
             </flux:heading>
             <flux:text class="text-xs text-zinc-400">{{ money_tzs($this->summary['top_method_amount']) }}</flux:text>
         </flux:card>
@@ -116,14 +116,8 @@
                             <td class="px-4 py-3">{{ $row->customer_name }}</td>
                             <td class="px-4 py-3 text-right font-medium">{{ money_tzs($row->amount) }}</td>
                             <td class="px-4 py-3">
-                                <span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium
-                                    {{ $row->method === 'cash' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : '' }}
-                                    {{ $row->method === 'mpesa' ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' : '' }}
-                                    {{ $row->method === 'bank_transfer' ? 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' : '' }}
-                                    {{ $row->method === 'card' ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' : '' }}
-                                    {{ !in_array($row->method, ['cash', 'mpesa', 'bank_transfer', 'card']) ? 'bg-zinc-100 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-300' : '' }}
-                                ">
-                                    {{ ucfirst(str_replace('_', ' ', $row->method)) }}
+                                <span class="inline-flex items-center rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-700 dark:bg-zinc-700 dark:text-zinc-300">
+                                    {{ $row->payment_method_name ?? 'Default' }}
                                 </span>
                             </td>
                             <td class="px-4 py-3 text-zinc-500">{{ $row->reference ?? '-' }}</td>

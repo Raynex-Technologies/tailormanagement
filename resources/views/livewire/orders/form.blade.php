@@ -16,7 +16,7 @@
         @if ($errors->any())
             <div class="mb-6 rounded-xl border border-red-200 bg-red-50 p-4 dark:border-red-800 dark:bg-red-900/20">
                 <div class="flex items-start gap-3">
-                    <flux:icon name="exclamation-circle" class="size-5 text-red-600 dark:text-red-400" />
+                    <x-icon name="error" class="size-5 text-red-600 dark:text-red-400" />
                     <div class="flex-1">
                         <flux:heading size="sm" class="text-red-800 dark:text-red-200">Please fix the following errors:</flux:heading>
                         <ul class="mt-2 list-inside list-disc space-y-1 text-sm text-red-700 dark:text-red-300">
@@ -33,7 +33,7 @@
         @if ($showBranchSelector && !$isEdit && $mustSelectBranch)
             <div class="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-900/20">
                 <div class="flex items-center gap-3">
-                    <flux:icon name="exclamation-triangle" class="size-5 text-amber-600 dark:text-amber-400" />
+                    <x-icon name="warning" class="size-5 text-amber-600 dark:text-amber-400" />
                     <div>
                         <flux:heading size="sm" class="text-amber-800 dark:text-amber-200">Branch Selection Required</flux:heading>
                         <p class="text-sm text-amber-700 dark:text-amber-300">
@@ -50,7 +50,7 @@
                 <flux:card>
                     <flux:heading size="lg" class="mb-4">Branch Assignment</flux:heading>
                     <div class="max-w-md">
-                        <flux:select wire:model.live="branch_id" label="Branch" required>
+                        <flux:select wire:model.blur="branch_id" label="Branch" required>
                             <flux:select.option value="">-- Select Branch --</flux:select.option>
                             @foreach ($branches as $branch)
                                 <flux:select.option value="{{ $branch->id }}">{{ $branch->name }}</flux:select.option>
@@ -71,57 +71,90 @@
                 <flux:heading size="lg" class="mb-4">Customer</flux:heading>
 
                 @if (!$showNewCustomerForm)
-                    <div class="relative">
-                        <flux:input
-                            wire:model.live.debounce.300ms="customerSearch"
-                            wire:focus="showCustomerDropdown = true"
-                            placeholder="Search customer by name or phone..."
-                            icon="magnifying-glass"
-                            :disabled="$customer_id !== null"
-                            autocomplete="off"
-                        />
-
-                        @if ($customer_id)
-                            <div class="mt-2 flex items-center gap-2">
-                                <flux:badge color="green" size="sm">Selected</flux:badge>
-                                <span class="text-sm text-zinc-600 dark:text-zinc-400">{{ $customerSearch }}</span>
-                                <flux:button size="xs" variant="ghost" wire:click="$set('customer_id', null); $set('customerSearch', '')">
-                                    Change
-                                </flux:button>
-                            </div>
-                        @endif
-
-                        {{-- Customer Search Dropdown --}}
-                        @if ($showCustomerDropdown && count($customers) > 0)
-                            <div class="absolute z-50 mt-1 w-full rounded-xl border border-zinc-200 bg-white shadow-lg dark:border-zinc-700 dark:bg-zinc-800">
-                                @foreach ($customers as $customer)
-                                    <button
-                                        type="button"
-                                        wire:click="selectCustomer({{ $customer->id }})"
-                                        class="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-zinc-50 dark:hover:bg-zinc-700"
-                                    >
-                                        <div>
-                                            <span class="font-medium text-zinc-900 dark:text-white">{{ $customer->name }}</span>
-                                            <span class="ml-2 text-sm text-zinc-500">{{ $customer->phone }}</span>
-                                        </div>
-                                        <span class="text-xs text-zinc-400">{{ $customer->code }}</span>
-                                    </button>
-                                @endforeach
-                            </div>
-                        @elseif ($showCustomerDropdown && strlen($customerSearch) >= 2 && count($customers) === 0)
-                            <div class="absolute z-50 mt-1 w-full rounded-xl border border-zinc-200 bg-white p-4 text-center text-sm text-zinc-500 shadow-lg dark:border-zinc-700 dark:bg-zinc-800">
-                                No customers found.
-                            </div>
-                        @endif
-                    </div>
-
-                    <div class="mt-4 flex items-center gap-2">
-                        <span class="text-sm text-zinc-500">or</span>
-                        <flux:button size="sm" variant="subtle" wire:click="toggleNewCustomerForm">
-                            <flux:icon name="plus" class="mr-1 size-4" />
-                            Create New Customer
+                    {{-- Search row: reduced-width search + Add New Customer button --}}
+                    <div class="flex flex-wrap items-start gap-3" x-data="{ open: @entangle('showCustomerDropdown') }" @click.outside="open = false">
+                        <div class="relative min-w-0 flex-1" style="max-width: 320px;">
+                            <flux:input
+                                wire:model.live="customerSearch"
+                                wire:focus="showCustomerDropdown = true"
+                                placeholder="Search by name, phone..."
+                                icon="magnifying-glass"
+                                :disabled="$customer_id !== null"
+                                autocomplete="off"
+                            />
+                            {{-- Customer Search Dropdown --}}
+                            @if ($showCustomerDropdown && count($customers) > 0)
+                                <div class="absolute z-50 mt-1 w-full rounded-xl border border-zinc-200 bg-white shadow-lg dark:border-zinc-700 dark:bg-zinc-800">
+                                    @foreach ($customers as $customer)
+                                        <button
+                                            type="button"
+                                            wire:click="selectCustomer({{ $customer->id }})"
+                                            class="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-zinc-50 dark:hover:bg-zinc-700"
+                                        >
+                                            <div>
+                                                <span class="font-medium text-zinc-900 dark:text-white">{{ $customer->name }}</span>
+                                                @if($customer->phone)
+                                                    <span class="ml-2 text-sm text-zinc-500">{{ $customer->phone }}</span>
+                                                @endif
+                                            </div>
+                                            <span class="text-xs text-zinc-400">{{ $customer->code }}</span>
+                                        </button>
+                                    @endforeach
+                                </div>
+                            @elseif ($showCustomerDropdown && strlen($customerSearch) >= 2 && $showBranchSelector && !$isEdit && !$branch_id)
+                                <div class="absolute z-50 mt-1 w-full rounded-xl border border-amber-200 bg-amber-50 p-4 text-center text-sm text-amber-700 shadow-lg dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-200">
+                                    Select a branch above to search customers.
+                                </div>
+                            @elseif ($showCustomerDropdown && strlen($customerSearch) >= 2 && count($customers) === 0)
+                                <div class="absolute z-50 mt-1 w-full rounded-xl border border-zinc-200 bg-white p-4 text-center text-sm text-zinc-500 shadow-lg dark:border-zinc-700 dark:bg-zinc-800">
+                                    No customers found. Add a new customer below.
+                                </div>
+                            @endif
+                        </div>
+                        <flux:button type="button" size="base" variant="primary" wire:click="toggleNewCustomerForm" class="ml-auto shrink-0">
+                            <x-icon name="contacts_product" class="mr-2 size-5" />
+                            Add New Customer
                         </flux:button>
                     </div>
+
+                    {{-- Selected customer: read-only details with X to clear --}}
+                    @if ($selectedCustomer)
+                        <div class="relative mt-4 rounded-xl border border-green-200 bg-green-50/50 p-4 dark:border-green-800 dark:bg-green-900/20">
+                            <button
+                                type="button"
+                                wire:click="clearSelectedCustomer"
+                                class="absolute right-3 top-3 rounded-full p-1 text-zinc-400 hover:bg-zinc-200 hover:text-zinc-600 dark:hover:bg-zinc-600 dark:hover:text-zinc-200"
+                                title="Change customer"
+                            >
+                                <x-icon name="close" class="size-5" />
+                            </button>
+                            <flux:heading size="sm" class="mb-3 pr-8 text-green-800 dark:text-green-200">Selected customer</flux:heading>
+                            <dl class="grid gap-2 text-sm sm:grid-cols-2">
+                                <div>
+                                    <dt class="font-medium text-zinc-500 dark:text-zinc-400">Name</dt>
+                                    <dd class="text-zinc-900 dark:text-white">{{ $selectedCustomer->name }}</dd>
+                                </div>
+                                @if($selectedCustomer->phone)
+                                    <div>
+                                        <dt class="font-medium text-zinc-500 dark:text-zinc-400">Phone</dt>
+                                        <dd class="text-zinc-900 dark:text-white">{{ $selectedCustomer->phone }}</dd>
+                                    </div>
+                                @endif
+                                @if($selectedCustomer->email)
+                                    <div>
+                                        <dt class="font-medium text-zinc-500 dark:text-zinc-400">Email</dt>
+                                        <dd class="text-zinc-900 dark:text-white">{{ $selectedCustomer->email }}</dd>
+                                    </div>
+                                @endif
+                                @if($selectedCustomer->address)
+                                    <div class="sm:col-span-2">
+                                        <dt class="font-medium text-zinc-500 dark:text-zinc-400">Address</dt>
+                                        <dd class="text-zinc-900 dark:text-white">{{ $selectedCustomer->address }}</dd>
+                                    </div>
+                                @endif
+                            </dl>
+                        </div>
+                    @endif
                 @else
                     {{-- New Customer Form --}}
                     <div class="space-y-4 rounded-xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-800/50">
@@ -167,6 +200,14 @@
 
                 <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     <flux:input
+                        wire:model="order_date"
+                        type="date"
+                        label="Order Date"
+                        :max="date('Y-m-d')"
+                        required
+                    />
+
+                    <flux:input
                         wire:model="due_date"
                         type="date"
                         label="Due Date"
@@ -191,7 +232,7 @@
                     <flux:input
                         wire:model.live="discount"
                         type="number"
-                        step="0.01"
+                        step="1"
                         min="0"
                         label="Discount"
                         placeholder="0.00"
@@ -213,7 +254,7 @@
                 <div class="mb-4 flex items-center justify-between">
                     <flux:heading size="lg">Order Lines</flux:heading>
                     <flux:button size="sm" variant="subtle" wire:click="addLine" type="button">
-                        <flux:icon name="plus" class="mr-1 size-4" />
+                        <x-icon name="add" class="mr-1 size-4" />
                         Add Item
                     </flux:button>
                 </div>
@@ -226,7 +267,7 @@
                                 <flux:badge size="sm">Item {{ $index + 1 }}</flux:badge>
                                 @if (count($lines) > 1)
                                     <flux:button size="xs" variant="ghost" wire:click="removeLine({{ $index }})" type="button" title="Remove Item">
-                                        <flux:icon name="trash" class="size-4 text-red-500" />
+                                        <x-icon name="delete" class="size-4 text-red-500" />
                                     </flux:button>
                                 @endif
                             </div>
@@ -252,7 +293,7 @@
                                 <flux:input
                                     wire:model.live="lines.{{ $index }}.unit_price"
                                     type="number"
-                                    step="0.01"
+                                    step="1"
                                     min="0"
                                     label="Unit Price"
                                     required
@@ -270,7 +311,7 @@
                                 <div class="mb-2 flex items-center justify-between">
                                     <label class="text-sm font-medium text-zinc-700 dark:text-zinc-300">Measurements</label>
                                     <flux:button size="xs" variant="ghost" wire:click="addMeasurement({{ $index }})" type="button">
-                                        <flux:icon name="plus" class="mr-1 size-3" />
+                                        <x-icon name="add" class="mr-1 size-3" />
                                         Add
                                     </flux:button>
                                 </div>
@@ -289,7 +330,7 @@
                                             />
                                             @if (count($line['measurements']) > 1)
                                                 <flux:button size="xs" variant="ghost" wire:click="removeMeasurement({{ $index }}, {{ $mIndex }})" type="button">
-                                                    <flux:icon name="x-mark" class="size-4 text-zinc-400" />
+                                                    <x-icon name="close" class="size-4 text-zinc-400" />
                                                 </flux:button>
                                             @endif
                                         </div>
@@ -321,20 +362,60 @@
                 </div>
             </flux:card>
 
+            {{-- Deposit (create only, optional) --}}
+            @if (!$isEdit)
+                <flux:card>
+                    <flux:heading size="lg" class="mb-4">Deposit</flux:heading>
+                    <flux:text class="mb-4 block text-sm text-zinc-500 dark:text-zinc-400">
+                        Optionally record a deposit paid with this order. It will be added to the order&apos;s payments.
+                    </flux:text>
+                    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        <flux:input
+                            wire:model.live="deposit_amount"
+                            type="number"
+                            step="1"
+                            min="0"
+                            :max="$total"
+                            label="Deposit amount"
+                            placeholder="0.00"
+                        />
+                        @if (filled($deposit_amount) && (float) $deposit_amount > (float) $total)
+                            <p class="text-sm text-red-500">{{ __('Deposit cannot exceed order total.') }}</p>
+                        @endif
+                        <flux:select wire:model.blur="deposit_payment_method_id" label="Payment method">
+                            <flux:select.option value="">-- Select Payment Method --</flux:select.option>
+                            @foreach ($paymentMethods as $paymentMethod)
+                                <flux:select.option value="{{ $paymentMethod->id }}">
+                                    {{ $paymentMethod->display_name }}
+                                </flux:select.option>
+                            @endforeach
+                        </flux:select>
+                        @error('deposit_payment_method_id')
+                            <p class="text-sm text-red-500">{{ $message }}</p>
+                        @enderror
+                        <flux:input
+                            wire:model.blur="deposit_reference"
+                            label="Reference"
+                            placeholder="e.g. receipt or cheque number"
+                        />
+                    </div>
+                </flux:card>
+            @endif
+
             {{-- Actions --}}
             <div class="flex items-center justify-between rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-800">
                 <flux:button variant="ghost" :href="route('orders.index')" wire:navigate>
-                    <flux:icon name="arrow-left" class="mr-1 size-4" />
+                    <x-icon name="arrow_back" class="mr-1 size-4" />
                     Back to Orders
                 </flux:button>
 
                 <flux:button type="submit" variant="primary" wire:loading.attr="disabled">
                     <span wire:loading.remove>
-                        <flux:icon name="check" class="mr-1 size-4" />
+                        <x-icon name="check" class="mr-1 size-4" />
                         {{ $isEdit ? 'Update Order' : 'Create Order' }}
                     </span>
                     <span wire:loading>
-                        <flux:icon name="arrow-path" class="mr-1 size-4 animate-spin" />
+                        <x-icon name="refresh" class="mr-1 size-4 animate-spin" />
                         Saving...
                     </span>
                 </flux:button>

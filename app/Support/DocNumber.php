@@ -6,6 +6,7 @@ use App\Models\CapitalAllocation;
 use App\Models\Customer;
 use App\Models\DeliveryNote;
 use App\Models\GoodsReceipt;
+use App\Models\Invoice;
 use App\Models\Order;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseRequest;
@@ -74,6 +75,15 @@ class DocNumber
     public static function deliveryNote(): string
     {
         return self::generate('DN', DeliveryNote::class, 'delivery_note_no');
+    }
+
+    /**
+     * Generate a unique invoice number.
+     * Format: INV-YYYY-XXXXXX
+     */
+    public static function invoice(): string
+    {
+        return self::generate('INV', Invoice::class, 'invoice_no');
     }
 
     /**

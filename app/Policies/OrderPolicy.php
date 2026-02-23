@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Enums\OrderStatus;
 use App\Models\Order;
 use App\Models\User;
 
@@ -156,6 +157,7 @@ class OrderPolicy
     /**
      * Determine whether the user can update the order.
      * Note: This is for updating order details/pricing. Storekeeper cannot update orders.
+     * Editing is disabled for delivered or completed orders.
      */
     public function update(User $user, Order $order): bool
     {
@@ -163,7 +165,12 @@ class OrderPolicy
             return false;
         }
 
-        // Global admins can update any order
+        // Cannot edit orders that are already delivered or completed
+        if (in_array($order->status, [OrderStatus::Delivered, OrderStatus::Completed])) {
+            return false;
+        }
+
+        // Global admins can update any order (except final statuses above)
         if ($user->isGlobalAdmin()) {
             return true;
         }

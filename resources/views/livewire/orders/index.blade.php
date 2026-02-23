@@ -33,19 +33,19 @@
         <flux:card class="mb-6">
             <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
                 <flux:input
-                    wire:model.live.debounce.300ms="search"
+                    wire:model.blur="search"
                     placeholder="Search order, customer..."
                     icon="magnifying-glass"
                 />
 
-                <flux:select wire:model.live="statusFilter">
+                <flux:select wire:model.blur="statusFilter">
                     <flux:select.option value="">All Status</flux:select.option>
                     @foreach ($statuses as $value => $label)
                         <flux:select.option value="{{ $value }}">{{ $label }}</flux:select.option>
                     @endforeach
                 </flux:select>
 
-                <flux:select wire:model.live="tailorFilter">
+                <flux:select wire:model.blur="tailorFilter">
                     <flux:select.option value="">All Tailors</flux:select.option>
                     @foreach ($tailors as $id => $name)
                         <flux:select.option value="{{ $id }}">{{ $name }}</flux:select.option>
@@ -53,26 +53,26 @@
                 </flux:select>
 
                 <flux:input
-                    wire:model.live="dateFrom"
+                    wire:model.blur="dateFrom"
                     type="date"
                     placeholder="From date"
                 />
 
                 <flux:input
-                    wire:model.live="dateTo"
+                    wire:model.blur="dateTo"
                     type="date"
                     placeholder="To date"
                 />
 
                 <div class="flex items-center gap-2">
-                    <flux:select wire:model.live="perPage" class="flex-1">
+                    <flux:select wire:model.blur="perPage" class="flex-1">
                         <flux:select.option value="15">15</flux:select.option>
                         <flux:select.option value="25">25</flux:select.option>
                         <flux:select.option value="50">50</flux:select.option>
                     </flux:select>
 
                     <flux:button size="sm" variant="ghost" wire:click="clearFilters" title="Clear Filters">
-                        <flux:icon name="x-mark" class="size-4" />
+                        <x-icon name="close" class="size-4" />
                     </flux:button>
                 </div>
             </div>
@@ -178,7 +178,7 @@
                             <tr>
                                 <td colspan="{{ $canViewFinancials ? 8 : 6 }}" class="px-4 py-12 text-center">
                                     <div class="flex flex-col items-center gap-2">
-                                        <flux:icon name="document-text" class="size-12 text-zinc-300 dark:text-zinc-600" />
+                                        <x-icon name="description" class="size-12 text-zinc-300 dark:text-zinc-600" />
                                         <flux:text class="text-zinc-500 dark:text-zinc-400">
                                             {{ __('No orders found.') }}
                                         </flux:text>

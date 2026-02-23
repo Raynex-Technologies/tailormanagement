@@ -21,7 +21,7 @@
                     </flux:text>
                 </div>
                 <flux:button variant="subtle" :href="route('delivery-notes.print', $deliveryNote)" target="_blank">
-                    <flux:icon name="printer" class="mr-1 size-4" />
+                    <x-icon name="print" class="mr-1 size-4" />
                     Print
                 </flux:button>
             </div>
@@ -124,7 +124,7 @@
             {{-- Back Button --}}
             <div class="mt-6">
                 <flux:button variant="ghost" :href="route('orders.show', $deliveryNote->order)" wire:navigate>
-                    <flux:icon name="arrow-left" class="mr-1 size-4" />
+                    <x-icon name="arrow_back" class="mr-1 size-4" />
                     Back to Order
                 </flux:button>
             </div>

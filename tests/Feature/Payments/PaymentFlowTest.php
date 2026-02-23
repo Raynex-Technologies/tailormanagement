@@ -7,6 +7,7 @@ use App\Enums\PaymentStatus;
 use App\Events\OrderPaymentRecorded;
 use App\Models\Customer;
 use App\Models\Order;
+use App\Models\PaymentMethod;
 use App\Services\Orders\OrderPaymentService;
 use Illuminate\Support\Facades\Event;
 use Illuminate\Validation\ValidationException;
@@ -22,6 +23,11 @@ class PaymentFlowTest extends TestCase
 
         // Fake events to prevent listeners from firing during tests
         Event::fake([OrderPaymentRecorded::class]);
+
+        PaymentMethod::query()->updateOrCreate(
+            ['id' => 1],
+            ['name' => 'Default']
+        );
 
         $this->paymentService = app(OrderPaymentService::class);
     }
@@ -46,7 +52,7 @@ class PaymentFlowTest extends TestCase
         // Record partial payment
         $this->paymentService->recordPayment($order, [
             'amount' => 50000,
-            'method' => 'cash',
+            'payment_method_id' => 1,
         ], $user);
 
         $order->refresh();
@@ -55,7 +61,7 @@ class PaymentFlowTest extends TestCase
         // Record remaining payment
         $this->paymentService->recordPayment($order, [
             'amount' => 50000,
-            'method' => 'cash',
+            'payment_method_id' => 1,
         ], $user);
 
         $order->refresh();
@@ -85,7 +91,7 @@ class PaymentFlowTest extends TestCase
         // Record payment
         $this->paymentService->recordPayment($order, [
             'amount' => 40000,
-            'method' => 'cash',
+            'payment_method_id' => 1,
         ], $user);
 
         $order->refresh();
@@ -115,7 +121,7 @@ class PaymentFlowTest extends TestCase
         // Try to pay more than total
         $this->paymentService->recordPayment($order, [
             'amount' => 60000, // More than 50000 total
-            'method' => 'cash',
+            'payment_method_id' => 1,
         ], $user);
     }
 
@@ -138,7 +144,7 @@ class PaymentFlowTest extends TestCase
 
         $payment = $this->paymentService->recordPayment($order, [
             'amount' => 30000,
-            'method' => 'mobile_money',
+            'payment_method_id' => 1,
             'reference' => 'REF123',
             'note' => 'Test payment',
         ], $user);
@@ -147,7 +153,7 @@ class PaymentFlowTest extends TestCase
             'order_id' => $order->id,
             'branch_id' => $this->branch->id,
             'amount' => 30000,
-            'method' => 'mobile_money',
+            'payment_method_id' => 1,
             'reference' => 'REF123',
             'received_by' => $user->id,
         ]);
@@ -173,19 +179,19 @@ class PaymentFlowTest extends TestCase
         // First payment
         $this->paymentService->recordPayment($order, [
             'amount' => 20000,
-            'method' => 'cash',
+            'payment_method_id' => 1,
         ], $user);
 
         // Second payment
         $this->paymentService->recordPayment($order, [
             'amount' => 30000,
-            'method' => 'mobile_money',
+            'payment_method_id' => 1,
         ], $user);
 
         // Third payment
         $this->paymentService->recordPayment($order, [
             'amount' => 25000,
-            'method' => 'bank',
+            'payment_method_id' => 1,
         ], $user);
 
         $order->refresh();

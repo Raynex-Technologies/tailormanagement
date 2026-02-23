@@ -21,7 +21,7 @@
             </div>
             @can('procurement.request.create')
                 <flux:button :href="route('procurement.requests.create')" wire:navigate>
-                    <flux:icon name="plus" class="mr-1 size-4" />
+                    <x-icon name="add" class="mr-1 size-4" />
                     {{ __('New Request') }}
                 </flux:button>
             @endcan
@@ -32,7 +32,7 @@
     <flux:card>
         <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
             <div class="w-full md:w-1/3">
-                <flux:input wire:model.live.debounce.300ms="search" placeholder="Search requests..." icon="magnifying-glass" />
+                <flux:input wire:model.blur="search" placeholder="Search requests..." icon="magnifying-glass" />
             </div>
             <div class="flex flex-wrap gap-2">
                 <flux:button size="sm" :variant="$statusFilter === null ? 'primary' : 'ghost'" wire:click="setStatusFilter(null)">
@@ -54,7 +54,7 @@
     <flux:card>
         @if ($requests->isEmpty())
             <div class="py-12 text-center">
-                <flux:icon name="clipboard-document-list" class="mx-auto size-12 text-zinc-300 dark:text-zinc-600" />
+                <x-icon name="assignment" class="mx-auto size-12 text-zinc-300 dark:text-zinc-600" />
                 <flux:heading size="lg" class="mt-4">{{ __('No purchase requests found') }}</flux:heading>
                 <flux:text class="text-zinc-500">{{ __('Create a new purchase request to get started.') }}</flux:text>
             </div>
@@ -95,7 +95,7 @@
                             </flux:table.cell>
                             <flux:table.cell>
                                 <flux:button size="xs" variant="ghost" :href="route('procurement.requests.show', $request)" wire:navigate>
-                                    <flux:icon name="eye" class="size-4" />
+                                    <x-icon name="visibility" class="size-4" />
                                 </flux:button>
                             </flux:table.cell>
                         </flux:table.row>

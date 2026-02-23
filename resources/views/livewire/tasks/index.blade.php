@@ -100,7 +100,7 @@
                 </div>
                 <input
                     type="search"
-                    wire:model.live.debounce.300ms="search"
+                    wire:model.blur="search"
                     placeholder="{{ __('Search tasks...') }}"
                     class="block w-full rounded-xl border-0 bg-zinc-100 dark:bg-zinc-800 py-2.5 pl-10 pr-3 text-sm text-zinc-900 dark:text-white ring-1 ring-inset ring-zinc-200 dark:ring-zinc-700 placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:bg-white dark:focus:bg-zinc-700 focus:ring-2 focus:ring-lime-400"
                 />
@@ -110,7 +110,7 @@
             <div class="flex flex-wrap items-center gap-3">
                 {{-- Status Filter --}}
                 <select
-                    wire:model.live="filterStatus"
+                    wire:model.blur="filterStatus"
                     class="rounded-xl border-0 bg-zinc-100 dark:bg-zinc-800 py-2 pl-3 pr-8 text-sm text-zinc-900 dark:text-white ring-1 ring-inset ring-zinc-200 dark:ring-zinc-700 focus:ring-2 focus:ring-lime-400"
                 >
                     <option value="all">{{ __('All Status') }}</option>
@@ -120,7 +120,7 @@
 
                 {{-- Category Filter --}}
                 <select
-                    wire:model.live="filterCategory"
+                    wire:model.blur="filterCategory"
                     class="rounded-xl border-0 bg-zinc-100 dark:bg-zinc-800 py-2 pl-3 pr-8 text-sm text-zinc-900 dark:text-white ring-1 ring-inset ring-zinc-200 dark:ring-zinc-700 focus:ring-2 focus:ring-lime-400"
                 >
                     <option value="">{{ __('All Categories') }}</option>
@@ -131,7 +131,7 @@
 
                 {{-- Priority Filter --}}
                 <select
-                    wire:model.live="filterPriority"
+                    wire:model.blur="filterPriority"
                     class="rounded-xl border-0 bg-zinc-100 dark:bg-zinc-800 py-2 pl-3 pr-8 text-sm text-zinc-900 dark:text-white ring-1 ring-inset ring-zinc-200 dark:ring-zinc-700 focus:ring-2 focus:ring-lime-400"
                 >
                     <option value="">{{ __('All Priorities') }}</option>
@@ -142,7 +142,7 @@
 
                 {{-- Sort --}}
                 <select
-                    wire:model.live="sortBy"
+                    wire:model.blur="sortBy"
                     class="rounded-xl border-0 bg-zinc-100 dark:bg-zinc-800 py-2 pl-3 pr-8 text-sm text-zinc-900 dark:text-white ring-1 ring-inset ring-zinc-200 dark:ring-zinc-700 focus:ring-2 focus:ring-lime-400"
                 >
                     <option value="created">{{ __('Sort: Recent') }}</option>

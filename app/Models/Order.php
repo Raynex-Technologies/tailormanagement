@@ -35,6 +35,14 @@ class Order extends Model
                 }
             }
         });
+
+        static::created(function (Order $order) {
+            Invoice::syncFromOrder($order, auth()->id());
+        });
+
+        static::updated(function (Order $order) {
+            Invoice::syncFromOrder($order, auth()->id());
+        });
     }
 
     protected $fillable = [
@@ -43,6 +51,7 @@ class Order extends Model
         'customer_id',
         'assigned_tailor_id',
         'status',
+        'order_date',
         'due_date',
         'completed_at',
         'priority',
@@ -60,6 +69,7 @@ class Order extends Model
             'status' => OrderStatus::class,
             'payment_status' => PaymentStatus::class,
             'priority' => Priority::class,
+            'order_date' => 'date',
             'due_date' => 'date',
             'completed_at' => 'datetime',
             'subtotal' => 'decimal:2',
@@ -115,6 +125,11 @@ class Order extends Model
     public function deliveryNote(): HasOne
     {
         return $this->hasOne(DeliveryNote::class);
+    }
+
+    public function invoice(): HasOne
+    {
+        return $this->hasOne(Invoice::class);
     }
 
     // ============================================

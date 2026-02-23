@@ -2,6 +2,7 @@
 
 namespace App\Services\Sms;
 
+use App\Models\BeemConfig;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -15,15 +16,28 @@ class BeemSmsClient
     protected int $retryTimes;
     protected int $retrySleep;
 
+    /** @var bool|string SSL verification: true, false, or path to CA bundle */
+    protected bool|string $verify;
+
     public function __construct()
     {
-        $this->apiKey = config('beem.api_key');
-        $this->secretKey = config('beem.secret_key');
-        $this->senderId = config('beem.sender_id');
-        $this->baseUrl = config('beem.base_url');
+        $config = BeemConfig::instance();
+        $this->apiKey = (string) ($config->api_key ?: config('beem.api_key', ''));
+        $this->secretKey = (string) ($config->secret_key ?: config('beem.secret_key', ''));
+        $this->senderId = (string) ($config->sender_name ?: config('beem.sender_id', 'INFO'));
+        $this->baseUrl = config('beem.base_url', 'https://apisms.beem.africa/v1');
         $this->timeout = config('beem.timeout', 30);
         $this->retryTimes = config('beem.retry_times', 2);
         $this->retrySleep = config('beem.retry_sleep', 500);
+        $this->verify = config('beem.verify', true);
+
+        Log::debug('BeemSmsClient constructed', [
+            'credentials_source' => $config->api_key ? 'db' : (config('beem.api_key') ? 'env' : 'none'),
+            'has_api_key' => ! empty($this->apiKey),
+            'has_secret_key' => ! empty($this->secretKey),
+            'sender_id' => $this->senderId,
+            'base_url' => $this->baseUrl,
+        ]);
     }
 
     /**
@@ -38,15 +52,17 @@ class BeemSmsClient
         // Normalize recipients to array
         $recipients = is_array($recipients) ? $recipients : [$recipients];
 
-        // Prepare recipient list for Beem format
+        // Prepare recipient list for Beem format: array of { recipient_id, dest_addr }
         $recipientList = [];
         foreach ($recipients as $index => $phone) {
-            // Remove + from phone number (Beem expects without +)
             $cleanPhone = ltrim($phone, '+');
-            $recipientList["recipient_id_{$index}"] = $cleanPhone;
+            $recipientList[] = [
+                'recipient_id' => (string) ($index + 1),
+                'dest_addr' => $cleanPhone,
+            ];
         }
 
-        // Prepare request payload
+        // Prepare request payload (Beem v1 API)
         $payload = [
             'source_addr' => $this->senderId,
             'encoding' => 0,
@@ -54,27 +70,46 @@ class BeemSmsClient
             'recipients' => $recipientList,
         ];
 
+        $url = "{$this->baseUrl}/send";
+        Log::info('Beem API request', [
+            'url' => $url,
+            'recipient_count' => count($recipients),
+            'source_addr' => $this->senderId,
+            'message_length' => strlen($message),
+        ]);
+
         try {
             $response = Http::withBasicAuth($this->apiKey, $this->secretKey)
+                ->withOptions(['verify' => $this->verify])
                 ->timeout($this->timeout)
                 ->retry($this->retryTimes, $this->retrySleep)
-                ->post("{$this->baseUrl}/send", $payload);
+                ->post($url, $payload);
 
             $body = $response->json() ?? [];
+            $httpStatus = $response->status();
 
             // Beem returns successful: true on success
             $isSuccess = $response->successful() && ($body['successful'] ?? false);
+
+            Log::info('Beem API response', [
+                'http_status' => $httpStatus,
+                'successful' => $body['successful'] ?? null,
+                'request_id' => $body['request_id'] ?? null,
+                'result' => $isSuccess ? 'sent' : 'failed',
+                'raw_body' => $body,
+            ]);
 
             return [
                 'success' => $isSuccess,
                 'message_id' => $body['request_id'] ?? null,
                 'raw_response' => $body,
-                'http_status' => $response->status(),
+                'http_status' => $httpStatus,
             ];
         } catch (\Exception $e) {
-            Log::error('Beem SMS API error', [
+            Log::error('Beem SMS API exception', [
                 'message' => $e->getMessage(),
                 'recipients' => $recipients,
+                'url' => $url,
             ]);
 
             return [
@@ -101,6 +136,7 @@ class BeemSmsClient
     {
         try {
             $response = Http::withBasicAuth($this->apiKey, $this->secretKey)
+                ->withOptions(['verify' => $this->verify])
                 ->timeout($this->timeout)
                 ->get("{$this->baseUrl}/balance");
 

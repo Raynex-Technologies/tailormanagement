@@ -66,7 +66,7 @@
                 wire:click="markCompleted({{ $order->id }})"
                 wire:confirm="Are you sure you want to mark this order as completed?"
             >
-                <flux:icon name="check" class="mr-1 size-4" />
+                <x-icon name="check" class="mr-1 size-4" />
                 Mark Completed
             </flux:button>
         </div>

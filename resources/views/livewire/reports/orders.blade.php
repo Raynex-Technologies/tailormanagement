@@ -17,7 +17,7 @@
             </div>
             @can('reports.export')
                 <flux:button wire:click="export" variant="primary" size="sm">
-                    <flux:icon name="arrow-down-tray" class="mr-1 size-4" />
+                    <x-icon name="download" class="mr-1 size-4" />
                     Export CSV
                 </flux:button>
             @endcan
@@ -28,28 +28,28 @@
     <flux:card class="mb-6">
         <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
             <flux:input
-                wire:model.live.debounce.300ms="dateFrom"
+                wire:model.blur="dateFrom"
                 type="date"
                 label="From Date"
             />
             <flux:input
-                wire:model.live.debounce.300ms="dateTo"
+                wire:model.blur="dateTo"
                 type="date"
                 label="To Date"
             />
-            <flux:select wire:model.live="status" label="Status">
+            <flux:select wire:model.blur="status" label="Status">
                 <option value="">All Statuses</option>
                 @foreach($this->statuses as $s)
                     <option value="{{ $s->value }}">{{ $s->label() }}</option>
                 @endforeach
             </flux:select>
-            <flux:select wire:model.live="paymentStatus" label="Payment Status">
+            <flux:select wire:model.blur="paymentStatus" label="Payment Status">
                 <option value="">All Payment Statuses</option>
                 @foreach($this->paymentStatuses as $ps)
                     <option value="{{ $ps->value }}">{{ $ps->label() }}</option>
                 @endforeach
             </flux:select>
-            <flux:select wire:model.live="tailorId" label="Tailor">
+            <flux:select wire:model.blur="tailorId" label="Tailor">
                 <option value="">All Tailors</option>
                 @foreach($this->tailors as $tailor)
                     <option value="{{ $tailor->id }}">{{ $tailor->name }}</option>
@@ -57,13 +57,13 @@
             </flux:select>
             <div class="flex items-end gap-2">
                 <flux:input
-                    wire:model.live.debounce.300ms="search"
+                    wire:model.blur="search"
                     placeholder="Search..."
                     icon="magnifying-glass"
                     class="flex-1"
                 />
                 <flux:button wire:click="resetFilters" variant="ghost" size="sm">
-                    <flux:icon name="x-mark" class="size-4" />
+                    <x-icon name="close" class="size-4" />
                 </flux:button>
             </div>
         </div>

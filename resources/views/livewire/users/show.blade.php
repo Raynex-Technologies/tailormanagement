@@ -27,7 +27,7 @@
             </div>
             @if ($canEdit)
                 <flux:button variant="primary" :href="route('users.edit', $user)" wire:navigate>
-                    <flux:icon name="pencil" class="mr-1 size-4" />
+                    <x-icon name="edit" class="mr-1 size-4" />
                     {{ __('Edit User') }}
                 </flux:button>
             @endif

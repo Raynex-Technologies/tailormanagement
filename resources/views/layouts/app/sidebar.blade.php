@@ -22,7 +22,7 @@
             {{-- Branch Switcher for Global Admins --}}
             @auth
                 @if (auth()->user()->isGlobalAdmin())
-                    <livewire:admin.branch-switcher />
+                    <livewire:admin.branch-switcher :key="'desktop-branch-switcher'" />
                 @endif
             @endauth
 
@@ -81,6 +81,17 @@
                         {{ __('Orders Management') }}
                     </a>
                     @endcanany
+
+                    <a
+                        href="{{ route('invoices.index') }}"
+                        wire:navigate
+                        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('invoices.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}"
+                    >
+                        <svg class="size-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v2.25A2.25 2.25 0 0 1 17.25 18.75H6.75A2.25 2.25 0 0 1 4.5 16.5V7.5A2.25 2.25 0 0 1 6.75 5.25h7.5L19.5 10.5v3.75Zm-10.5-3h6m-6 3h6m-6 3h4.5" />
+                        </svg>
+                        {{ __('Invoices') }}
+                    </a>
                 </div>
                 @endcan
 
@@ -244,7 +255,7 @@
                 @endcan
 
                 {{-- Administration Group --}}
-                @canany(['users.view', 'roles.manage', 'sms.logs.view'])
+                @canany(['users.view', 'roles.manage', 'sms.logs.view', 'sms.templates.manage'])
                 <div class="nav-group">
                     <h3 class="px-3 mb-2 text-[0.65rem] font-semibold uppercase tracking-wider text-white/35">{{ __('Administration') }}</h3>
                     
@@ -272,18 +283,42 @@
                         </svg>
                         {{ __('Roles & Permissions') }}
                     </a>
+
+                    <a
+                        href="{{ route('administration.settings') }}"
+                        wire:navigate
+                        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('administration.settings') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}"
+                    >
+                        <svg class="size-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 0 0-3 0M3.75 6H7.5m6 6h6.75m-6.75 0a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 0 0-3 0H3.75m9.75 6h6.75m-6.75 0a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 0 0-3 0H3.75" />
+                        </svg>
+                        {{ __('Settings') }}
+                    </a>
                     @endcan
 
                     @can('sms.logs.view')
                     <a 
                         href="{{ route('sms.logs.index') }}" 
                         wire:navigate
-                        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('sms.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}"
+                        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('sms.logs.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}"
                     >
                         <svg class="size-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a5.969 5.969 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z" />
                         </svg>
                         {{ __('SMS Logs') }}
+                    </a>
+                    @endcan
+
+                    @can('sms.templates.manage')
+                    <a
+                        href="{{ route('beem-configurations.index') }}"
+                        wire:navigate
+                        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('beem-configurations.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}"
+                    >
+                        <svg class="size-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 1 1-3 0m3 0a1.5 1.5 0 0 0-3 0M3.75 6H7.5m3-.75-3.75 3.75m0 0 3.75 3.75M7.5 6v12m0-9v9" />
+                        </svg>
+                        {{ __('Beem Configurations') }}
                     </a>
                     @endcan
                 </div>
@@ -418,7 +453,7 @@
                 {{-- Branch Switcher for Mobile --}}
                 @auth
                     @if (auth()->user()->isGlobalAdmin())
-                        <livewire:admin.branch-switcher />
+                        <livewire:admin.branch-switcher :key="'mobile-branch-switcher'" />
                     @endif
                 @endauth
 

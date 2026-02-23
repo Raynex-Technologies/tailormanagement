@@ -21,7 +21,7 @@
             </div>
             @if ($canManage)
                 <flux:button variant="primary" :href="route('users.create')" wire:navigate>
-                    <flux:icon name="plus" class="mr-1 size-4" />
+                    <x-icon name="add" class="mr-1 size-4" />
                     {{ __('Add User') }}
                 </flux:button>
             @endif
@@ -40,12 +40,12 @@
     <flux:card>
         <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <flux:input
-                wire:model.live.debounce.300ms="search"
+                wire:model.blur="search"
                 placeholder="{{ __('Search by name or email...') }}"
                 icon="magnifying-glass"
             />
 
-            <flux:select wire:model.live="roleFilter">
+            <flux:select wire:model.blur="roleFilter">
                 <flux:select.option value="">{{ __('All Roles') }}</flux:select.option>
                 @foreach ($roles as $role)
                     <flux:select.option value="{{ $role }}">{{ ucfirst(str_replace('_', ' ', $role)) }}</flux:select.option>
@@ -53,7 +53,7 @@
             </flux:select>
 
             @if ($isGlobalAdmin && $branches->isNotEmpty())
-                <flux:select wire:model.live="branchFilter">
+                <flux:select wire:model.blur="branchFilter">
                     <flux:select.option value="">{{ __('All Branches') }}</flux:select.option>
                     @foreach ($branches as $branch)
                         <flux:select.option value="{{ $branch->id }}">{{ $branch->name }}</flux:select.option>
@@ -63,7 +63,7 @@
 
             <div class="flex items-end">
                 <flux:button wire:click="clearFilters" variant="ghost" size="sm">
-                    <flux:icon name="x-mark" class="mr-1 size-4" />
+                    <x-icon name="close" class="mr-1 size-4" />
                     {{ __('Clear') }}
                 </flux:button>
             </div>
@@ -118,11 +118,11 @@
                             <td class="px-4 py-3 text-right">
                                 <div class="flex items-center justify-end gap-2">
                                     <flux:button size="xs" variant="ghost" :href="route('users.show', $user)" wire:navigate>
-                                        <flux:icon name="eye" class="size-4" />
+                                        <x-icon name="visibility" class="size-4" />
                                     </flux:button>
                                     @if ($canManage && auth()->user()->can('update', $user))
                                         <flux:button size="xs" variant="ghost" :href="route('users.edit', $user)" wire:navigate>
-                                            <flux:icon name="pencil" class="size-4" />
+                                            <x-icon name="edit" class="size-4" />
                                         </flux:button>
                                     @endif
                                 </div>

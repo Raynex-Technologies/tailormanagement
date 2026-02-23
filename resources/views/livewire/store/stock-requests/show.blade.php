@@ -49,14 +49,14 @@
                 <div class="flex flex-wrap items-center gap-2">
                     @if ($canReview && $stockRequest->canBeReviewed())
                         <flux:button wire:click="openReviewModal">
-                            <flux:icon name="clipboard-document-check" class="mr-1 size-4" />
+                            <x-icon name="assignment_turned_in" class="mr-1 size-4" />
                             Review
                         </flux:button>
                     @endif
 
                     @if ($canFulfill && $stockRequest->canBeFulfilled())
                         <flux:button variant="primary" wire:click="openFulfillModal">
-                            <flux:icon name="arrow-down-tray" class="mr-1 size-4" />
+                            <x-icon name="download" class="mr-1 size-4" />
                             Fulfill / Issue
                         </flux:button>
                     @endif
@@ -233,7 +233,7 @@
         {{-- Back Button --}}
         <div class="mt-6">
             <flux:button variant="ghost" :href="route('store.stock-requests.index')" wire:navigate>
-                <flux:icon name="arrow-left" class="mr-1 size-4" />
+                <x-icon name="arrow_back" class="mr-1 size-4" />
                 Back to Inbox
             </flux:button>
         </div>
@@ -362,7 +362,7 @@
                 <div class="flex justify-end gap-2 pt-4">
                     <flux:button variant="ghost" wire:click="$set('showFulfillModal', false)">Cancel</flux:button>
                     <flux:button variant="primary" wire:click="submitFulfill">
-                        <flux:icon name="arrow-down-tray" class="mr-1 size-4" />
+                        <x-icon name="download" class="mr-1 size-4" />
                         Issue Stock
                     </flux:button>
                 </div>

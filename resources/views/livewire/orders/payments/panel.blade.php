@@ -3,9 +3,9 @@
     <flux:card>
         <div class="flex items-center justify-between">
             <flux:heading size="lg">{{ __('Payments') }}</flux:heading>
-            @if ($canRecordPayments && $balanceAmount > 0)
+            @if ($canRecordPayments && $balanceAmount > 0 && $paymentMethods->isNotEmpty())
                 <flux:button size="sm" wire:click="openPaymentModal">
-                    <flux:icon name="plus" class="mr-1 size-4" />
+                    <x-icon name="add" class="mr-1 size-4" />
                     {{ __('Record Payment') }}
                 </flux:button>
             @endif
@@ -56,16 +56,20 @@
                                 {{ money_tzs($payment->amount) }}
                             </flux:table.cell>
                             <flux:table.cell>
-                                @php
-                                    $methodEnum = \App\Enums\PaymentMethod::tryFrom($payment->method);
-                                @endphp
-                                @if ($methodEnum)
-                                    <flux:badge color="{{ $methodEnum->color() }}" size="sm">
-                                        {{ $methodEnum->label() }}
+                                <div class="space-y-1">
+                                    <flux:badge size="sm">
+                                        {{ $payment->paymentMethod?->name ?? __('Default') }}
                                     </flux:badge>
-                                @else
-                                    {{ ucfirst($payment->method) }}
-                                @endif
+                                    @if ($payment->paymentMethod?->account_number || $payment->paymentMethod?->account_holder_name)
+                                        <div class="text-xs text-zinc-500">
+                                            {{ $payment->paymentMethod?->account_number }}
+                                            @if ($payment->paymentMethod?->account_number && $payment->paymentMethod?->account_holder_name)
+                                                •
+                                            @endif
+                                            {{ $payment->paymentMethod?->account_holder_name }}
+                                        </div>
+                                    @endif
+                                </div>
                             </flux:table.cell>
                             <flux:table.cell class="text-zinc-500">
                                 {{ $payment->reference ?? '-' }}
@@ -84,7 +88,7 @@
     @else
         <flux:card>
             <div class="py-6 text-center">
-                <flux:icon name="banknotes" class="mx-auto size-12 text-zinc-300 dark:text-zinc-600" />
+                <x-icon name="payments" class="mx-auto size-12 text-zinc-300 dark:text-zinc-600" />
                 <flux:heading size="md" class="mt-4">{{ __('No payments recorded') }}</flux:heading>
                 <flux:text class="text-zinc-500">{{ __('Record the first payment when received.') }}</flux:text>
             </div>
@@ -121,13 +125,14 @@
 
                 {{-- Payment Method --}}
                 <div>
-                    <flux:label for="method">{{ __('Payment Method') }} *</flux:label>
-                    <flux:select id="method" wire:model="method">
+                    <flux:label for="payment_method_id">{{ __('Payment Method') }} *</flux:label>
+                    <flux:select id="payment_method_id" wire:model="payment_method_id">
+                        <flux:select.option value="">{{ __('-- Select Payment Method --') }}</flux:select.option>
                         @foreach ($paymentMethods as $pm)
-                            <flux:select.option value="{{ $pm->value }}">{{ $pm->label() }}</flux:select.option>
+                            <flux:select.option value="{{ $pm->id }}">{{ $pm->display_name }}</flux:select.option>
                         @endforeach
                     </flux:select>
-                    @error('method')
+                    @error('payment_method_id')
                         <flux:text class="mt-1 text-sm text-red-500">{{ $message }}</flux:text>
                     @enderror
                 </div>
@@ -178,7 +183,7 @@
                         {{ __('Cancel') }}
                     </flux:button>
                     <flux:button type="submit" variant="primary">
-                        <flux:icon name="check" class="mr-1 size-4" />
+                        <x-icon name="check" class="mr-1 size-4" />
                         {{ __('Record Payment') }}
                     </flux:button>
                 </div>

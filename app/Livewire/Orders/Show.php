@@ -75,6 +75,7 @@ class Show extends Component
             'creator',
             'lines.measurement',
             'deliveryNote.deliveredBy',
+            'invoice',
             'branch',
         ];
 
@@ -313,10 +314,14 @@ class Show extends Component
             ->orderBy('name')
             ->get(['id', 'name']);
 
+        // Order is in a final state (no more edits / stock requests)
+        $orderIsFinal = in_array($this->order->status, [OrderStatus::Delivered, OrderStatus::Completed]);
+
         // Determine available actions
-        $canEdit = $user->can('update', $this->order);
+        $canEdit = $user->can('update', $this->order) && ! $orderIsFinal;
         $canChangeStatus = $user->can('changeStatus', $this->order);
         $canAssignTailor = $user->can('assignTailor', $this->order);
+        $showAssignTailorButton = $canAssignTailor && ! $this->order->assigned_tailor_id;
         $canMarkCompleted = $user->can('markCompleted', $this->order);
         $canCreateDeliveryNote = $user->can('createDeliveryNote', $this->order) && $this->order->canCreateDeliveryNote();
 
@@ -326,6 +331,8 @@ class Show extends Component
             'canEdit' => $canEdit,
             'canChangeStatus' => $canChangeStatus,
             'canAssignTailor' => $canAssignTailor,
+            'showAssignTailorButton' => $showAssignTailorButton,
+            'orderIsFinal' => $orderIsFinal,
             'canMarkCompleted' => $canMarkCompleted,
             'canCreateDeliveryNote' => $canCreateDeliveryNote,
             // Role-based visibility

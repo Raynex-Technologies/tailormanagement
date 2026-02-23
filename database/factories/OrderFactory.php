@@ -7,6 +7,7 @@ use App\Enums\PaymentStatus;
 use App\Enums\Priority;
 use App\Models\Customer;
 use App\Models\Order;
+use App\Models\PaymentMethod;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
@@ -117,10 +118,15 @@ class OrderFactory extends Factory
                     ? $order->total
                     : fake()->numberBetween($order->total * 0.3, $order->total * 0.7);
 
+                $paymentMethodId = PaymentMethod::query()->inRandomOrder()->value('id');
+                if (! $paymentMethodId) {
+                    $paymentMethodId = PaymentMethod::query()->create(['name' => 'Default'])->id;
+                }
+
                 $order->payments()->create([
                     'branch_id' => $order->branch_id,
                     'amount' => $paidAmount,
-                    'method' => fake()->randomElement(['cash', 'mobile', 'bank']),
+                    'payment_method_id' => $paymentMethodId,
                     'reference' => fake()->optional(0.5)->numerify('REF-####'),
                     'paid_at' => fake()->dateTimeBetween($order->created_at, 'now'),
                     'received_by' => User::inRandomOrder()->first()?->id,

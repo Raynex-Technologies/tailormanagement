@@ -15,9 +15,14 @@ class Dashboard extends Component
     public function render()
     {
         $user = auth()->user();
-        $stats = app(DashboardStats::class)->for($user);
+        $canViewDashboard = $user->can('dashboard.view');
+
+        $stats = $canViewDashboard
+            ? app(DashboardStats::class)->for($user)
+            : [];
 
         return view('livewire.dashboard', [
+            'canViewDashboard' => $canViewDashboard,
             'stats' => $stats,
             'user' => $user,
             'currentBranch' => BranchContext::branch(),

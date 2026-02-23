@@ -2,6 +2,7 @@
 
 namespace App\Policies;
 
+use App\Enums\OrderStatus;
 use App\Models\Order;
 use App\Models\OrderStockRequest;
 use App\Models\User;
@@ -46,6 +47,7 @@ class OrderStockRequestPolicy
 
     /**
      * Determine whether the user can create stock requests.
+     * Cannot create new stock requests for delivered or completed orders.
      */
     public function create(User $user, Order $order): bool
     {
@@ -53,7 +55,12 @@ class OrderStockRequestPolicy
             return false;
         }
 
-        // Global admins can create for any order
+        // Cannot create stock requests for orders that are delivered or completed
+        if (in_array($order->status, [OrderStatus::Delivered, OrderStatus::Completed])) {
+            return false;
+        }
+
+        // Global admins can create for any order (except final statuses above)
         if ($user->isGlobalAdmin()) {
             return true;
         }
