@@ -2,8 +2,10 @@
 
 namespace App\Livewire\Expenses\Categories;
 
+use App\Models\Branch;
 use App\Models\ExpenseCategory;
 use App\Models\ExpenseSubcategory;
+use App\Support\BranchContext;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
@@ -22,28 +24,41 @@ class Index extends Component
     public string $name = '';
     public bool $isSubcategory = false;
     public ?int $parentCategoryId = null;
+    public ?int $branchId = null;
+    public bool $showBranchSelector = false;
 
     protected string $paginationTheme = 'tailwind';
 
     protected function rules(): array
     {
-        return [
+        $rules = [
             'name' => ['required', 'string', 'max:255'],
             'isSubcategory' => ['boolean'],
             'parentCategoryId' => ['required_if:isSubcategory,true', 'nullable', 'integer', 'exists:expense_categories,id'],
         ];
+
+        if (! $this->editingId) {
+            $rules['branchId'] = ['required', 'integer', 'exists:branches,id'];
+        }
+
+        return $rules;
     }
 
-    public function updatedIsSubcategory(bool $value): void
+    public function updatedIsSubcategory($value): void
     {
-        if (! $value) {
+        if (! filter_var($value, FILTER_VALIDATE_BOOLEAN)) {
             $this->parentCategoryId = null;
+            $this->resetErrorBag('parentCategoryId');
         }
     }
 
     public function mount(): void
     {
         $this->authorize('expenses.categories.manage');
+
+        $user = auth()->user();
+        $this->showBranchSelector = (bool) $user?->isGlobalAdmin();
+        $this->branchId = $this->getDefaultBranchId();
     }
 
     public function updatingSearch(): void
@@ -53,7 +68,8 @@ class Index extends Component
 
     public function openCreateModal(): void
     {
-        $this->reset(['editingId', 'name', 'isSubcategory', 'parentCategoryId']);
+        $this->reset(['editingId', 'name', 'isSubcategory', 'parentCategoryId', 'branchId']);
+        $this->branchId = $this->getDefaultBranchId();
         $this->showFormModal = true;
     }
 
@@ -79,27 +95,53 @@ class Index extends Component
 
             $category->update(['name' => $this->name]);
             session()->flash('success', 'Category updated successfully.');
-        } elseif ($this->isSubcategory) {
-            $parentCategory = ExpenseCategory::findOrFail((int) $this->parentCategoryId);
-            $this->authorize('update', $parentCategory);
-
-            ExpenseSubcategory::create([
-                'branch_id' => $parentCategory->branch_id,
-                'expense_category_id' => $parentCategory->id,
-                'name' => $this->name,
-            ]);
-            session()->flash('success', 'Subcategory created successfully.');
         } else {
-            $this->authorize('create', ExpenseCategory::class);
+            $effectiveBranchId = $this->getEffectiveBranchId();
+            if (! $effectiveBranchId) {
+                $this->addError('branchId', 'Please select a branch first.');
 
-            ExpenseCategory::create([
-                'name' => $this->name,
-            ]);
-            session()->flash('success', 'Category created successfully.');
+                return;
+            }
+
+            if ($this->isSubcategory) {
+                $parentCategoryQuery = ExpenseCategory::query();
+                if ($this->showBranchSelector) {
+                    $parentCategoryQuery->withoutBranchScope();
+                }
+
+                $parentCategory = $parentCategoryQuery
+                    ->where('branch_id', $effectiveBranchId)
+                    ->findOrFail((int) $this->parentCategoryId);
+                $this->authorize('update', $parentCategory);
+
+                ExpenseSubcategory::create([
+                    'branch_id' => $effectiveBranchId,
+                    'expense_category_id' => $parentCategory->id,
+                    'name' => $this->name,
+                ]);
+                session()->flash('success', 'Subcategory created successfully.');
+            } else {
+                $this->authorize('create', ExpenseCategory::class);
+
+                ExpenseCategory::create([
+                    'branch_id' => $effectiveBranchId,
+                    'name' => $this->name,
+                ]);
+                session()->flash('success', 'Category created successfully.');
+            }
         }
 
         $this->showFormModal = false;
         $this->reset(['editingId', 'name', 'isSubcategory', 'parentCategoryId']);
+    }
+
+    public function updatedBranchId(): void
+    {
+        if ($this->isSubcategory) {
+            $this->parentCategoryId = null;
+        }
+
+        $this->resetErrorBag('parentCategoryId');
     }
 
     public function delete(int $categoryId): void
@@ -138,14 +180,61 @@ class Index extends Component
         }
 
         $categories = $query->paginate(15);
+        $selectedBranchId = $this->branchId ?? $this->getDefaultBranchId();
 
-        $parentCategories = ExpenseCategory::query()
+        $parentCategoriesQuery = ExpenseCategory::query()->orderBy('name');
+        if ($this->showBranchSelector) {
+            $parentCategoriesQuery->withoutBranchScope();
+        }
+        if ($selectedBranchId) {
+            $parentCategoriesQuery->where('branch_id', $selectedBranchId);
+        }
+
+        $parentCategories = $parentCategoriesQuery->get(['id', 'name']);
+
+        $branches = Branch::query()
+            ->when(
+                $this->showBranchSelector,
+                fn ($q) => $q->active(),
+                fn ($q) => $q->whereKey(auth()->user()?->branch_id)
+            )
             ->orderBy('name')
             ->get(['id', 'name']);
 
         return view('livewire.expenses.categories.index', [
             'categories' => $categories,
             'parentCategories' => $parentCategories,
+            'branches' => $branches,
         ])->title(__('Expense Categories'));
+    }
+
+    protected function getDefaultBranchId(): ?int
+    {
+        $user = auth()->user();
+
+        if (! $user) {
+            return null;
+        }
+
+        if ($user->isGlobalAdmin()) {
+            return BranchContext::id() ?? $user->branch_id;
+        }
+
+        return $user->branch_id;
+    }
+
+    protected function getEffectiveBranchId(): ?int
+    {
+        $user = auth()->user();
+
+        if (! $user) {
+            return null;
+        }
+
+        if ($user->isGlobalAdmin()) {
+            return $this->branchId ?? BranchContext::id() ?? $user->branch_id;
+        }
+
+        return $user->branch_id;
     }
 }

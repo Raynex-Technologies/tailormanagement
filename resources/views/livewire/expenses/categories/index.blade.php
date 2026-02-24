@@ -120,6 +120,32 @@
             </flux:heading>
 
             <form wire:submit="save">
+                @if (! $editingId)
+                    <div>
+                        <flux:label for="branchId">{{ __('Branch') }} *</flux:label>
+                        @if ($showBranchSelector)
+                            <flux:select id="branchId" wire:model.live="branchId">
+                                <flux:select.option value="">{{ __('-- Select Branch --') }}</flux:select.option>
+                                @foreach ($branches as $branch)
+                                    <flux:select.option value="{{ $branch->id }}">{{ $branch->name }}</flux:select.option>
+                                @endforeach
+                            </flux:select>
+                        @else
+                            <flux:select id="branchId" wire:model="branchId" disabled>
+                                @foreach ($branches as $branch)
+                                    <flux:select.option value="{{ $branch->id }}">{{ $branch->name }}</flux:select.option>
+                                @endforeach
+                            </flux:select>
+                            <flux:text class="mt-1 text-xs text-zinc-500">
+                                {{ __('Using your assigned branch.') }}
+                            </flux:text>
+                        @endif
+                        @error('branchId')
+                            <flux:text class="mt-1 text-sm text-red-500">{{ $message }}</flux:text>
+                        @enderror
+                    </div>
+                @endif
+
                 <div>
                     <flux:label for="name">{{ __('Category Name') }} *</flux:label>
                     <flux:input id="name" wire:model="name" placeholder="Enter category name..." />
@@ -130,7 +156,7 @@
 
                 @if (! $editingId)
                     <div class="mt-4 flex items-center gap-2">
-                        <flux:checkbox wire:model="isSubcategory" id="isSubcategory" />
+                        <flux:checkbox wire:model.live="isSubcategory" id="isSubcategory" />
                         <label for="isSubcategory" class="text-sm text-zinc-700 dark:text-zinc-300">
                             {{ __('Is Subcategory') }}
                         </label>
