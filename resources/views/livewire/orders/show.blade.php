@@ -406,8 +406,10 @@
 
                     <dl class="space-y-3 text-sm">
                         <div class="flex justify-between">
-                            <dt class="text-zinc-500 dark:text-zinc-400">Created</dt>
-                            <dd class="text-zinc-900 dark:text-white">{{ $order->created_at->format('M d, Y H:i') }}</dd>
+                            <dt class="text-zinc-500 dark:text-zinc-400">Order Date</dt>
+                            <dd class="text-zinc-900 dark:text-white">
+                                {{ $order->order_date?->format('M d, Y') ?? $order->created_at->format('M d, Y') }}
+                            </dd>
                         </div>
                         <div class="flex justify-between">
                             <dt class="text-zinc-500 dark:text-zinc-400">Created By</dt>

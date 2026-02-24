@@ -21,7 +21,11 @@ class Invoice extends Model
             }
 
             if (empty($invoice->issue_date)) {
-                $invoice->issue_date = now()->toDateString();
+                $orderDate = null;
+                if ($invoice->order_id) {
+                    $orderDate = Order::query()->whereKey($invoice->order_id)->value('order_date');
+                }
+                $invoice->issue_date = $orderDate ?: now()->toDateString();
             }
         });
     }
@@ -94,9 +98,11 @@ class Invoice extends Model
         if ($isNew) {
             $invoice->branch_id = $order->branch_id;
             $invoice->created_by = $actorId;
-            $invoice->issue_date = now()->toDateString();
         }
 
+        $invoice->issue_date = $order->order_date
+            ? $order->order_date->toDateString()
+            : ($invoice->issue_date ?: now()->toDateString());
         $invoice->due_date = $order->due_date;
         $invoice->subtotal = $order->subtotal;
         $invoice->discount = $order->discount ?? 0;

@@ -3,6 +3,7 @@
 namespace App\Livewire\Expenses\Categories;
 
 use App\Models\ExpenseCategory;
+use App\Models\ExpenseSubcategory;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
@@ -19,6 +20,8 @@ class Index extends Component
     public bool $showFormModal = false;
     public ?int $editingId = null;
     public string $name = '';
+    public bool $isSubcategory = false;
+    public ?int $parentCategoryId = null;
 
     protected string $paginationTheme = 'tailwind';
 
@@ -26,7 +29,16 @@ class Index extends Component
     {
         return [
             'name' => ['required', 'string', 'max:255'],
+            'isSubcategory' => ['boolean'],
+            'parentCategoryId' => ['required_if:isSubcategory,true', 'nullable', 'integer', 'exists:expense_categories,id'],
         ];
+    }
+
+    public function updatedIsSubcategory(bool $value): void
+    {
+        if (! $value) {
+            $this->parentCategoryId = null;
+        }
     }
 
     public function mount(): void
@@ -41,7 +53,7 @@ class Index extends Component
 
     public function openCreateModal(): void
     {
-        $this->reset(['editingId', 'name']);
+        $this->reset(['editingId', 'name', 'isSubcategory', 'parentCategoryId']);
         $this->showFormModal = true;
     }
 
@@ -52,6 +64,8 @@ class Index extends Component
 
         $this->editingId = $category->id;
         $this->name = $category->name;
+        $this->isSubcategory = false;
+        $this->parentCategoryId = null;
         $this->showFormModal = true;
     }
 
@@ -65,6 +79,16 @@ class Index extends Component
 
             $category->update(['name' => $this->name]);
             session()->flash('success', 'Category updated successfully.');
+        } elseif ($this->isSubcategory) {
+            $parentCategory = ExpenseCategory::findOrFail((int) $this->parentCategoryId);
+            $this->authorize('update', $parentCategory);
+
+            ExpenseSubcategory::create([
+                'branch_id' => $parentCategory->branch_id,
+                'expense_category_id' => $parentCategory->id,
+                'name' => $this->name,
+            ]);
+            session()->flash('success', 'Subcategory created successfully.');
         } else {
             $this->authorize('create', ExpenseCategory::class);
 
@@ -75,7 +99,7 @@ class Index extends Component
         }
 
         $this->showFormModal = false;
-        $this->reset(['editingId', 'name']);
+        $this->reset(['editingId', 'name', 'isSubcategory', 'parentCategoryId']);
     }
 
     public function delete(int $categoryId): void
@@ -89,23 +113,39 @@ class Index extends Component
             return;
         }
 
+        if ($category->subcategories()->exists()) {
+            session()->flash('error', 'Cannot delete category. It has subcategories.');
+            return;
+        }
+
         $category->delete();
         session()->flash('success', 'Category deleted successfully.');
     }
 
     public function render()
     {
-        $query = ExpenseCategory::withCount('expenses')
+        $query = ExpenseCategory::withCount(['expenses', 'subcategories'])
+            ->with(['subcategories' => fn ($q) => $q->orderBy('name')])
             ->latest();
 
         if ($this->search) {
-            $query->where('name', 'like', "%{$this->search}%");
+            $query->where(function ($q) {
+                $q->where('name', 'like', "%{$this->search}%")
+                    ->orWhereHas('subcategories', function ($sq) {
+                        $sq->where('name', 'like', "%{$this->search}%");
+                    });
+            });
         }
 
         $categories = $query->paginate(15);
 
+        $parentCategories = ExpenseCategory::query()
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
         return view('livewire.expenses.categories.index', [
             'categories' => $categories,
+            'parentCategories' => $parentCategories,
         ])->title(__('Expense Categories'));
     }
 }

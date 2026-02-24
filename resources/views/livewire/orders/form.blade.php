@@ -362,6 +362,34 @@
                 </div>
             </flux:card>
 
+            {{-- Order Expenses (create only, when tailor selected) --}}
+            @if (!$isEdit && $assigned_tailor_id)
+                <flux:card>
+                    <flux:heading size="lg" class="mb-4">Order Expenses</flux:heading>
+                    <div class="grid gap-4 sm:grid-cols-2">
+                        <flux:input
+                            wire:model.blur="order_expense_notes"
+                            label="Description"
+                            placeholder="e.g. Tailoring labor cost"
+                        />
+                        <flux:input
+                            wire:model.live="order_expense_amount"
+                            type="number"
+                            step="1"
+                            min="0"
+                            label="Amount"
+                            placeholder="0.00"
+                        />
+                    </div>
+                    @error('order_expense_notes')
+                        <p class="mt-2 text-sm text-red-500">{{ $message }}</p>
+                    @enderror
+                    @error('order_expense_amount')
+                        <p class="mt-2 text-sm text-red-500">{{ $message }}</p>
+                    @enderror
+                </flux:card>
+            @endif
+
             {{-- Deposit (create only, optional) --}}
             @if (!$isEdit)
                 <flux:card>

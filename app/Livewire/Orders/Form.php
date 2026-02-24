@@ -11,6 +11,7 @@ use App\Models\Branch;
 use App\Models\Customer;
 use App\Models\Invoice;
 use App\Models\Order;
+use App\Models\OrderExpense;
 use App\Models\OrderLine;
 use App\Models\OrderMeasurement;
 use App\Models\OrderPayment;
@@ -69,6 +70,12 @@ class Form extends Component
 
     #[Validate('nullable|numeric|min:0', as: 'discount')]
     public ?float $discount = 0;
+
+    #[Validate('nullable|numeric|min:0.01', as: 'order expense amount')]
+    public ?float $order_expense_amount = null;
+
+    #[Validate('nullable|string|max:1000', as: 'order expense description')]
+    public ?string $order_expense_notes = null;
 
     // Order lines
     public array $lines = [];
@@ -225,6 +232,14 @@ class Form extends Component
         $this->calculateTotals();
     }
 
+    public function updatedAssignedTailorId($value): void
+    {
+        if (blank($value)) {
+            $this->order_expense_amount = null;
+            $this->order_expense_notes = null;
+        }
+    }
+
     public function updatedDepositAmount(): void
     {
         $this->calculateTotals();
@@ -336,6 +351,11 @@ class Form extends Component
             'lines.*.qty' => ['required', 'numeric', 'min:0.01'],
             'lines.*.unit_price' => ['required', 'numeric', 'min:0'],
         ];
+
+        if (! $this->isEdit && $this->assigned_tailor_id) {
+            $rules['order_expense_amount'] = ['required', 'numeric', 'min:0.01'];
+            $rules['order_expense_notes'] = ['required', 'string', 'max:1000'];
+        }
 
         // Global admins must select branch if no context
         if ($user->isGlobalAdmin() && ! $this->isEdit) {
@@ -508,6 +528,15 @@ class Form extends Component
                     $order->refresh();
                     $order->update(['payment_status' => $order->computed_payment_status]);
                     event(new OrderPaymentRecorded($order->fresh(), $payment, auth()->user()));
+                }
+
+                if (! $this->isEdit && $this->assigned_tailor_id && $this->order_expense_amount !== null) {
+                    OrderExpense::create([
+                        'order_id' => $order->id,
+                        'tailor_id' => $this->assigned_tailor_id,
+                        'amount' => (float) $this->order_expense_amount,
+                        'notes' => $this->order_expense_notes ?: null,
+                    ]);
                 }
 
                 // Keep invoice aligned with current order details and lines.

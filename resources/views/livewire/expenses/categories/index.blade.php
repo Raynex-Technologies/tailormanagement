@@ -53,7 +53,7 @@
                 <flux:table.columns>
                     <flux:table.column>{{ __('Name') }}</flux:table.column>
                     <flux:table.column>{{ __('Expenses') }}</flux:table.column>
-                    <flux:table.column>{{ __('Created') }}</flux:table.column>
+                    <flux:table.column>{{ __('Subcategories') }}</flux:table.column>
                     <flux:table.column></flux:table.column>
                 </flux:table.columns>
 
@@ -68,15 +68,33 @@
                                     {{ $category->expenses_count }} {{ __('expenses') }}
                                 </flux:badge>
                             </flux:table.cell>
-                            <flux:table.cell class="text-sm text-zinc-500">
-                                {{ $category->created_at->format('M d, Y') }}
+                            <flux:table.cell>
+                                @php
+                                    $subcategoryNames = $category->subcategories->pluck('name');
+                                    $previewSubcategories = $subcategoryNames->take(3);
+                                    $remainingSubcategories = $subcategoryNames->count() - $previewSubcategories->count();
+                                @endphp
+
+                                @if ($previewSubcategories->isNotEmpty())
+                                    <div class="flex flex-wrap gap-1">
+                                        @foreach ($previewSubcategories as $subcategoryName)
+                                            <flux:badge color="zinc" size="sm">{{ $subcategoryName }}</flux:badge>
+                                        @endforeach
+
+                                        @if ($remainingSubcategories > 0)
+                                            <flux:badge color="zinc" size="sm">+{{ $remainingSubcategories }}</flux:badge>
+                                        @endif
+                                    </div>
+                                @else
+                                    <span class="text-sm text-zinc-500">{{ __('None') }}</span>
+                                @endif
                             </flux:table.cell>
                             <flux:table.cell>
                                 <div class="flex items-center gap-2">
                                     <flux:button size="xs" variant="ghost" wire:click="openEditModal({{ $category->id }})">
                                         <x-icon name="edit" class="size-4" />
                                     </flux:button>
-                                    @if ($category->expenses_count === 0)
+                                    @if ($category->expenses_count === 0 && $category->subcategories_count === 0)
                                         <flux:button size="xs" variant="ghost" wire:click="delete({{ $category->id }})" wire:confirm="Are you sure you want to delete this category?">
                                             <x-icon name="delete" class="size-4 text-red-500" />
                                         </flux:button>
@@ -109,6 +127,30 @@
                         <flux:text class="mt-1 text-sm text-red-500">{{ $message }}</flux:text>
                     @enderror
                 </div>
+
+                @if (! $editingId)
+                    <div class="mt-4 flex items-center gap-2">
+                        <flux:checkbox wire:model="isSubcategory" id="isSubcategory" />
+                        <label for="isSubcategory" class="text-sm text-zinc-700 dark:text-zinc-300">
+                            {{ __('Is Subcategory') }}
+                        </label>
+                    </div>
+
+                    @if ($isSubcategory)
+                        <div class="mt-4">
+                            <flux:label for="parentCategoryId">{{ __('Parent Category') }} *</flux:label>
+                            <flux:select id="parentCategoryId" wire:model="parentCategoryId">
+                                <flux:select.option value="">{{ __('-- Select Parent Category --') }}</flux:select.option>
+                                @foreach ($parentCategories as $parentCategory)
+                                    <flux:select.option value="{{ $parentCategory->id }}">{{ $parentCategory->name }}</flux:select.option>
+                                @endforeach
+                            </flux:select>
+                            @error('parentCategoryId')
+                                <flux:text class="mt-1 text-sm text-red-500">{{ $message }}</flux:text>
+                            @enderror
+                        </div>
+                    @endif
+                @endif
 
                 <div class="mt-6 flex justify-end gap-3">
                     <flux:button type="button" variant="ghost" wire:click="$set('showFormModal', false)">

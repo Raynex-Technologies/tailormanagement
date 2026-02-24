@@ -132,6 +132,11 @@ class Order extends Model
         return $this->hasOne(Invoice::class);
     }
 
+    public function orderExpenses(): HasMany
+    {
+        return $this->hasMany(OrderExpense::class);
+    }
+
     // ============================================
     // Accessors
     // ============================================
