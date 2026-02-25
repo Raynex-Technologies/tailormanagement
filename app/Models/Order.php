@@ -248,11 +248,25 @@ class Order extends Model
     public function scopeDateRange(Builder $query, ?string $from, ?string $to): Builder
     {
         if ($from) {
-            $query->whereDate('created_at', '>=', $from);
+            $query->where(function (Builder $dateQuery) use ($from) {
+                $dateQuery->whereDate('order_date', '>=', $from)
+                    ->orWhere(function (Builder $legacyQuery) use ($from) {
+                        // Keep legacy rows (without order_date) filterable.
+                        $legacyQuery->whereNull('order_date')
+                            ->whereDate('created_at', '>=', $from);
+                    });
+            });
         }
 
         if ($to) {
-            $query->whereDate('created_at', '<=', $to);
+            $query->where(function (Builder $dateQuery) use ($to) {
+                $dateQuery->whereDate('order_date', '<=', $to)
+                    ->orWhere(function (Builder $legacyQuery) use ($to) {
+                        // Keep legacy rows (without order_date) filterable.
+                        $legacyQuery->whereNull('order_date')
+                            ->whereDate('created_at', '<=', $to);
+                    });
+            });
         }
 
         return $query;

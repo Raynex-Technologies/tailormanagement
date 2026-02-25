@@ -52,7 +52,7 @@ class OrdersReport
         // Calculate average turnaround (only for completed orders with completed_at)
         $avgTurnaround = (clone $baseQuery)
             ->whereNotNull('orders.completed_at')
-            ->selectRaw('AVG(TIMESTAMPDIFF(HOUR, orders.created_at, orders.completed_at)) as avg_hours')
+            ->selectRaw('AVG(TIMESTAMPDIFF(HOUR, COALESCE(orders.order_date, DATE(orders.created_at)), orders.completed_at)) as avg_hours')
             ->first();
 
         $avgHours = $avgTurnaround?->avg_hours ?? 0;
@@ -80,6 +80,7 @@ class OrdersReport
             ->join('customers', 'orders.customer_id', '=', 'customers.id')
             ->leftJoin('users', 'orders.assigned_tailor_id', '=', 'users.id')
             ->with(['payments'])
+            ->orderByDesc('orders.order_date')
             ->orderByDesc('orders.created_at')
             ->paginate($perPage);
     }
@@ -98,11 +99,12 @@ class OrdersReport
             ->join('customers', 'orders.customer_id', '=', 'customers.id')
             ->leftJoin('users', 'orders.assigned_tailor_id', '=', 'users.id')
             ->with(['payments'])
+            ->orderByDesc('orders.order_date')
             ->orderByDesc('orders.created_at')
             ->get();
 
         $data = [];
-        $data[] = ['Order No', 'Customer', 'Status', 'Created', 'Due Date', 'Tailor', 'Total', 'Paid', 'Balance'];
+        $data[] = ['Order No', 'Customer', 'Status', 'Order Date', 'Due Date', 'Tailor', 'Total', 'Paid', 'Balance'];
 
         foreach ($rows as $row) {
             $paidAmount = $row->payments->sum('amount');
@@ -110,7 +112,7 @@ class OrdersReport
                 $row->order_no,
                 $row->customer_name,
                 $row->status->label(),
-                Carbon::parse($row->created_at)->format('Y-m-d'),
+                $row->order_date?->format('Y-m-d') ?? Carbon::parse($row->created_at)->format('Y-m-d'),
                 $row->due_date?->format('Y-m-d') ?? '',
                 $row->tailor_name ?? 'Unassigned',
                 number_format($row->total, 2),
@@ -131,11 +133,25 @@ class OrdersReport
 
         // Date range filter
         if ($this->dateFrom) {
-            $query->whereDate('orders.created_at', '>=', $this->dateFrom);
+            $query->where(function ($q) {
+                $q->whereDate('orders.order_date', '>=', $this->dateFrom)
+                    ->orWhere(function ($legacyQuery) {
+                        // Keep legacy rows (without order_date) filterable.
+                        $legacyQuery->whereNull('orders.order_date')
+                            ->whereDate('orders.created_at', '>=', $this->dateFrom);
+                    });
+            });
         }
 
         if ($this->dateTo) {
-            $query->whereDate('orders.created_at', '<=', $this->dateTo);
+            $query->where(function ($q) {
+                $q->whereDate('orders.order_date', '<=', $this->dateTo)
+                    ->orWhere(function ($legacyQuery) {
+                        // Keep legacy rows (without order_date) filterable.
+                        $legacyQuery->whereNull('orders.order_date')
+                            ->whereDate('orders.created_at', '<=', $this->dateTo);
+                    });
+            });
         }
 
         // Status filter

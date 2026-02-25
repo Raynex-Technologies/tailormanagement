@@ -14,6 +14,7 @@ class Expense extends Model
     protected $fillable = [
         'branch_id',
         'expense_category_id',
+        'expense_subcategory_id',
         'amount',
         'vendor',
         'reference',
@@ -34,6 +35,11 @@ class Expense extends Model
     public function category(): BelongsTo
     {
         return $this->belongsTo(ExpenseCategory::class, 'expense_category_id');
+    }
+
+    public function subcategory(): BelongsTo
+    {
+        return $this->belongsTo(ExpenseSubcategory::class, 'expense_subcategory_id');
     }
 
     public function capitalAllocation(): BelongsTo

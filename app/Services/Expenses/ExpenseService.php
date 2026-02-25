@@ -7,6 +7,7 @@ use App\Enums\CapitalTransactionType;
 use App\Models\CapitalAllocation;
 use App\Models\CapitalTransaction;
 use App\Models\Expense;
+use App\Models\ExpenseSubcategory;
 use App\Models\User;
 use App\Notifications\ExpenseCreatedNotification;
 use App\Services\Capital\CapitalAllocationService;
@@ -42,10 +43,15 @@ class ExpenseService
                 $this->validateCapitalAllocation($allocationId, (float) $data['amount'], $branchId);
             }
 
+            $categoryId = $data['expense_category_id'] ?? null;
+            $subcategoryId = $data['expense_subcategory_id'] ?? null;
+            $this->validateExpenseSubcategory($subcategoryId, $categoryId, $branchId);
+
             // Create the expense
             $expense = Expense::create([
                 'branch_id' => $branchId,
-                'expense_category_id' => $data['expense_category_id'] ?? null,
+                'expense_category_id' => $categoryId,
+                'expense_subcategory_id' => $subcategoryId,
                 'amount' => $data['amount'],
                 'vendor' => $data['vendor'] ?? null,
                 'reference' => $data['reference'] ?? null,
@@ -70,7 +76,7 @@ class ExpenseService
             // Notify stakeholders
             $this->notifyExpenseCreated($expense);
 
-            return $expense->load(['category', 'capitalAllocation', 'creator']);
+            return $expense->load(['category', 'subcategory', 'capitalAllocation', 'creator']);
         });
     }
 
@@ -80,6 +86,15 @@ class ExpenseService
      */
     public function update(Expense $expense, array $data, User $actor): Expense
     {
+        $targetCategoryId = array_key_exists('expense_category_id', $data)
+            ? $data['expense_category_id']
+            : $expense->expense_category_id;
+        $targetSubcategoryId = array_key_exists('expense_subcategory_id', $data)
+            ? $data['expense_subcategory_id']
+            : $expense->expense_subcategory_id;
+
+        $this->validateExpenseSubcategory($targetSubcategoryId, $targetCategoryId, $expense->branch_id);
+
         // Check if expense is linked to capital allocation
         $isLinkedToCapital = $expense->capital_allocation_id !== null;
 
@@ -119,7 +134,7 @@ class ExpenseService
             $updateData = [];
 
             // These fields can always be updated
-            $editableFields = ['expense_category_id', 'vendor', 'reference', 'expense_date', 'note'];
+            $editableFields = ['expense_category_id', 'expense_subcategory_id', 'vendor', 'reference', 'expense_date', 'note'];
             foreach ($editableFields as $field) {
                 if (array_key_exists($field, $data)) {
                     $updateData[$field] = $data[$field];
@@ -151,7 +166,7 @@ class ExpenseService
 
             $expense->update($updateData);
 
-            return $expense->fresh(['category', 'capitalAllocation', 'creator']);
+            return $expense->fresh(['category', 'subcategory', 'capitalAllocation', 'creator']);
         });
     }
 
@@ -202,6 +217,38 @@ class ExpenseService
         if ($amount > $availableBalance) {
             throw ValidationException::withMessages([
                 'capital_allocation_id' => "Insufficient capital balance. Available: " . money_tzs($availableBalance) . ", Required: " . money_tzs($amount),
+            ]);
+        }
+    }
+
+    protected function validateExpenseSubcategory(?int $subcategoryId, ?int $categoryId, ?int $branchId): void
+    {
+        if (! $subcategoryId) {
+            return;
+        }
+
+        if (! $categoryId) {
+            throw ValidationException::withMessages([
+                'expense_subcategory_id' => 'A category is required when a subcategory is selected.',
+            ]);
+        }
+
+        $subcategoryQuery = ExpenseSubcategory::whereKey($subcategoryId);
+        if ($branchId) {
+            $subcategoryQuery->where('branch_id', $branchId);
+        }
+
+        $subcategory = $subcategoryQuery->first();
+
+        if (! $subcategory) {
+            throw ValidationException::withMessages([
+                'expense_subcategory_id' => 'Selected subcategory is invalid for this branch.',
+            ]);
+        }
+
+        if ((int) $subcategory->expense_category_id !== (int) $categoryId) {
+            throw ValidationException::withMessages([
+                'expense_subcategory_id' => 'Selected subcategory does not belong to the chosen category.',
             ]);
         }
     }

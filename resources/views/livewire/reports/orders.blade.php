@@ -106,7 +106,7 @@
                         <th class="px-4 py-3">Order No</th>
                         <th class="px-4 py-3">Customer</th>
                         <th class="px-4 py-3">Status</th>
-                        <th class="px-4 py-3">Created</th>
+                        <th class="px-4 py-3">Order Date</th>
                         <th class="px-4 py-3">Due Date</th>
                         <th class="px-4 py-3">Tailor</th>
                         <th class="px-4 py-3 text-right">Total</th>
@@ -132,7 +132,7 @@
                                     {{ $row->status->label() }}
                                 </span>
                             </td>
-                            <td class="px-4 py-3 whitespace-nowrap">{{ $row->created_at->format('M d, Y') }}</td>
+                            <td class="px-4 py-3 whitespace-nowrap">{{ $row->order_date?->format('M d, Y') ?? $row->created_at->format('M d, Y') }}</td>
                             <td class="px-4 py-3 whitespace-nowrap">
                                 @if($row->due_date)
                                     <span class="{{ $row->due_date->isPast() && !in_array($row->status, [\App\Enums\OrderStatus::Completed, \App\Enums\OrderStatus::Delivered, \App\Enums\OrderStatus::Cancelled]) ? 'text-red-600 dark:text-red-400' : '' }}">

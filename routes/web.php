@@ -64,6 +64,12 @@ Route::middleware(['auth', 'verified', 'branch.context'])->group(function () {
             ->name('users.edit');
     });
 
+    // Customers Management
+    Route::prefix('customers')->middleware('can:users.view')->group(function () {
+        Route::get('/', \App\Livewire\Customers\Index::class)->name('customers.index');
+        Route::get('/{customer}', \App\Livewire\Customers\Show::class)->name('customers.show');
+    });
+
     // Access Control (Roles & Permissions) - requires roles.manage permission
     Route::get('access-control', fn () => redirect()->route('access-control.roles.index'))->middleware('can:roles.manage')->name('access-control.index');
     Route::prefix('access-control/roles')->middleware('can:roles.manage')->group(function () {

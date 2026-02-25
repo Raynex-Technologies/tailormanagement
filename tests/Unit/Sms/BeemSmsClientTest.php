@@ -39,10 +39,12 @@ class BeemSmsClientTest extends TestCase
                 return false;
             }
             $body = $request->data();
+            $recipients = $body['recipients'] ?? [];
+            $firstRecipient = is_array($recipients) ? ($recipients[0] ?? null) : null;
+            $destAddr = is_array($firstRecipient) ? ($firstRecipient['dest_addr'] ?? null) : null;
             return $body['source_addr'] === 'MYAPP'
                 && $body['message'] === 'Test message'
-                && isset($body['recipients']['recipient_id_0'])
-                && $body['recipients']['recipient_id_0'] === '255712345678';
+                && $destAddr === '255712345678';
         });
     }
 
@@ -99,5 +101,30 @@ class BeemSmsClientTest extends TestCase
 
         $client = app(BeemSmsClient::class);
         $this->assertFalse($client->isConfigured());
+    }
+
+    public function test_send_retries_with_decoded_secret_when_first_auth_fails(): void
+    {
+        BeemConfig::query()->delete();
+        BeemConfig::create([
+            'api_key' => 'test-api-key',
+            // base64 for a hex-like token candidate that should be retried decoded
+            'secret_key' => 'YWJjZGVmMDEyMzQ1Njc4OWFiY2RlZjAxMjM0NTY3ODlhYmNkZWYwMTIzNDU2Nzg5',
+            'sender_name' => 'MYAPP',
+            'sms_enabled' => true,
+        ]);
+
+        Http::fakeSequence()
+            ->push(['successful' => false, 'message' => 'Invalid Authentication Parameters'], 401)
+            ->push(['successful' => true, 'request_id' => 'beem-req-retry'], 200);
+
+        $client = app(BeemSmsClient::class);
+        $result = $client->send('+255712345678', 'Retry auth test');
+
+        $this->assertTrue($result['success']);
+        $this->assertEquals('beem-req-retry', $result['message_id']);
+        $this->assertEquals(200, $result['http_status']);
+
+        Http::assertSentCount(2);
     }
 }

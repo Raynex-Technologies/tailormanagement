@@ -33,19 +33,19 @@
         <flux:card class="mb-6">
             <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
                 <flux:input
-                    wire:model.blur="search"
+                    wire:model.live.debounce.300ms="search"
                     placeholder="Search order, customer..."
                     icon="magnifying-glass"
                 />
 
-                <flux:select wire:model.blur="statusFilter">
+                <flux:select wire:model.live="statusFilter">
                     <flux:select.option value="">All Status</flux:select.option>
                     @foreach ($statuses as $value => $label)
                         <flux:select.option value="{{ $value }}">{{ $label }}</flux:select.option>
                     @endforeach
                 </flux:select>
 
-                <flux:select wire:model.blur="tailorFilter">
+                <flux:select wire:model.live="tailorFilter">
                     <flux:select.option value="">All Tailors</flux:select.option>
                     @foreach ($tailors as $id => $name)
                         <flux:select.option value="{{ $id }}">{{ $name }}</flux:select.option>
@@ -53,19 +53,19 @@
                 </flux:select>
 
                 <flux:input
-                    wire:model.blur="dateFrom"
+                    wire:model.live="dateFrom"
                     type="date"
                     placeholder="From date"
                 />
 
                 <flux:input
-                    wire:model.blur="dateTo"
+                    wire:model.live="dateTo"
                     type="date"
                     placeholder="To date"
                 />
 
                 <div class="flex items-center gap-2">
-                    <flux:select wire:model.blur="perPage" class="flex-1">
+                    <flux:select wire:model.live="perPage" class="flex-1">
                         <flux:select.option value="15">15</flux:select.option>
                         <flux:select.option value="25">25</flux:select.option>
                         <flux:select.option value="50">50</flux:select.option>

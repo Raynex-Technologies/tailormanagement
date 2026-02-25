@@ -22,9 +22,9 @@ class BeemSmsClient
     public function __construct()
     {
         $config = BeemConfig::instance();
-        $this->apiKey = (string) ($config->api_key ?: config('beem.api_key', ''));
-        $this->secretKey = (string) ($config->secret_key ?: config('beem.secret_key', ''));
-        $this->senderId = (string) ($config->sender_name ?: config('beem.sender_id', 'INFO'));
+        $this->apiKey = trim((string) ($config->api_key ?: config('beem.api_key', '')));
+        $this->secretKey = trim((string) ($config->secret_key ?: config('beem.secret_key', '')));
+        $this->senderId = trim((string) ($config->sender_name ?: config('beem.sender_id', 'INFO')));
         $this->baseUrl = config('beem.base_url', 'https://apisms.beem.africa/v1');
         $this->timeout = config('beem.timeout', 30);
         $this->retryTimes = config('beem.retry_times', 2);
@@ -79,11 +79,17 @@ class BeemSmsClient
         ]);
 
         try {
-            $response = Http::withBasicAuth($this->apiKey, $this->secretKey)
-                ->withOptions(['verify' => $this->verify])
-                ->timeout($this->timeout)
-                ->retry($this->retryTimes, $this->retrySleep)
-                ->post($url, $payload);
+            $response = $this->postToBeem($url, $payload, $this->secretKey);
+
+            // Backward compatibility: some deployments stored BEEM secret as base64 text.
+            // If auth fails, retry once with decoded candidate.
+            if ($response->status() === 401) {
+                $decodedSecret = $this->decodeLegacySecret($this->secretKey);
+                if ($decodedSecret && $decodedSecret !== $this->secretKey) {
+                    Log::warning('Beem returned 401; retrying with decoded secret key candidate.');
+                    $response = $this->postToBeem($url, $payload, $decodedSecret);
+                }
+            }
 
             $body = $response->json() ?? [];
             $httpStatus = $response->status();
@@ -138,6 +144,7 @@ class BeemSmsClient
             $response = Http::withBasicAuth($this->apiKey, $this->secretKey)
                 ->withOptions(['verify' => $this->verify])
                 ->timeout($this->timeout)
+                ->retry($this->retryTimes, $this->retrySleep, null, false)
                 ->get("{$this->baseUrl}/balance");
 
             if ($response->successful()) {
@@ -150,5 +157,36 @@ class BeemSmsClient
 
             return null;
         }
+    }
+
+    protected function postToBeem(string $url, array $payload, string $secret): \Illuminate\Http\Client\Response
+    {
+        return Http::withBasicAuth($this->apiKey, $secret)
+            ->withOptions(['verify' => $this->verify])
+            ->timeout($this->timeout)
+            ->retry($this->retryTimes, $this->retrySleep, null, false)
+            ->post($url, $payload);
+    }
+
+    protected function decodeLegacySecret(string $secret): ?string
+    {
+        if ($secret === '' || preg_match('/^[A-Za-z0-9+\/=]+$/', $secret) !== 1) {
+            return null;
+        }
+
+        $decoded = base64_decode($secret, true);
+        if ($decoded === false || $decoded === '') {
+            return null;
+        }
+
+        // Only accept decoded values matching common token formats to avoid unsafe decoding.
+        if (
+            preg_match('/^[a-f0-9]{32,128}$/i', $decoded) === 1
+            || preg_match('/^[A-Za-z0-9_\-]{32,128}$/', $decoded) === 1
+        ) {
+            return $decoded;
+        }
+
+        return null;
     }
 }

@@ -59,6 +59,11 @@ class Index extends Component
         $this->resetPage();
     }
 
+    public function updatedPerPage(): void
+    {
+        $this->resetPage();
+    }
+
     public function clearFilters(): void
     {
         $this->reset(['search', 'statusFilter', 'tailorFilter', 'dateFrom', 'dateTo']);
@@ -81,7 +86,10 @@ class Index extends Component
             $query->forTailor($user->id);
         }
 
-        $orders = $query->latest()->paginate($this->perPage);
+        $orders = $query
+            ->orderByDesc('order_date')
+            ->orderByDesc('created_at')
+            ->paginate($this->perPage);
 
         // Get statuses for filter
         $statuses = collect(OrderStatus::cases())

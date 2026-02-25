@@ -8,6 +8,7 @@ use App\Models\CapitalAllocation;
 use App\Models\CapitalTransaction;
 use App\Models\Expense;
 use App\Models\ExpenseCategory;
+use App\Models\ExpenseSubcategory;
 use App\Services\Expenses\ExpenseService;
 use Illuminate\Validation\ValidationException;
 use Tests\TestCase;
@@ -173,5 +174,54 @@ class ExpenseFlowTest extends TestCase
         ], $user);
 
         $this->assertEquals($this->branch->id, $expense->branch_id);
+    }
+
+    public function test_expense_can_store_matching_subcategory(): void
+    {
+        $user = $this->actingAsRole('accountant', $this->branch);
+        $category = ExpenseCategory::factory()->create(['branch_id' => $this->branch->id]);
+        $subcategory = ExpenseSubcategory::create([
+            'branch_id' => $this->branch->id,
+            'expense_category_id' => $category->id,
+            'name' => 'Fuel',
+        ]);
+
+        $expense = $this->expenseService->create([
+            'expense_category_id' => $category->id,
+            'expense_subcategory_id' => $subcategory->id,
+            'expense_date' => now()->toDateString(),
+            'amount' => 45000,
+            'vendor' => 'Test Vendor',
+            'note' => 'Expense with subcategory',
+        ], $user);
+
+        $this->assertDatabaseHas('expenses', [
+            'id' => $expense->id,
+            'expense_category_id' => $category->id,
+            'expense_subcategory_id' => $subcategory->id,
+        ]);
+    }
+
+    public function test_expense_rejects_subcategory_not_in_selected_category(): void
+    {
+        $user = $this->actingAsRole('accountant', $this->branch);
+
+        $category = ExpenseCategory::factory()->create(['branch_id' => $this->branch->id]);
+        $otherCategory = ExpenseCategory::factory()->create(['branch_id' => $this->branch->id]);
+        $subcategory = ExpenseSubcategory::create([
+            'branch_id' => $this->branch->id,
+            'expense_category_id' => $otherCategory->id,
+            'name' => 'Irrelevant',
+        ]);
+
+        $this->expectException(ValidationException::class);
+
+        $this->expenseService->create([
+            'expense_category_id' => $category->id,
+            'expense_subcategory_id' => $subcategory->id,
+            'expense_date' => now()->toDateString(),
+            'amount' => 20000,
+            'vendor' => 'Mismatch Vendor',
+        ], $user);
     }
 }

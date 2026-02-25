@@ -7,10 +7,12 @@ use App\Models\Branch;
 use App\Models\CapitalAllocation;
 use App\Models\Expense;
 use App\Models\ExpenseCategory;
+use App\Models\ExpenseSubcategory;
 use App\Services\Capital\CapitalAllocationService;
 use App\Services\Expenses\ExpenseService;
 use App\Support\BranchContext;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 
@@ -30,6 +32,7 @@ class Form extends Component
     // Form fields
     public ?string $expenseDate = null;
     public ?int $expenseCategoryId = null;
+    public ?int $expenseSubcategoryId = null;
     public ?string $vendor = null;
     public ?float $amount = null;
     public ?string $reference = null;
@@ -42,10 +45,30 @@ class Form extends Component
     protected function rules(): array
     {
         $user = auth()->user();
+        $effectiveBranchId = $this->getFormBranchId();
+
+        $categoryExistsRule = Rule::exists('expense_categories', 'id');
+        if ($effectiveBranchId) {
+            $categoryExistsRule = $categoryExistsRule->where(fn ($query) => $query->where('branch_id', $effectiveBranchId));
+        }
+
+        $subcategoryExistsRule = Rule::exists('expense_subcategories', 'id')
+            ->where(function ($query) use ($effectiveBranchId) {
+                if ($this->expenseCategoryId) {
+                    $query->where('expense_category_id', $this->expenseCategoryId);
+                } else {
+                    $query->whereRaw('1 = 0');
+                }
+
+                if ($effectiveBranchId) {
+                    $query->where('branch_id', $effectiveBranchId);
+                }
+            });
 
         $rules = [
             'expenseDate' => ['required', 'date'],
-            'expenseCategoryId' => ['nullable', 'exists:expense_categories,id'],
+            'expenseCategoryId' => ['nullable', 'integer', $categoryExistsRule],
+            'expenseSubcategoryId' => ['nullable', 'integer', $subcategoryExistsRule],
             'vendor' => ['nullable', 'string', 'max:255'],
             'reference' => ['nullable', 'string', 'max:255'],
             'capitalAllocationId' => ['nullable', 'exists:capital_allocations,id'],
@@ -77,6 +100,7 @@ class Form extends Component
             // Populate form
             $this->expenseDate = $expense->expense_date->format('Y-m-d');
             $this->expenseCategoryId = $expense->expense_category_id;
+            $this->expenseSubcategoryId = $expense->expense_subcategory_id;
             $this->vendor = $expense->vendor;
             $this->amount = (float) $expense->amount;
             $this->reference = $expense->reference;
@@ -114,6 +138,23 @@ class Form extends Component
         $this->updateAvailableBalance();
     }
 
+    public function updatedExpenseCategoryId(): void
+    {
+        $this->expenseSubcategoryId = null;
+        $this->resetErrorBag('expenseSubcategoryId');
+    }
+
+    public function updatedBranchId(): void
+    {
+        if (! $this->isEdit) {
+            $this->expenseCategoryId = null;
+            $this->expenseSubcategoryId = null;
+            $this->capitalAllocationId = null;
+            $this->availableBalance = null;
+            $this->resetErrorBag(['expenseCategoryId', 'expenseSubcategoryId', 'capitalAllocationId']);
+        }
+    }
+
     protected function updateAvailableBalance(): void
     {
         if ($this->capitalAllocationId) {
@@ -138,6 +179,7 @@ class Form extends Component
             $data = [
                 'expense_date' => $this->expenseDate,
                 'expense_category_id' => $this->expenseCategoryId,
+                'expense_subcategory_id' => $this->expenseSubcategoryId,
                 'vendor' => $this->vendor,
                 'reference' => $this->reference,
                 'note' => $this->note,
@@ -172,7 +214,46 @@ class Form extends Component
 
     public function render()
     {
-        $categories = ExpenseCategory::orderBy('name')->get(['id', 'name']);
+        $effectiveBranchId = $this->getFormBranchId();
+        $isGlobalAdmin = (bool) auth()->user()?->isGlobalAdmin();
+
+        if ($this->showBranchSelector && ! $this->isEdit && ! $effectiveBranchId) {
+            $categories = collect();
+        } else {
+            $categoriesQuery = ExpenseCategory::query()->orderBy('name');
+            if ($isGlobalAdmin) {
+                $categoriesQuery->withoutBranchScope();
+            }
+            if ($effectiveBranchId) {
+                $categoriesQuery->where('branch_id', $effectiveBranchId);
+            }
+            $categories = $categoriesQuery->get(['id', 'name']);
+        }
+
+        if ($this->expenseCategoryId && ! $categories->contains('id', $this->expenseCategoryId)) {
+            $this->expenseCategoryId = null;
+            $this->expenseSubcategoryId = null;
+        }
+
+        $subcategories = collect();
+        if ($this->expenseCategoryId) {
+            $subcategoriesQuery = ExpenseSubcategory::query()
+                ->where('expense_category_id', $this->expenseCategoryId)
+                ->orderBy('name');
+
+            if ($isGlobalAdmin) {
+                $subcategoriesQuery->withoutBranchScope();
+            }
+            if ($effectiveBranchId) {
+                $subcategoriesQuery->where('branch_id', $effectiveBranchId);
+            }
+
+            $subcategories = $subcategoriesQuery->get(['id', 'name']);
+        }
+
+        if ($this->expenseSubcategoryId && ! $subcategories->contains('id', $this->expenseSubcategoryId)) {
+            $this->expenseSubcategoryId = null;
+        }
 
         // Get open allocations in selected/current branch
         $allocationsQuery = CapitalAllocation::where('status', CapitalAllocationStatus::Open)
@@ -192,8 +273,27 @@ class Form extends Component
 
         return view('livewire.expenses.form', [
             'categories' => $categories,
+            'subcategories' => $subcategories,
             'allocations' => $allocations,
             'branches' => $branches,
         ])->title($this->isEdit ? __('Edit Expense') : __('New Expense'));
+    }
+
+    protected function getFormBranchId(): ?int
+    {
+        if ($this->expense?->exists) {
+            return $this->expense->branch_id;
+        }
+
+        $user = auth()->user();
+        if (! $user) {
+            return $this->branchId;
+        }
+
+        if ($user->isGlobalAdmin()) {
+            return $this->branchId ?? BranchContext::id() ?? $user->branch_id;
+        }
+
+        return $user->branch_id;
     }
 }

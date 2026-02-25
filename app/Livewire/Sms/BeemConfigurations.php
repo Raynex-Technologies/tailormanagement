@@ -53,6 +53,10 @@ class BeemConfigurations extends Component
     public function saveCredentials(): void
     {
         $this->authorize('sms.templates.manage');
+        $this->api_key = trim($this->api_key);
+        $this->secret_key = trim($this->secret_key);
+        $this->sender_name = trim($this->sender_name);
+
         $this->validate([
             'sender_name' => 'nullable|string|max:50',
             'api_key' => 'nullable|string|max:255',

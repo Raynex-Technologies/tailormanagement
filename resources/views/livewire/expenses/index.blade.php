@@ -76,13 +76,13 @@
             {{-- Search --}}
             <div class="w-full lg:w-1/4">
                 <flux:label for="search">{{ __('Search') }}</flux:label>
-                <flux:input id="search" wire:model.blur="search" placeholder="Vendor, reference, note..." icon="magnifying-glass" />
+                <flux:input id="search" wire:model.live.debounce.300ms="search" placeholder="Vendor, reference, note..." icon="magnifying-glass" />
             </div>
 
             {{-- Category --}}
             <div class="w-full lg:w-1/5">
                 <flux:label for="categoryFilter">{{ __('Category') }}</flux:label>
-                <flux:select id="categoryFilter" wire:model.blur="categoryFilter">
+                <flux:select id="categoryFilter" wire:model.live="categoryFilter">
                     <flux:select.option value="">{{ __('All Categories') }}</flux:select.option>
                     @foreach ($categories as $category)
                         <flux:select.option value="{{ $category->id }}">{{ $category->name }}</flux:select.option>
@@ -93,7 +93,7 @@
             {{-- Linked to Capital --}}
             <div class="w-full lg:w-1/5">
                 <flux:label for="linkedToCapitalFilter">{{ __('Capital Linked') }}</flux:label>
-                <flux:select id="linkedToCapitalFilter" wire:model.blur="linkedToCapitalFilter">
+                <flux:select id="linkedToCapitalFilter" wire:model.live="linkedToCapitalFilter">
                     <flux:select.option value="">{{ __('All') }}</flux:select.option>
                     <flux:select.option value="yes">{{ __('Yes') }}</flux:select.option>
                     <flux:select.option value="no">{{ __('No') }}</flux:select.option>
@@ -103,18 +103,18 @@
             {{-- Date From --}}
             <div class="w-full lg:w-1/6">
                 <flux:label for="dateFrom">{{ __('From') }}</flux:label>
-                <flux:input type="date" id="dateFrom" wire:model.blur="dateFrom" />
+                <flux:input type="date" id="dateFrom" wire:model.live="dateFrom" />
             </div>
 
             {{-- Date To --}}
             <div class="w-full lg:w-1/6">
                 <flux:label for="dateTo">{{ __('To') }}</flux:label>
-                <flux:input type="date" id="dateTo" wire:model.blur="dateTo" />
+                <flux:input type="date" id="dateTo" wire:model.live="dateTo" />
             </div>
 
             {{-- Clear Filters --}}
             <div>
-                <flux:button size="sm" variant="ghost" wire:click="clearFilters">
+                <flux:button type="button" size="sm" variant="ghost" wire:click="clearFilters">
                     <x-icon name="close" class="mr-1 size-4" />
                     {{ __('Clear') }}
                 </flux:button>
@@ -195,7 +195,7 @@
             <div class="mt-4 flex items-center justify-between">
                 <div class="flex items-center gap-2">
                     <flux:label for="perPage" class="text-sm">{{ __('Show') }}</flux:label>
-                    <flux:select id="perPage" wire:model.blur="perPage" class="w-20">
+                    <flux:select id="perPage" wire:model.live="perPage" class="w-20">
                         <flux:select.option value="15">15</flux:select.option>
                         <flux:select.option value="25">25</flux:select.option>
                         <flux:select.option value="50">50</flux:select.option>

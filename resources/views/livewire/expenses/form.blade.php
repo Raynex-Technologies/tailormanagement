@@ -32,7 +32,7 @@
             <flux:card class="mb-6">
                 <flux:heading size="lg" class="mb-4">{{ __('Branch Assignment') }}</flux:heading>
                 <div class="max-w-md">
-                    <flux:select wire:model.blur="branchId" label="{{ __('Branch') }}" required>
+                    <flux:select wire:model.live="branchId" label="{{ __('Branch') }}" required>
                         <flux:select.option value="">{{ __('-- Select Branch --') }}</flux:select.option>
                         @foreach ($branches as $branch)
                             <flux:select.option value="{{ $branch->id }}">{{ $branch->name }}</flux:select.option>
@@ -66,7 +66,7 @@
                 {{-- Category --}}
                 <div>
                     <flux:label for="expenseCategoryId">{{ __('Category') }}</flux:label>
-                    <flux:select id="expenseCategoryId" wire:model="expenseCategoryId">
+                    <flux:select id="expenseCategoryId" wire:model.live="expenseCategoryId">
                         <flux:select.option value="">{{ __('-- No Category --') }}</flux:select.option>
                         @foreach ($categories as $category)
                             <flux:select.option value="{{ $category->id }}">{{ $category->name }}</flux:select.option>
@@ -76,6 +76,26 @@
                         <flux:text class="mt-1 text-sm text-red-500">{{ $message }}</flux:text>
                     @enderror
                 </div>
+
+                {{-- Subcategory (only when selected category has subcategories) --}}
+                @if ($expenseCategoryId && $subcategories->isNotEmpty())
+                    <div>
+                        <flux:label for="expenseSubcategoryId">{{ __('Subcategory') }}</flux:label>
+                        <flux:select
+                            id="expenseSubcategoryId"
+                            wire:model.live="expenseSubcategoryId"
+                            wire:key="expense-subcategory-select-{{ $expenseCategoryId }}"
+                        >
+                            <flux:select.option value="">{{ __('-- No Subcategory --') }}</flux:select.option>
+                            @foreach ($subcategories as $subcategory)
+                                <flux:select.option value="{{ $subcategory->id }}">{{ $subcategory->name }}</flux:select.option>
+                            @endforeach
+                        </flux:select>
+                        @error('expenseSubcategoryId')
+                            <flux:text class="mt-1 text-sm text-red-500">{{ $message }}</flux:text>
+                        @enderror
+                    </div>
+                @endif
 
                 {{-- Vendor --}}
                 <div>

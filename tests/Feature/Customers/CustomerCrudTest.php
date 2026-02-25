@@ -1,0 +1,141 @@
+<?php
+
+namespace Tests\Feature\Customers;
+
+use App\Enums\OrderStatus;
+use App\Enums\PaymentStatus;
+use App\Livewire\Customers\Index;
+use App\Models\Customer;
+use App\Models\Order;
+use Livewire\Livewire;
+use Tests\TestCase;
+
+class CustomerCrudTest extends TestCase
+{
+    public function test_users_with_users_view_permission_can_access_customers_page(): void
+    {
+        $this->actingAsRole('branch_manager', $this->branch);
+
+        $this->get(route('customers.index'))
+            ->assertOk()
+            ->assertSee('Customers');
+    }
+
+    public function test_users_without_users_view_permission_cannot_access_customers_page(): void
+    {
+        $this->actingAsRole('sales', $this->branch);
+
+        $this->get(route('customers.index'))
+            ->assertForbidden();
+    }
+
+    public function test_branch_manager_can_create_edit_and_delete_customer(): void
+    {
+        $this->actingAsRole('branch_manager', $this->branch);
+
+        Livewire::test(Index::class)
+            ->call('openCreateModal')
+            ->set('name', 'Alice Mushi')
+            ->set('phone', '+255700111222')
+            ->set('email', 'alice@example.test')
+            ->set('address', 'Mbezi, Dar es Salaam')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $customer = Customer::query()->where('email', 'alice@example.test')->first();
+
+        $this->assertNotNull($customer);
+        $this->assertEquals($this->branch->id, $customer->branch_id);
+
+        Livewire::test(Index::class)
+            ->call('openEditModal', $customer->id)
+            ->set('name', 'Alice Updated')
+            ->set('phone', '+255700333444')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseHas('customers', [
+            'id' => $customer->id,
+            'name' => 'Alice Updated',
+            'phone' => '+255700333444',
+        ]);
+
+        Livewire::test(Index::class)
+            ->call('delete', $customer->id);
+
+        $this->assertDatabaseMissing('customers', [
+            'id' => $customer->id,
+        ]);
+    }
+
+    public function test_cannot_delete_customer_with_existing_orders(): void
+    {
+        $user = $this->actingAsRole('branch_manager', $this->branch);
+        $customer = Customer::factory()->create(['branch_id' => $this->branch->id]);
+
+        Order::create([
+            'branch_id' => $this->branch->id,
+            'customer_id' => $customer->id,
+            'status' => OrderStatus::New,
+            'payment_status' => PaymentStatus::Unpaid,
+            'subtotal' => 10000,
+            'discount' => 0,
+            'total' => 10000,
+            'created_by' => $user->id,
+        ]);
+
+        Livewire::test(Index::class)
+            ->call('delete', $customer->id);
+
+        $this->assertDatabaseHas('customers', [
+            'id' => $customer->id,
+        ]);
+    }
+
+    public function test_customer_show_displays_order_history(): void
+    {
+        $user = $this->actingAsRole('branch_manager', $this->branch);
+        $customer = Customer::factory()->create(['branch_id' => $this->branch->id, 'name' => 'History Customer']);
+
+        $orderA = Order::create([
+            'branch_id' => $this->branch->id,
+            'customer_id' => $customer->id,
+            'status' => OrderStatus::New,
+            'payment_status' => PaymentStatus::Unpaid,
+            'subtotal' => 35000,
+            'discount' => 0,
+            'total' => 35000,
+            'created_by' => $user->id,
+            'order_date' => now()->toDateString(),
+        ]);
+
+        $orderB = Order::create([
+            'branch_id' => $this->branch->id,
+            'customer_id' => $customer->id,
+            'status' => OrderStatus::Completed,
+            'payment_status' => PaymentStatus::Paid,
+            'subtotal' => 50000,
+            'discount' => 0,
+            'total' => 50000,
+            'created_by' => $user->id,
+            'order_date' => now()->subDay()->toDateString(),
+        ]);
+
+        $this->get(route('customers.show', $customer))
+            ->assertOk()
+            ->assertSee('History Customer')
+            ->assertSee('Order History')
+            ->assertSee($orderA->order_no)
+            ->assertSee($orderB->order_no);
+    }
+
+    public function test_branch_manager_cannot_view_customer_from_other_branch(): void
+    {
+        $otherBranchCustomer = Customer::factory()->create(['branch_id' => $this->otherBranch->id]);
+
+        $this->actingAsRole('branch_manager', $this->branch);
+
+        $this->get(route('customers.show', $otherBranchCustomer))
+            ->assertNotFound();
+    }
+}
