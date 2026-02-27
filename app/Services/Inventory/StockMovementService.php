@@ -194,6 +194,60 @@ class StockMovementService
     }
 
     /**
+     * Return previously issued stock back to inventory.
+     *
+     * @param  InventoryItem  $item  The item to return stock to
+     * @param  float  $qty  Quantity to return (must be positive)
+     * @param  string|null  $note  Optional note
+     * @param  User  $actor  User performing the operation
+     * @param  Model|null  $reference  Reference model (e.g., Order)
+     * @return InventoryTransaction The created transaction
+     *
+     * @throws ValidationException
+     */
+    public function return(
+        InventoryItem $item,
+        float $qty,
+        ?string $note,
+        User $actor,
+        ?Model $reference = null
+    ): InventoryTransaction {
+        // Validate quantity
+        if ($qty <= 0) {
+            throw ValidationException::withMessages([
+                'qty' => ['Quantity to return must be greater than zero.'],
+            ]);
+        }
+
+        return DB::transaction(function () use ($item, $qty, $note, $actor, $reference) {
+            // Get or create stock record with lock
+            $stock = $this->getOrCreateStockWithLock($item);
+
+            // Update stock quantity
+            $stock->qty_on_hand += $qty;
+            $stock->save();
+
+            // Prepare reference data
+            $referenceType = $reference ? get_class($reference) : null;
+            $referenceId = $reference?->id;
+
+            // Create transaction record
+            return InventoryTransaction::create([
+                'branch_id' => $item->branch_id ?? BranchContext::id(),
+                'inventory_item_id' => $item->id,
+                'type' => InventoryTransactionType::Return,
+                'qty' => $qty,
+                'unit_cost' => $item->default_sell_price,
+                'total_cost' => $qty * ($item->default_sell_price ?? 0),
+                'reference_type' => $referenceType,
+                'reference_id' => $referenceId,
+                'created_by' => $actor->id,
+                'note' => $note,
+            ]);
+        });
+    }
+
+    /**
      * Get current stock level for an item.
      */
     public function getStockLevel(InventoryItem $item): array

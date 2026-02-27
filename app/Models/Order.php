@@ -10,13 +10,14 @@ use App\Support\DocNumber;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Order extends Model
 {
-    use BranchScoped, HasFactory;
+    use BranchScoped, HasFactory, SoftDeletes;
 
     protected static function booted(): void
     {
@@ -239,7 +240,12 @@ class Order extends Model
             return $query;
         }
 
-        return $query->where('assigned_tailor_id', $tailorId);
+        return $query->where(function (Builder $q) use ($tailorId) {
+            $q->where('assigned_tailor_id', $tailorId)
+                ->orWhereHas('lines', function (Builder $lineQuery) use ($tailorId) {
+                    $lineQuery->where('assigned_tailor_id', $tailorId);
+                });
+        });
     }
 
     /**
@@ -310,7 +316,12 @@ class Order extends Model
      */
     public function scopeForTailor(Builder $query, int $userId): Builder
     {
-        return $query->where('assigned_tailor_id', $userId);
+        return $query->where(function (Builder $q) use ($userId) {
+            $q->where('assigned_tailor_id', $userId)
+                ->orWhereHas('lines', function (Builder $lineQuery) use ($userId) {
+                    $lineQuery->where('assigned_tailor_id', $userId);
+                });
+        });
     }
 
     // ============================================
@@ -334,6 +345,11 @@ class Order extends Model
      */
     public function canTransitionTo(OrderStatus $newStatus): bool
     {
+        // Delivery is only allowed when the order is fully settled.
+        if ($newStatus === OrderStatus::Delivered && $this->hasOutstandingBalance()) {
+            return false;
+        }
+
         $currentStatus = $this->status;
 
         // Define allowed transitions (forward only + cancel from any)
@@ -365,7 +381,13 @@ class Order extends Model
             OrderStatus::Cancelled->value => [],
         ];
 
-        return $transitions[$this->status->value] ?? [];
+        $next = $transitions[$this->status->value] ?? [];
+
+        if ($this->hasOutstandingBalance()) {
+            $next = array_filter($next, fn (OrderStatus $status) => $status !== OrderStatus::Delivered);
+        }
+
+        return array_values($next);
     }
 
     /**
@@ -374,9 +396,35 @@ class Order extends Model
     public function canCreateDeliveryNote(): bool
     {
         // Only allow delivery note for delivered or completed orders
-        // and if one doesn't already exist
+        // and if one doesn't already exist and the order has no balance due
         return in_array($this->status, [OrderStatus::Delivered, OrderStatus::Completed])
+            && ! $this->hasOutstandingBalance()
             && ! $this->deliveryNote()->exists();
+    }
+
+    /**
+     * Check whether the order still has balance due.
+     */
+    public function hasOutstandingBalance(): bool
+    {
+        return $this->balance_due > 0.00001;
+    }
+
+    /**
+     * Check whether this order is assigned to the given tailor either directly
+     * at order level or per any line item.
+     */
+    public function isAssignedToTailor(int $tailorId): bool
+    {
+        if ((int) $this->assigned_tailor_id === $tailorId) {
+            return true;
+        }
+
+        if ($this->relationLoaded('lines')) {
+            return $this->lines->contains(fn (OrderLine $line) => (int) $line->assigned_tailor_id === $tailorId);
+        }
+
+        return $this->lines()->where('assigned_tailor_id', $tailorId)->exists();
     }
 
     /**

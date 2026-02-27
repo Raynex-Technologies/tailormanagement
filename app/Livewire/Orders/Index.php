@@ -75,7 +75,7 @@ class Index extends Component
         $user = auth()->user();
 
         $query = Order::query()
-            ->with(['customer', 'assignedTailor'])
+            ->with(['customer', 'assignedTailor', 'lines.assignedTailor'])
             ->search($this->search)
             ->status($this->statusFilter)
             ->assignedTo($this->tailorFilter ?: null)

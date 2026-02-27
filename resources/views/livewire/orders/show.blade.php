@@ -111,6 +111,18 @@
                             Cancel
                         </flux:button>
                     @endif
+
+                    @if ($canDelete)
+                        <flux:button
+                            size="sm"
+                            variant="danger"
+                            wire:click="deleteOrder"
+                            wire:confirm="Delete this order? This will soft-delete the order and related records, and return issued inventory."
+                        >
+                            <x-icon name="delete" class="mr-1 size-4" />
+                            Delete
+                        </flux:button>
+                    @endif
                 </div>
             </div>
         </flux:card>
@@ -150,9 +162,9 @@
                 </flux:card>
 
                 <flux:card class="text-center">
-                    <flux:text class="text-sm text-zinc-500 dark:text-zinc-400">Assigned Tailor</flux:text>
+                    <flux:text class="text-sm text-zinc-500 dark:text-zinc-400">Assigned Tailor(s)</flux:text>
                     <flux:heading size="lg" class="mt-1">
-                        {{ $order->assignedTailor?->name ?? '—' }}
+                        {{ $tailorDisplay }}
                     </flux:heading>
                 </flux:card>
             </div>
@@ -167,9 +179,9 @@
                 </flux:card>
 
                 <flux:card class="text-center">
-                    <flux:text class="text-sm text-zinc-500 dark:text-zinc-400">Assigned Tailor</flux:text>
+                    <flux:text class="text-sm text-zinc-500 dark:text-zinc-400">Assigned Tailor(s)</flux:text>
                     <flux:heading size="lg" class="mt-1">
-                        {{ $order->assignedTailor?->name ?? '—' }}
+                        {{ $tailorDisplay }}
                     </flux:heading>
                 </flux:card>
 
@@ -206,6 +218,11 @@
                                         <span class="font-medium text-zinc-900 dark:text-white">{{ $line->item_name }}</span>
                                         @if ($line->notes)
                                             <p class="mt-1 text-sm text-zinc-500">{{ $line->notes }}</p>
+                                        @endif
+                                        @if ($line->assignedTailor?->name || $order->assignedTailor?->name)
+                                            <p class="mt-1 text-xs text-zinc-500">
+                                                Tailor: {{ $line->assignedTailor?->name ?? $order->assignedTailor?->name }}
+                                            </p>
                                         @endif
                                     </div>
                                     {{-- Only show pricing if user can view financials --}}

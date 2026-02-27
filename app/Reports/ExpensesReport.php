@@ -3,7 +3,7 @@
 namespace App\Reports;
 
 use App\Models\Expense;
-use App\Support\BranchContext;
+use App\Models\OrderExpense;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Collection;
@@ -15,7 +15,9 @@ class ExpensesReport
 
     protected ?string $dateTo;
 
-    protected ?int $categoryId;
+    protected ?int $categoryId = null;
+
+    protected bool $orderExpensesOnly = false;
 
     protected ?bool $linkedToCapital;
 
@@ -25,11 +27,15 @@ class ExpensesReport
     {
         $this->dateFrom = $filters['date_from'] ?? Carbon::now()->startOfMonth()->toDateString();
         $this->dateTo = $filters['date_to'] ?? Carbon::now()->endOfMonth()->toDateString();
-        $this->categoryId = $filters['category_id'] ?? null;
+        $this->setCategoryFilter($filters['category_id'] ?? null);
         $this->linkedToCapital = isset($filters['linked_to_capital'])
             ? filter_var($filters['linked_to_capital'], FILTER_VALIDATE_BOOLEAN)
             : null;
-        $this->search = $filters['search'] ?? null;
+        $this->search = isset($filters['search']) ? trim((string) $filters['search']) : null;
+
+        if ($this->search === '') {
+            $this->search = null;
+        }
     }
 
     /**
@@ -41,18 +47,17 @@ class ExpensesReport
 
         $stats = (clone $baseQuery)->selectRaw('
             COUNT(*) as total_count,
-            COALESCE(SUM(expenses.amount), 0) as total_expenses
+            COALESCE(SUM(amount), 0) as total_expenses
         ')->first();
 
         $linkedTotal = (clone $baseQuery)
-            ->whereNotNull('expenses.capital_allocation_id')
-            ->sum('expenses.amount');
+            ->whereNotNull('capital_allocation_id')
+            ->sum('amount');
 
         // Get top category
         $topCategory = (clone $baseQuery)
-            ->select('expense_categories.name', DB::raw('SUM(expenses.amount) as total'))
-            ->leftJoin('expense_categories', 'expenses.expense_category_id', '=', 'expense_categories.id')
-            ->groupBy('expense_categories.name')
+            ->select('category_name', DB::raw('SUM(amount) as total'))
+            ->groupBy('category_name')
             ->orderByDesc('total')
             ->first();
 
@@ -60,7 +65,7 @@ class ExpensesReport
             'total_expenses' => (float) ($stats->total_expenses ?? 0),
             'total_count' => (int) ($stats->total_count ?? 0),
             'linked_to_capital_total' => (float) $linkedTotal,
-            'top_category' => $topCategory?->name ?? 'Uncategorized',
+            'top_category' => $topCategory?->category_name ?? 'Uncategorized',
             'top_category_amount' => (float) ($topCategory?->total ?? 0),
         ];
     }
@@ -72,12 +77,11 @@ class ExpensesReport
     {
         return $this->baseQuery()
             ->select(
-                DB::raw('COALESCE(expense_categories.name, "Uncategorized") as category_name'),
+                DB::raw('COALESCE(category_name, "Uncategorized") as category_name'),
                 DB::raw('COUNT(*) as count'),
-                DB::raw('SUM(expenses.amount) as total')
+                DB::raw('SUM(amount) as total')
             )
-            ->leftJoin('expense_categories', 'expenses.expense_category_id', '=', 'expense_categories.id')
-            ->groupBy('expense_categories.name')
+            ->groupBy('category_name')
             ->orderByDesc('total')
             ->get();
     }
@@ -88,16 +92,9 @@ class ExpensesReport
     public function rows(int $perPage = 15): LengthAwarePaginator
     {
         return $this->baseQuery()
-            ->select([
-                'expenses.*',
-                'expense_categories.name as category_name',
-                'capital_allocations.allocation_no',
-                'users.name as created_by_name',
-            ])
-            ->leftJoin('expense_categories', 'expenses.expense_category_id', '=', 'expense_categories.id')
-            ->leftJoin('capital_allocations', 'expenses.capital_allocation_id', '=', 'capital_allocations.id')
-            ->leftJoin('users', 'expenses.created_by', '=', 'users.id')
-            ->orderByDesc('expenses.expense_date')
+            ->orderByDesc('sort_at')
+            ->orderByDesc('source_type')
+            ->orderByDesc('source_id')
             ->paginate($perPage);
     }
 
@@ -107,16 +104,9 @@ class ExpensesReport
     public function export(): array
     {
         $rows = $this->baseQuery()
-            ->select([
-                'expenses.*',
-                'expense_categories.name as category_name',
-                'capital_allocations.allocation_no',
-                'users.name as created_by_name',
-            ])
-            ->leftJoin('expense_categories', 'expenses.expense_category_id', '=', 'expense_categories.id')
-            ->leftJoin('capital_allocations', 'expenses.capital_allocation_id', '=', 'capital_allocations.id')
-            ->leftJoin('users', 'expenses.created_by', '=', 'users.id')
-            ->orderByDesc('expenses.expense_date')
+            ->orderByDesc('sort_at')
+            ->orderByDesc('source_type')
+            ->orderByDesc('source_id')
             ->get();
 
         $data = [];
@@ -142,38 +132,118 @@ class ExpensesReport
      */
     protected function baseQuery()
     {
-        $query = Expense::query();
+        $query = DB::query()->fromSub(
+            $this->regularExpensesQuery()->unionAll($this->orderExpensesQuery()),
+            'report_expenses'
+        );
 
         // Date range filter
         if ($this->dateFrom) {
-            $query->whereDate('expenses.expense_date', '>=', $this->dateFrom);
+            $query->whereDate('expense_date', '>=', $this->dateFrom);
         }
 
         if ($this->dateTo) {
-            $query->whereDate('expenses.expense_date', '<=', $this->dateTo);
+            $query->whereDate('expense_date', '<=', $this->dateTo);
         }
 
         // Category filter
-        if ($this->categoryId) {
-            $query->where('expenses.expense_category_id', $this->categoryId);
+        if ($this->orderExpensesOnly) {
+            $query->where('source_type', 'order_expense');
+        } elseif ($this->categoryId) {
+            $query->where('category_id', $this->categoryId);
         }
 
         // Linked to capital filter
         if ($this->linkedToCapital === true) {
-            $query->whereNotNull('expenses.capital_allocation_id');
+            $query->whereNotNull('capital_allocation_id');
         } elseif ($this->linkedToCapital === false) {
-            $query->whereNull('expenses.capital_allocation_id');
+            $query->whereNull('capital_allocation_id');
         }
 
         // Search filter
         if ($this->search) {
-            $query->where(function ($q) {
-                $q->where('expenses.vendor', 'like', "%{$this->search}%")
-                    ->orWhere('expenses.reference', 'like', "%{$this->search}%")
-                    ->orWhere('expenses.note', 'like', "%{$this->search}%");
+            $search = '%' . $this->search . '%';
+
+            $query->where(function ($q) use ($search) {
+                $q->where('vendor', 'like', $search)
+                    ->orWhere('reference', 'like', $search)
+                    ->orWhere('note', 'like', $search)
+                    ->orWhere('created_by_name', 'like', $search)
+                    ->orWhere('category_name', 'like', $search);
             });
         }
 
         return $query;
+    }
+
+    /**
+     * Resolve category filter into regular category or order-expense shortcut.
+     */
+    protected function setCategoryFilter($categoryFilter): void
+    {
+        $this->categoryId = null;
+        $this->orderExpensesOnly = false;
+
+        if (is_string($categoryFilter) && $categoryFilter === 'order_expenses') {
+            $this->orderExpensesOnly = true;
+
+            return;
+        }
+
+        if (is_numeric($categoryFilter) && (int) $categoryFilter > 0) {
+            $this->categoryId = (int) $categoryFilter;
+        }
+    }
+
+    /**
+     * Base projection for regular expenses.
+     */
+    protected function regularExpensesQuery()
+    {
+        return Expense::query()
+            ->select([
+                'expenses.id as source_id',
+                DB::raw("'expense' as source_type"),
+                'expenses.expense_date as expense_date',
+                'expenses.expense_date as sort_at',
+                'expenses.amount as amount',
+                'expenses.expense_category_id as category_id',
+                DB::raw('COALESCE(expense_categories.name, "Uncategorized") as category_name'),
+                'expenses.vendor as vendor',
+                'expenses.capital_allocation_id as capital_allocation_id',
+                'capital_allocations.allocation_no as allocation_no',
+                'users.name as created_by_name',
+                'expenses.reference as reference',
+                'expenses.note as note',
+            ])
+            ->leftJoin('expense_categories', 'expenses.expense_category_id', '=', 'expense_categories.id')
+            ->leftJoin('capital_allocations', 'expenses.capital_allocation_id', '=', 'capital_allocations.id')
+            ->leftJoin('users', 'expenses.created_by', '=', 'users.id');
+    }
+
+    /**
+     * Base projection for order expenses.
+     */
+    protected function orderExpensesQuery()
+    {
+        return OrderExpense::query()
+            ->select([
+                'order_expenses.id as source_id',
+                DB::raw("'order_expense' as source_type"),
+                DB::raw('DATE(order_expenses.created_at) as expense_date'),
+                'order_expenses.created_at as sort_at',
+                'order_expenses.amount as amount',
+                DB::raw('NULL as category_id'),
+                DB::raw("'Order Expenses' as category_name"),
+                'tailors.name as vendor',
+                DB::raw('NULL as capital_allocation_id'),
+                DB::raw('NULL as allocation_no'),
+                'tailors.name as created_by_name',
+                'orders.order_no as reference',
+                'order_expenses.notes as note',
+            ])
+            ->join('orders', 'order_expenses.order_id', '=', 'orders.id')
+            ->leftJoin('users as tailors', 'order_expenses.tailor_id', '=', 'tailors.id')
+            ->whereHas('order');
     }
 }

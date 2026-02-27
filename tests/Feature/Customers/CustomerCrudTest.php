@@ -7,6 +7,7 @@ use App\Enums\PaymentStatus;
 use App\Livewire\Customers\Index;
 use App\Models\Customer;
 use App\Models\Order;
+use Illuminate\Database\QueryException;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -65,6 +66,76 @@ class CustomerCrudTest extends TestCase
 
         $this->assertDatabaseMissing('customers', [
             'id' => $customer->id,
+        ]);
+    }
+
+    public function test_customer_phone_must_be_unique_within_the_same_branch(): void
+    {
+        $this->actingAsRole('branch_manager', $this->branch);
+
+        Customer::create([
+            'branch_id' => $this->branch->id,
+            'name' => 'Existing Customer',
+            'phone' => '+255700999111',
+        ]);
+
+        Livewire::test(Index::class)
+            ->call('openCreateModal')
+            ->set('name', 'Duplicate Phone Customer')
+            ->set('phone', '+255700999111')
+            ->call('save')
+            ->assertHasErrors(['phone' => 'unique']);
+    }
+
+    public function test_customer_phone_can_be_reused_in_a_different_branch(): void
+    {
+        $phone = '+255700999222';
+
+        $this->actingAsRole('branch_manager', $this->branch);
+
+        Livewire::test(Index::class)
+            ->call('openCreateModal')
+            ->set('name', 'Branch One Customer')
+            ->set('phone', $phone)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->actingAsRole('branch_manager', $this->otherBranch);
+
+        Livewire::test(Index::class)
+            ->call('openCreateModal')
+            ->set('name', 'Branch Two Customer')
+            ->set('phone', $phone)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseHas('customers', [
+            'branch_id' => $this->branch->id,
+            'phone' => $phone,
+        ]);
+
+        $this->assertDatabaseHas('customers', [
+            'branch_id' => $this->otherBranch->id,
+            'phone' => $phone,
+        ]);
+    }
+
+    public function test_database_rejects_duplicate_customer_phone_in_same_branch(): void
+    {
+        $this->actingAsRole('branch_manager', $this->branch);
+
+        Customer::create([
+            'branch_id' => $this->branch->id,
+            'name' => 'First Customer',
+            'phone' => '+255700999333',
+        ]);
+
+        $this->expectException(QueryException::class);
+
+        Customer::create([
+            'branch_id' => $this->branch->id,
+            'name' => 'Second Customer',
+            'phone' => '+255700999333',
         ]);
     }
 

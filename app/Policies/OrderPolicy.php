@@ -37,7 +37,7 @@ class OrderPolicy
 
         // Tailors can only view their assigned orders
         if ($user->hasRole('tailor')) {
-            return $order->assigned_tailor_id === $user->id;
+            return $order->isAssignedToTailor($user->id);
         }
 
         return true;

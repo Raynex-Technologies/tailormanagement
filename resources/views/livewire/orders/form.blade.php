@@ -50,7 +50,7 @@
                 <flux:card>
                     <flux:heading size="lg" class="mb-4">Branch Assignment</flux:heading>
                     <div class="max-w-md">
-                        <flux:select wire:model.blur="branch_id" label="Branch" required>
+                        <flux:select wire:model.live="branch_id" label="Branch" required>
                             <flux:select.option value="">-- Select Branch --</flux:select.option>
                             @foreach ($branches as $branch)
                                 <flux:select.option value="{{ $branch->id }}">{{ $branch->name }}</flux:select.option>
@@ -221,8 +221,8 @@
                     </flux:select>
 
                     @can('orders.assign_tailor')
-                        <flux:select wire:model="assigned_tailor_id" label="Assigned Tailor">
-                            <flux:select.option value="">-- Select Tailor --</flux:select.option>
+                        <flux:select wire:model.live="assigned_tailor_id" label="Order Tailor (Optional)">
+                            <flux:select.option value="">-- No Order Tailor --</flux:select.option>
                             @foreach ($tailors as $tailor)
                                 <flux:select.option value="{{ $tailor->id }}">{{ $tailor->name }}</flux:select.option>
                             @endforeach
@@ -259,6 +259,10 @@
                     </flux:button>
                 </div>
 
+                @php
+                    $hasOrderTailor = (int) ($assigned_tailor_id ?? 0) > 0;
+                @endphp
+
                 <div class="space-y-6">
                     @foreach ($lines as $index => $line)
                         <div class="rounded-xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-800/50" wire:key="line-{{ $index }}">
@@ -273,7 +277,7 @@
                             </div>
 
                             {{-- Line Details --}}
-                            <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+                            <div class="grid gap-4 sm:grid-cols-2 {{ $hasOrderTailor ? 'lg:grid-cols-5' : 'lg:grid-cols-6' }}">
                                 <div class="lg:col-span-2">
                                     <flux:input
                                         wire:model="lines.{{ $index }}.item_name"
@@ -282,6 +286,16 @@
                                         required
                                     />
                                 </div>
+                                @can('orders.assign_tailor')
+                                    @if (!$hasOrderTailor)
+                                        <flux:select wire:model.live="lines.{{ $index }}.assigned_tailor_id" label="Line Tailor">
+                                            <flux:select.option value="">-- No Specific Tailor --</flux:select.option>
+                                            @foreach ($tailors as $tailor)
+                                                <flux:select.option value="{{ $tailor->id }}">{{ $tailor->name }}</flux:select.option>
+                                            @endforeach
+                                        </flux:select>
+                                    @endif
+                                @endcan
                                 <flux:input
                                     wire:model.live="lines.{{ $index }}.qty"
                                     type="number"
@@ -362,33 +376,87 @@
                 </div>
             </flux:card>
 
-            {{-- Order Expenses (create only, when tailor selected) --}}
-            @if (!$isEdit && $assigned_tailor_id)
-                <flux:card>
-                    <flux:heading size="lg" class="mb-4">Order Expenses</flux:heading>
-                    <div class="grid gap-4 sm:grid-cols-2">
-                        <flux:input
-                            wire:model.blur="order_expense_notes"
-                            label="Description"
-                            placeholder="e.g. Tailoring labor cost"
-                        />
-                        <flux:input
-                            wire:model.live="order_expense_amount"
-                            type="number"
-                            step="1"
-                            min="0"
-                            label="Amount"
-                            placeholder="0.00"
-                        />
-                    </div>
-                    @error('order_expense_notes')
-                        <p class="mt-2 text-sm text-red-500">{{ $message }}</p>
-                    @enderror
-                    @error('order_expense_amount')
-                        <p class="mt-2 text-sm text-red-500">{{ $message }}</p>
-                    @enderror
-                </flux:card>
-            @endif
+            {{-- Order Expenses --}}
+            <flux:card>
+                <div class="mb-4 flex items-center justify-between">
+                    <flux:heading size="lg">Order Expenses</flux:heading>
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400">Auto-generated per assigned tailor</p>
+                </div>
+
+                @php
+                    $selectedExpenseTailorIds = $hasOrderTailor
+                        ? collect([(int) $assigned_tailor_id])->filter()
+                        : collect($lines)
+                            ->filter(fn ($line) => trim((string) ($line['item_name'] ?? '')) !== '')
+                            ->pluck('assigned_tailor_id')
+                            ->filter()
+                            ->map(fn ($id) => (int) $id)
+                            ->unique()
+                            ->values();
+
+                    $expensesLocked = $selectedExpenseTailorIds->isEmpty();
+                @endphp
+
+                <div class="space-y-4">
+                    @foreach ($order_expenses as $expenseIndex => $expense)
+                        @php
+                            $expenseTailorId = (int) ($expense['tailor_id'] ?? 0);
+                            $expenseTailorName = $expenseTailorId > 0
+                                ? ($tailors->firstWhere('id', $expenseTailorId)?->name ?? 'Assigned tailor')
+                                : 'No tailor selected';
+                        @endphp
+                        <div class="rounded-xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-800/50" wire:key="order-expense-{{ $expenseIndex }}">
+                            <div class="mb-4 flex items-start justify-between gap-3">
+                                <flux:badge size="sm">Expense {{ $expenseIndex + 1 }}</flux:badge>
+                                <span class="text-sm font-medium text-zinc-600 dark:text-zinc-300">{{ $expenseTailorName }}</span>
+                            </div>
+
+                            <input type="hidden" wire:model="order_expenses.{{ $expenseIndex }}.tailor_id" />
+
+                            <div class="grid gap-4 sm:grid-cols-2">
+                                <flux:input
+                                    wire:model.blur="order_expenses.{{ $expenseIndex }}.notes"
+                                    label="Description"
+                                    placeholder="e.g. Tailoring labor cost"
+                                    :disabled="$expensesLocked"
+                                />
+                                <flux:input
+                                    wire:model.live="order_expenses.{{ $expenseIndex }}.amount"
+                                    type="number"
+                                    step="1"
+                                    min="0"
+                                    label="Amount"
+                                    placeholder="0.00"
+                                    :disabled="$expensesLocked"
+                                />
+                            </div>
+
+                            @error("order_expenses.$expenseIndex.tailor_id")
+                                <p class="mt-2 text-sm text-red-500">{{ $message }}</p>
+                            @enderror
+                            @error("order_expenses.$expenseIndex.notes")
+                                <p class="mt-2 text-sm text-red-500">{{ $message }}</p>
+                            @enderror
+                            @error("order_expenses.$expenseIndex.amount")
+                                <p class="mt-2 text-sm text-red-500">{{ $message }}</p>
+                            @enderror
+                        </div>
+                    @endforeach
+                </div>
+
+                @if ($expensesLocked)
+                    <p class="mt-3 text-sm text-zinc-500 dark:text-zinc-400">
+                        Select an order tailor or assign line tailor(s) to activate order expenses.
+                    </p>
+                @elseif (!$hasOrderTailor)
+                    <p class="mt-3 text-sm text-zinc-500 dark:text-zinc-400">
+                        One expense line is generated per unique inline tailor assignment.
+                    </p>
+                @endif
+                @error('order_expenses')
+                    <p class="mt-2 text-sm text-red-500">{{ $message }}</p>
+                @enderror
+            </flux:card>
 
             {{-- Deposit (create only, optional) --}}
             @if (!$isEdit)

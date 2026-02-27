@@ -92,7 +92,7 @@
                                 <th class="px-4 py-3 text-right">{{ __('Total') }}</th>
                                 <th class="px-4 py-3 text-center">{{ __('Payment') }}</th>
                             @endif
-                            <th class="px-4 py-3">{{ __('Tailor') }}</th>
+                            <th class="px-4 py-3">{{ __('Tailor(s)') }}</th>
                             <th class="px-4 py-3 text-right">{{ __('Actions') }}</th>
                         </tr>
                     </thead>
@@ -149,7 +149,19 @@
                                     </td>
                                 @endif
                                 <td class="px-4 py-3">
-                                    {{ $order->assignedTailor?->name ?? '—' }}
+                                    @php
+                                        $tailorNames = collect();
+                                        if ($order->assignedTailor?->name) {
+                                            $tailorNames->push($order->assignedTailor->name);
+                                        }
+                                        $lineTailorNames = $order->lines->pluck('assignedTailor.name')->filter()->unique()->values();
+                                        foreach ($lineTailorNames as $lineTailorName) {
+                                            if (! $tailorNames->contains($lineTailorName)) {
+                                                $tailorNames->push($lineTailorName);
+                                            }
+                                        }
+                                    @endphp
+                                    {{ $tailorNames->isNotEmpty() ? $tailorNames->implode(', ') : '—' }}
                                 </td>
                                 <td class="px-4 py-3">
                                     <div class="flex items-center justify-end gap-1">

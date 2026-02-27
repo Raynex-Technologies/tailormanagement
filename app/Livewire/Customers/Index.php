@@ -6,6 +6,7 @@ use App\Models\Branch;
 use App\Models\Customer;
 use App\Support\BranchContext;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 use Livewire\WithPagination;
@@ -41,9 +42,26 @@ class Index extends Component
 
     protected function rules(): array
     {
+        $targetBranchId = $this->editingId
+            ? $this->branchId
+            : $this->effectiveCreateBranchId();
+
+        $phoneRules = ['nullable', 'string', 'max:50'];
+
+        if ($targetBranchId) {
+            $phoneUniqueRule = Rule::unique('customers', 'phone')
+                ->where(fn ($query) => $query->where('branch_id', $targetBranchId));
+
+            if ($this->editingId) {
+                $phoneUniqueRule = $phoneUniqueRule->ignore($this->editingId);
+            }
+
+            $phoneRules[] = $phoneUniqueRule;
+        }
+
         $rules = [
             'name' => ['required', 'string', 'max:255'],
-            'phone' => ['nullable', 'string', 'max:50'],
+            'phone' => $phoneRules,
             'email' => ['nullable', 'email', 'max:255'],
             'address' => ['nullable', 'string', 'max:2000'],
             'dob' => ['nullable', 'date', 'before_or_equal:today'],

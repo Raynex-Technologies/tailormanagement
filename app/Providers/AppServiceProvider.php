@@ -10,6 +10,7 @@ use App\Models\Expense;
 use App\Models\ExpenseCategory;
 use App\Models\InventoryCategory;
 use App\Models\InventoryItem;
+use App\Models\InventoryUnit;
 use App\Models\Invoice;
 use App\Models\Message;
 use App\Models\Order;
@@ -25,6 +26,7 @@ use App\Policies\ExpenseCategoryPolicy;
 use App\Policies\ExpensePolicy;
 use App\Policies\InventoryCategoryPolicy;
 use App\Policies\InventoryItemPolicy;
+use App\Policies\InventoryUnitPolicy;
 use App\Policies\InvoicePolicy;
 use App\Policies\MessagePolicy;
 use App\Policies\OrderPolicy;
@@ -60,6 +62,7 @@ class AppServiceProvider extends ServiceProvider
         ExpenseCategory::class => ExpenseCategoryPolicy::class,
         InventoryCategory::class => InventoryCategoryPolicy::class,
         InventoryItem::class => InventoryItemPolicy::class,
+        InventoryUnit::class => InventoryUnitPolicy::class,
         Invoice::class => InvoicePolicy::class,
         Message::class => MessagePolicy::class,
         Order::class => OrderPolicy::class,

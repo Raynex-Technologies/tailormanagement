@@ -4,9 +4,12 @@ namespace Tests\Feature\Orders;
 
 use App\Enums\OrderStatus;
 use App\Enums\PaymentStatus;
+use App\Livewire\Orders\Form as OrderForm;
 use App\Models\Customer;
 use App\Models\Order;
+use App\Models\OrderExpense;
 use App\Models\OrderLine;
+use App\Models\OrderPayment;
 use App\Models\User;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -127,6 +130,48 @@ class OrderFlowTest extends TestCase
         $this->assertFalse($order->canTransitionTo(OrderStatus::New)); // Cannot go back
     }
 
+    public function test_ready_order_cannot_transition_to_delivered_when_balance_exists(): void
+    {
+        $user = $this->actingAsRole('branch_manager', $this->branch);
+        $customer = Customer::factory()->create(['branch_id' => $this->branch->id]);
+
+        $order = Order::create([
+            'branch_id' => $this->branch->id,
+            'customer_id' => $customer->id,
+            'status' => OrderStatus::Ready,
+            'due_date' => now()->addDays(7),
+            'subtotal' => 50000,
+            'discount' => 0,
+            'total' => 50000,
+            'payment_status' => PaymentStatus::Partial,
+            'created_by' => $user->id,
+        ]);
+
+        $this->assertTrue($order->hasOutstandingBalance());
+        $this->assertFalse($order->canTransitionTo(OrderStatus::Delivered));
+    }
+
+    public function test_delivered_order_with_balance_cannot_create_delivery_note(): void
+    {
+        $user = $this->actingAsRole('branch_manager', $this->branch);
+        $customer = Customer::factory()->create(['branch_id' => $this->branch->id]);
+
+        $order = Order::create([
+            'branch_id' => $this->branch->id,
+            'customer_id' => $customer->id,
+            'status' => OrderStatus::Delivered,
+            'due_date' => now()->addDays(7),
+            'subtotal' => 50000,
+            'discount' => 0,
+            'total' => 50000,
+            'payment_status' => PaymentStatus::Partial,
+            'created_by' => $user->id,
+        ]);
+
+        $this->assertTrue($order->hasOutstandingBalance());
+        $this->assertFalse($order->canCreateDeliveryNote());
+    }
+
     public function test_delivery_note_creation_only_when_allowed(): void
     {
         $user = $this->actingAsRole('branch_manager', $this->branch);
@@ -160,6 +205,15 @@ class OrderFlowTest extends TestCase
             'created_by' => $user->id,
         ]);
 
+        OrderPayment::create([
+            'branch_id' => $this->branch->id,
+            'order_id' => $deliveredOrder->id,
+            'amount' => 50000,
+            'paid_at' => now(),
+            'received_by' => $user->id,
+            'payment_method_id' => null,
+        ]);
+
         $this->assertTrue($deliveredOrder->canCreateDeliveryNote());
     }
 
@@ -178,6 +232,15 @@ class OrderFlowTest extends TestCase
             'total' => 50000,
             'payment_status' => PaymentStatus::Paid,
             'created_by' => $user->id,
+        ]);
+
+        OrderPayment::create([
+            'branch_id' => $this->branch->id,
+            'order_id' => $order->id,
+            'amount' => 50000,
+            'paid_at' => now(),
+            'received_by' => $user->id,
+            'payment_method_id' => null,
         ]);
 
         // Create first delivery note
@@ -215,5 +278,522 @@ class OrderFlowTest extends TestCase
         $order->refresh();
 
         $this->assertNotNull($order->completed_at);
+    }
+
+    public function test_create_order_expenses_are_collapsed_to_one_row_per_selected_order_tailor(): void
+    {
+        $this->actingAsRole('branch_manager', $this->branch);
+        $tailor = $this->createUserWithRole('tailor', $this->branch);
+        $customer = Customer::factory()->create(['branch_id' => $this->branch->id]);
+
+        Livewire::test(OrderForm::class)
+            ->set('customer_id', $customer->id)
+            ->set('assigned_tailor_id', $tailor->id)
+            ->set('lines.0.item_name', 'Three-piece suit')
+            ->set('lines.0.qty', 1)
+            ->set('lines.0.unit_price', 150000)
+            ->set('order_expenses', [
+                ['notes' => 'Tailoring labor', 'amount' => 25000],
+                ['notes' => 'Additional fittings', 'amount' => 8000],
+            ])
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $order = Order::query()->latest('id')->first();
+
+        $this->assertNotNull($order);
+
+        $expenses = OrderExpense::query()
+            ->where('order_id', $order->id)
+            ->orderBy('id')
+            ->get();
+
+        $this->assertCount(1, $expenses);
+        $this->assertSame($tailor->id, $expenses[0]->tailor_id);
+        $this->assertSame('Tailoring labor', $expenses[0]->notes);
+        $this->assertEquals(25000.0, (float) $expenses[0]->amount);
+    }
+
+    public function test_create_order_expenses_use_single_line_tailor_when_order_tailor_is_empty(): void
+    {
+        $this->actingAsRole('branch_manager', $this->branch);
+        $tailor = $this->createUserWithRole('tailor', $this->branch);
+        $customer = Customer::factory()->create(['branch_id' => $this->branch->id]);
+
+        Livewire::test(OrderForm::class)
+            ->set('customer_id', $customer->id)
+            ->set('lines', [
+                [
+                    'id' => null,
+                    'assigned_tailor_id' => $tailor->id,
+                    'item_name' => 'Kanzu',
+                    'qty' => 1,
+                    'unit_price' => 70000,
+                    'line_total' => 70000,
+                    'notes' => '',
+                    'measurements' => [['key' => '', 'value' => '']],
+                ],
+            ])
+            ->set('order_expenses', [
+                ['notes' => 'Thread and trims', 'amount' => 5000],
+            ])
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $order = Order::query()->latest('id')->first();
+        $this->assertNotNull($order);
+
+        $expense = OrderExpense::query()
+            ->where('order_id', $order->id)
+            ->first();
+
+        $this->assertNotNull($expense);
+        $this->assertSame($tailor->id, $expense->tailor_id);
+        $this->assertSame('Thread and trims', $expense->notes);
+    }
+
+    public function test_create_order_expenses_do_not_fail_when_order_tailor_value_is_zero_and_line_tailor_is_selected(): void
+    {
+        $this->actingAsRole('branch_manager', $this->branch);
+        $tailor = $this->createUserWithRole('tailor', $this->branch);
+        $customer = Customer::factory()->create(['branch_id' => $this->branch->id]);
+
+        Livewire::test(OrderForm::class)
+            ->set('customer_id', $customer->id)
+            ->set('assigned_tailor_id', 0)
+            ->set('lines.0.item_name', 'Blazer')
+            ->set('lines.0.qty', 1)
+            ->set('lines.0.unit_price', 85000)
+            ->set('lines.0.assigned_tailor_id', (string) $tailor->id)
+            ->set('order_expenses', [
+                ['notes' => 'Buttons and lining', 'amount' => 7000],
+            ])
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $order = Order::query()->latest('id')->first();
+        $this->assertNotNull($order);
+
+        $expense = OrderExpense::query()
+            ->where('order_id', $order->id)
+            ->first();
+
+        $this->assertNotNull($expense);
+        $this->assertSame($tailor->id, $expense->tailor_id);
+    }
+
+    public function test_create_order_expenses_create_one_row_per_inline_tailor_when_order_tailor_is_empty(): void
+    {
+        $this->actingAsRole('branch_manager', $this->branch);
+        $tailorA = $this->createUserWithRole('tailor', $this->branch);
+        $tailorB = $this->createUserWithRole('tailor', $this->branch);
+        $customer = Customer::factory()->create(['branch_id' => $this->branch->id]);
+
+        Livewire::test(OrderForm::class)
+            ->set('customer_id', $customer->id)
+            ->set('lines', [
+                [
+                    'id' => null,
+                    'assigned_tailor_id' => $tailorA->id,
+                    'item_name' => 'Shirt',
+                    'qty' => 1,
+                    'unit_price' => 40000,
+                    'line_total' => 40000,
+                    'notes' => '',
+                    'measurements' => [['key' => '', 'value' => '']],
+                ],
+                [
+                    'id' => null,
+                    'assigned_tailor_id' => $tailorB->id,
+                    'item_name' => 'Trouser',
+                    'qty' => 1,
+                    'unit_price' => 45000,
+                    'line_total' => 45000,
+                    'notes' => '',
+                    'measurements' => [['key' => '', 'value' => '']],
+                ],
+            ])
+            ->set('order_expenses', [
+                ['notes' => 'Shirt labor', 'amount' => 5000],
+                ['notes' => 'Trouser labor', 'amount' => 4000],
+            ])
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $order = Order::query()->latest('id')->first();
+        $this->assertNotNull($order);
+
+        $expenses = OrderExpense::query()
+            ->where('order_id', $order->id)
+            ->orderBy('tailor_id')
+            ->get();
+
+        $this->assertCount(2, $expenses);
+        $this->assertSame([$tailorA->id, $tailorB->id], $expenses->pluck('tailor_id')->all());
+    }
+
+    public function test_create_order_expenses_dedupe_inline_tailor_when_multiple_lines_share_same_tailor(): void
+    {
+        $this->actingAsRole('branch_manager', $this->branch);
+        $tailor = $this->createUserWithRole('tailor', $this->branch);
+        $customer = Customer::factory()->create(['branch_id' => $this->branch->id]);
+
+        Livewire::test(OrderForm::class)
+            ->set('customer_id', $customer->id)
+            ->set('lines', [
+                [
+                    'id' => null,
+                    'assigned_tailor_id' => $tailor->id,
+                    'item_name' => 'Shirt',
+                    'qty' => 1,
+                    'unit_price' => 40000,
+                    'line_total' => 40000,
+                    'notes' => '',
+                    'measurements' => [['key' => '', 'value' => '']],
+                ],
+                [
+                    'id' => null,
+                    'assigned_tailor_id' => $tailor->id,
+                    'item_name' => 'Trouser',
+                    'qty' => 1,
+                    'unit_price' => 45000,
+                    'line_total' => 45000,
+                    'notes' => '',
+                    'measurements' => [['key' => '', 'value' => '']],
+                ],
+            ])
+            ->set('order_expenses', [
+                ['notes' => 'Combined labor', 'amount' => 12000],
+            ])
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $order = Order::query()->latest('id')->first();
+        $this->assertNotNull($order);
+
+        $expenses = OrderExpense::query()
+            ->where('order_id', $order->id)
+            ->get();
+
+        $this->assertCount(1, $expenses);
+        $this->assertSame($tailor->id, (int) $expenses->first()->tailor_id);
+    }
+
+    public function test_create_order_new_customer_phone_must_be_unique_within_branch(): void
+    {
+        $this->actingAsRole('branch_manager', $this->branch);
+
+        Customer::factory()->create([
+            'branch_id' => $this->branch->id,
+            'phone' => '+255700888111',
+        ]);
+
+        Livewire::test(OrderForm::class)
+            ->call('toggleNewCustomerForm')
+            ->set('newCustomerName', 'Order Customer')
+            ->set('newCustomerPhone', '+255700888111')
+            ->set('lines.0.item_name', 'Wedding Suit')
+            ->set('lines.0.qty', 1)
+            ->set('lines.0.unit_price', 220000)
+            ->call('save')
+            ->assertHasErrors(['newCustomerPhone' => 'unique']);
+    }
+
+    public function test_order_scopes_include_line_level_tailor_assignments(): void
+    {
+        $manager = $this->actingAsRole('branch_manager', $this->branch);
+        $tailorA = $this->createUserWithRole('tailor', $this->branch);
+        $tailorB = $this->createUserWithRole('tailor', $this->branch);
+        $customer = Customer::factory()->create(['branch_id' => $this->branch->id]);
+
+        $lineAssignedOrder = Order::create([
+            'branch_id' => $this->branch->id,
+            'customer_id' => $customer->id,
+            'status' => OrderStatus::New,
+            'subtotal' => 50000,
+            'discount' => 0,
+            'total' => 50000,
+            'payment_status' => PaymentStatus::Unpaid,
+            'created_by' => $manager->id,
+        ]);
+
+        OrderLine::create([
+            'order_id' => $lineAssignedOrder->id,
+            'assigned_tailor_id' => $tailorA->id,
+            'item_name' => 'Shirt',
+            'qty' => 1,
+            'unit_price' => 50000,
+            'line_total' => 50000,
+        ]);
+
+        $orderAssignedOrder = Order::create([
+            'branch_id' => $this->branch->id,
+            'customer_id' => $customer->id,
+            'assigned_tailor_id' => $tailorA->id,
+            'status' => OrderStatus::New,
+            'subtotal' => 60000,
+            'discount' => 0,
+            'total' => 60000,
+            'payment_status' => PaymentStatus::Unpaid,
+            'created_by' => $manager->id,
+        ]);
+
+        OrderLine::create([
+            'order_id' => $orderAssignedOrder->id,
+            'assigned_tailor_id' => $tailorB->id,
+            'item_name' => 'Trouser',
+            'qty' => 1,
+            'unit_price' => 60000,
+            'line_total' => 60000,
+        ]);
+
+        $otherOrder = Order::create([
+            'branch_id' => $this->branch->id,
+            'customer_id' => $customer->id,
+            'assigned_tailor_id' => $tailorB->id,
+            'status' => OrderStatus::New,
+            'subtotal' => 70000,
+            'discount' => 0,
+            'total' => 70000,
+            'payment_status' => PaymentStatus::Unpaid,
+            'created_by' => $manager->id,
+        ]);
+
+        OrderLine::create([
+            'order_id' => $otherOrder->id,
+            'assigned_tailor_id' => $tailorB->id,
+            'item_name' => 'Jacket',
+            'qty' => 1,
+            'unit_price' => 70000,
+            'line_total' => 70000,
+        ]);
+
+        $assignedOrderIds = Order::query()
+            ->assignedTo($tailorA->id)
+            ->pluck('id')
+            ->all();
+
+        $forTailorOrderIds = Order::query()
+            ->forTailor($tailorA->id)
+            ->pluck('id')
+            ->all();
+
+        $this->assertContains($lineAssignedOrder->id, $assignedOrderIds);
+        $this->assertContains($orderAssignedOrder->id, $assignedOrderIds);
+        $this->assertNotContains($otherOrder->id, $assignedOrderIds);
+
+        $this->assertContains($lineAssignedOrder->id, $forTailorOrderIds);
+        $this->assertContains($orderAssignedOrder->id, $forTailorOrderIds);
+        $this->assertNotContains($otherOrder->id, $forTailorOrderIds);
+    }
+
+    public function test_create_order_can_assign_different_tailors_per_line_item(): void
+    {
+        $this->actingAsRole('branch_manager', $this->branch);
+        $tailorA = $this->createUserWithRole('tailor', $this->branch);
+        $tailorB = $this->createUserWithRole('tailor', $this->branch);
+        $customer = Customer::factory()->create(['branch_id' => $this->branch->id]);
+
+        Livewire::test(OrderForm::class)
+            ->set('customer_id', $customer->id)
+            ->set('lines', [
+                [
+                    'id' => null,
+                    'assigned_tailor_id' => $tailorA->id,
+                    'item_name' => 'Shirt',
+                    'qty' => 1,
+                    'unit_price' => 40000,
+                    'line_total' => 40000,
+                    'notes' => '',
+                    'measurements' => [['key' => '', 'value' => '']],
+                ],
+                [
+                    'id' => null,
+                    'assigned_tailor_id' => $tailorB->id,
+                    'item_name' => 'Trouser',
+                    'qty' => 1,
+                    'unit_price' => 35000,
+                    'line_total' => 35000,
+                    'notes' => '',
+                    'measurements' => [['key' => '', 'value' => '']],
+                ],
+            ])
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $order = Order::query()
+            ->with('lines')
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($order);
+        $this->assertNull($order->assigned_tailor_id);
+
+        $lineTailorIds = $order->lines()
+            ->orderBy('id')
+            ->pluck('assigned_tailor_id')
+            ->all();
+
+        $this->assertSame([$tailorA->id, $tailorB->id], $lineTailorIds);
+    }
+
+    public function test_order_level_tailor_overrides_line_tailors_on_save(): void
+    {
+        $this->actingAsRole('branch_manager', $this->branch);
+        $orderTailor = $this->createUserWithRole('tailor', $this->branch);
+        $lineTailorA = $this->createUserWithRole('tailor', $this->branch);
+        $lineTailorB = $this->createUserWithRole('tailor', $this->branch);
+        $customer = Customer::factory()->create(['branch_id' => $this->branch->id]);
+
+        Livewire::test(OrderForm::class)
+            ->set('customer_id', $customer->id)
+            ->set('assigned_tailor_id', $orderTailor->id)
+            ->set('lines', [
+                [
+                    'id' => null,
+                    'assigned_tailor_id' => $lineTailorA->id,
+                    'item_name' => 'Shirt',
+                    'qty' => 1,
+                    'unit_price' => 50000,
+                    'line_total' => 50000,
+                    'notes' => '',
+                    'measurements' => [['key' => '', 'value' => '']],
+                ],
+                [
+                    'id' => null,
+                    'assigned_tailor_id' => $lineTailorB->id,
+                    'item_name' => 'Trouser',
+                    'qty' => 1,
+                    'unit_price' => 45000,
+                    'line_total' => 45000,
+                    'notes' => '',
+                    'measurements' => [['key' => '', 'value' => '']],
+                ],
+            ])
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $order = Order::query()
+            ->with('lines')
+            ->latest('id')
+            ->first();
+
+        $this->assertNotNull($order);
+        $this->assertSame($orderTailor->id, (int) $order->assigned_tailor_id);
+        $this->assertTrue(
+            $order->lines->every(fn ($line) => $line->assigned_tailor_id === null)
+        );
+    }
+
+    public function test_line_tailor_selector_is_hidden_when_order_tailor_is_selected(): void
+    {
+        $this->actingAsRole('branch_manager', $this->branch);
+        $orderTailor = $this->createUserWithRole('tailor', $this->branch);
+
+        Livewire::test(OrderForm::class)
+            ->assertSee('Line Tailor')
+            ->set('assigned_tailor_id', $orderTailor->id)
+            ->assertDontSee('Line Tailor');
+    }
+
+    public function test_edit_order_can_update_existing_order_expense_values(): void
+    {
+        $this->actingAsRole('branch_manager', $this->branch);
+        $tailor = $this->createUserWithRole('tailor', $this->branch);
+        $customer = Customer::factory()->create(['branch_id' => $this->branch->id]);
+
+        $order = Order::create([
+            'branch_id' => $this->branch->id,
+            'customer_id' => $customer->id,
+            'assigned_tailor_id' => $tailor->id,
+            'status' => OrderStatus::New,
+            'subtotal' => 70000,
+            'discount' => 0,
+            'total' => 70000,
+            'payment_status' => PaymentStatus::Unpaid,
+            'created_by' => auth()->id(),
+        ]);
+
+        OrderLine::create([
+            'order_id' => $order->id,
+            'item_name' => 'Suit',
+            'qty' => 1,
+            'unit_price' => 70000,
+            'line_total' => 70000,
+        ]);
+
+        $expense = OrderExpense::create([
+            'order_id' => $order->id,
+            'tailor_id' => $tailor->id,
+            'amount' => 12000,
+            'notes' => 'Initial labor',
+        ]);
+
+        Livewire::test(OrderForm::class, ['order' => $order])
+            ->set('order_expenses.0.notes', 'Updated labor')
+            ->set('order_expenses.0.amount', 18000)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $expense->refresh();
+        $this->assertSame('Updated labor', $expense->notes);
+        $this->assertEquals(18000.0, (float) $expense->amount);
+    }
+
+    public function test_edit_order_can_add_and_remove_order_expenses(): void
+    {
+        $this->actingAsRole('branch_manager', $this->branch);
+        $tailor = $this->createUserWithRole('tailor', $this->branch);
+        $customer = Customer::factory()->create(['branch_id' => $this->branch->id]);
+
+        $order = Order::create([
+            'branch_id' => $this->branch->id,
+            'customer_id' => $customer->id,
+            'assigned_tailor_id' => $tailor->id,
+            'status' => OrderStatus::New,
+            'subtotal' => 60000,
+            'discount' => 0,
+            'total' => 60000,
+            'payment_status' => PaymentStatus::Unpaid,
+            'created_by' => auth()->id(),
+        ]);
+
+        OrderLine::create([
+            'order_id' => $order->id,
+            'item_name' => 'Shirt',
+            'qty' => 1,
+            'unit_price' => 60000,
+            'line_total' => 60000,
+        ]);
+
+        $oldExpense = OrderExpense::create([
+            'order_id' => $order->id,
+            'tailor_id' => $tailor->id,
+            'amount' => 10000,
+            'notes' => 'Old expense',
+        ]);
+
+        Livewire::test(OrderForm::class, ['order' => $order])
+            ->set('order_expenses', [
+                [
+                    'id' => null,
+                    'tailor_id' => null,
+                    'notes' => 'New fittings',
+                    'amount' => 4500,
+                ],
+            ])
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertSoftDeleted('order_expenses', ['id' => $oldExpense->id]);
+
+        $newExpense = OrderExpense::query()
+            ->where('order_id', $order->id)
+            ->where('notes', 'New fittings')
+            ->first();
+
+        $this->assertNotNull($newExpense);
+        $this->assertSame($tailor->id, $newExpense->tailor_id);
+        $this->assertEquals(4500.0, (float) $newExpense->amount);
     }
 }

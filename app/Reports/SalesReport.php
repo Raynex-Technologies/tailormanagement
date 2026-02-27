@@ -64,6 +64,8 @@ class SalesReport
             ->select([
                 'order_payments.*',
                 'orders.order_no',
+                'orders.order_date',
+                'orders.created_at as order_created_at',
                 'customers.name as customer_name',
                 'users.name as received_by_name',
                 'payment_methods.name as payment_method_name',
@@ -72,6 +74,8 @@ class SalesReport
             ->join('customers', 'orders.customer_id', '=', 'customers.id')
             ->leftJoin('users', 'order_payments.received_by', '=', 'users.id')
             ->leftJoin('payment_methods', 'order_payments.payment_method_id', '=', 'payment_methods.id')
+            ->orderByDesc('orders.order_date')
+            ->orderByDesc('orders.created_at')
             ->orderByDesc('order_payments.paid_at')
             ->paginate($perPage);
     }
@@ -83,8 +87,9 @@ class SalesReport
     {
         $rows = $this->baseQuery()
             ->select([
-                'order_payments.paid_at',
                 'orders.order_no',
+                'orders.order_date',
+                'orders.created_at as order_created_at',
                 'customers.name as customer_name',
                 'order_payments.amount',
                 'payment_methods.name as payment_method_name',
@@ -95,15 +100,21 @@ class SalesReport
             ->join('customers', 'orders.customer_id', '=', 'customers.id')
             ->leftJoin('users', 'order_payments.received_by', '=', 'users.id')
             ->leftJoin('payment_methods', 'order_payments.payment_method_id', '=', 'payment_methods.id')
+            ->orderByDesc('orders.order_date')
+            ->orderByDesc('orders.created_at')
             ->orderByDesc('order_payments.paid_at')
             ->get();
 
         $data = [];
-        $data[] = ['Date', 'Order No', 'Customer', 'Amount', 'Method', 'Reference', 'Received By'];
+        $data[] = ['Order Date', 'Order No', 'Customer', 'Amount', 'Method', 'Reference', 'Received By'];
 
         foreach ($rows as $row) {
+            $orderDate = $row->order_date
+                ? Carbon::parse($row->order_date)
+                : Carbon::parse($row->order_created_at);
+
             $data[] = [
-                Carbon::parse($row->paid_at)->format('Y-m-d H:i'),
+                $orderDate->format('Y-m-d'),
                 $row->order_no,
                 $row->customer_name,
                 number_format($row->amount, 2),
@@ -123,13 +134,25 @@ class SalesReport
     {
         $query = OrderPayment::query();
 
-        // Date range filter
+        // Date range filter on order date (fallback to order created_at for legacy rows).
         if ($this->dateFrom) {
-            $query->whereDate('order_payments.paid_at', '>=', $this->dateFrom);
+            $query->whereHas('order', function ($orderQuery) {
+                $orderQuery->whereDate('order_date', '>=', $this->dateFrom)
+                    ->orWhere(function ($legacyQuery) {
+                        $legacyQuery->whereNull('order_date')
+                            ->whereDate('created_at', '>=', $this->dateFrom);
+                    });
+            });
         }
 
         if ($this->dateTo) {
-            $query->whereDate('order_payments.paid_at', '<=', $this->dateTo);
+            $query->whereHas('order', function ($orderQuery) {
+                $orderQuery->whereDate('order_date', '<=', $this->dateTo)
+                    ->orWhere(function ($legacyQuery) {
+                        $legacyQuery->whereNull('order_date')
+                            ->whereDate('created_at', '<=', $this->dateTo);
+                    });
+            });
         }
 
         // Method filter

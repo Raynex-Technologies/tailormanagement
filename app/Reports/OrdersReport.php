@@ -7,7 +7,6 @@ use App\Enums\PaymentStatus;
 use App\Models\Order;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-use Illuminate\Support\Facades\DB;
 
 class OrdersReport
 {
@@ -75,11 +74,9 @@ class OrdersReport
             ->select([
                 'orders.*',
                 'customers.name as customer_name',
-                'users.name as tailor_name',
             ])
             ->join('customers', 'orders.customer_id', '=', 'customers.id')
-            ->leftJoin('users', 'orders.assigned_tailor_id', '=', 'users.id')
-            ->with(['payments'])
+            ->with(['payments', 'assignedTailor', 'lines.assignedTailor'])
             ->orderByDesc('orders.order_date')
             ->orderByDesc('orders.created_at')
             ->paginate($perPage);
@@ -94,27 +91,36 @@ class OrdersReport
             ->select([
                 'orders.*',
                 'customers.name as customer_name',
-                'users.name as tailor_name',
             ])
             ->join('customers', 'orders.customer_id', '=', 'customers.id')
-            ->leftJoin('users', 'orders.assigned_tailor_id', '=', 'users.id')
-            ->with(['payments'])
+            ->with(['payments', 'assignedTailor', 'lines.assignedTailor'])
             ->orderByDesc('orders.order_date')
             ->orderByDesc('orders.created_at')
             ->get();
 
         $data = [];
-        $data[] = ['Order No', 'Customer', 'Status', 'Order Date', 'Due Date', 'Tailor', 'Total', 'Paid', 'Balance'];
+        $data[] = ['Order No', 'Customer', 'Status', 'Order Date', 'Due Date', 'Tailor(s)', 'Total', 'Paid', 'Balance'];
 
         foreach ($rows as $row) {
             $paidAmount = $row->payments->sum('amount');
+            $tailorNames = collect();
+            if ($row->assignedTailor?->name) {
+                $tailorNames->push($row->assignedTailor->name);
+            }
+            $lineTailorNames = $row->lines->pluck('assignedTailor.name')->filter()->unique()->values();
+            foreach ($lineTailorNames as $lineTailorName) {
+                if (! $tailorNames->contains($lineTailorName)) {
+                    $tailorNames->push($lineTailorName);
+                }
+            }
+
             $data[] = [
                 $row->order_no,
                 $row->customer_name,
                 $row->status->label(),
                 $row->order_date?->format('Y-m-d') ?? Carbon::parse($row->created_at)->format('Y-m-d'),
                 $row->due_date?->format('Y-m-d') ?? '',
-                $row->tailor_name ?? 'Unassigned',
+                $tailorNames->isNotEmpty() ? $tailorNames->implode(', ') : 'Unassigned',
                 number_format($row->total, 2),
                 number_format($paidAmount, 2),
                 number_format(max(0, $row->total - $paidAmount), 2),
@@ -161,7 +167,7 @@ class OrdersReport
 
         // Tailor filter
         if ($this->tailorId) {
-            $query->where('orders.assigned_tailor_id', $this->tailorId);
+            $query->assignedTo($this->tailorId);
         }
 
         // Payment status filter

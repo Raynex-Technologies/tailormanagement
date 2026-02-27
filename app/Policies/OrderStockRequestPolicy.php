@@ -38,7 +38,7 @@ class OrderStockRequestPolicy
 
         // Tailors can only view requests for their assigned orders
         if ($user->hasRole('tailor')) {
-            return $stockRequest->order?->assigned_tailor_id === $user->id
+            return $stockRequest->order?->isAssignedToTailor($user->id)
                 || $stockRequest->requested_by === $user->id;
         }
 
@@ -72,7 +72,7 @@ class OrderStockRequestPolicy
 
         // Tailors can only create for their assigned orders
         if ($user->hasRole('tailor')) {
-            return $order->assigned_tailor_id === $user->id;
+            return $order->isAssignedToTailor($user->id);
         }
 
         return true;

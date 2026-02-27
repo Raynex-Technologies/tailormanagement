@@ -5,8 +5,10 @@ namespace App\Livewire\Inventory\Items;
 use App\Models\Branch;
 use App\Models\InventoryCategory;
 use App\Models\InventoryItem;
+use App\Models\InventoryUnit;
 use App\Services\Inventory\StockMovementService;
 use App\Support\BranchContext;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -44,7 +46,7 @@ class Index extends Component
     public string $sku = '';
     public string $name = '';
     public ?int $inventory_category_id = null;
-    public string $unit = 'pcs';
+    public ?int $inventory_unit_id = null;
     public int $reorder_level = 10;
     public ?float $default_buy_price = null;
     public ?float $default_sell_price = null;
@@ -72,11 +74,15 @@ class Index extends Component
             ? "unique:inventory_items,sku,{$this->editingId}"
             : 'unique:inventory_items,sku';
 
+        $skuRule = $this->isEditing
+            ? ['required', 'string', 'max:100', $skuUniqueRule]
+            : ['nullable', 'string', 'max:100', $skuUniqueRule];
+
         $rules = [
-            'sku' => ['required', 'string', 'max:50', $skuUniqueRule],
+            'sku' => $skuRule,
             'name' => ['required', 'string', 'max:255'],
             'inventory_category_id' => ['required', 'exists:inventory_categories,id'],
-            'unit' => ['required', 'string', 'max:50'],
+            'inventory_unit_id' => ['required', 'exists:inventory_units,id'],
             'reorder_level' => ['required', 'integer', 'min:0'],
             'default_buy_price' => ['nullable', 'numeric', 'min:0'],
             'default_sell_price' => ['nullable', 'numeric', 'min:0'],
@@ -154,7 +160,8 @@ class Index extends Component
         $this->sku = $item->sku;
         $this->name = $item->name;
         $this->inventory_category_id = $item->inventory_category_id;
-        $this->unit = $item->unit;
+        $this->inventory_unit_id = $item->inventory_unit_id
+            ?? InventoryUnit::query()->where('name', $item->unit)->value('id');
         $this->reorder_level = $item->reorder_level;
         $this->default_buy_price = $item->default_buy_price;
         $this->default_sell_price = $item->default_sell_price;
@@ -167,15 +174,24 @@ class Index extends Component
     {
         $this->authorize('inventory.items.manage');
 
+        $user = auth()->user();
+        $this->sku = Str::upper(trim($this->sku));
+
+        if (! $this->isEditing && $this->sku === '') {
+            $effectiveBranchId = $user->isGlobalAdmin() ? $this->branch_id : $user->branch_id;
+            $this->sku = $this->generateAutoSku($effectiveBranchId, $this->name);
+        }
+
         $this->validate();
 
-        $user = auth()->user();
+        $unit = InventoryUnit::findOrFail($this->inventory_unit_id);
 
         $data = [
-            'sku' => strtoupper($this->sku),
+            'sku' => $this->sku,
             'name' => $this->name,
             'inventory_category_id' => $this->inventory_category_id,
-            'unit' => $this->unit,
+            'inventory_unit_id' => $unit->id,
+            'unit' => $unit->name,
             'reorder_level' => $this->reorder_level,
             'default_buy_price' => $this->default_buy_price,
             'default_sell_price' => $this->default_sell_price,
@@ -223,13 +239,58 @@ class Index extends Component
             'sku',
             'name',
             'inventory_category_id',
-            'unit',
+            'inventory_unit_id',
             'reorder_level',
             'default_buy_price',
             'default_sell_price',
         ]);
         $this->is_active = true;
         $this->isEditing = false;
+    }
+
+    protected function generateAutoSku(?int $branchId, string $itemName): string
+    {
+        $branchPrefix = $this->branchSkuPrefix($branchId);
+        $skuCode = $this->skuCodeFromName($itemName);
+        $baseSku = "{$branchPrefix}-{$skuCode}";
+        $candidate = $baseSku;
+        $counter = 2;
+
+        while (InventoryItem::withoutBranchScope()->where('sku', $candidate)->exists()) {
+            $candidate = "{$baseSku}-{$counter}";
+            $counter++;
+        }
+
+        return $candidate;
+    }
+
+    protected function branchSkuPrefix(?int $branchId): string
+    {
+        if (! $branchId) {
+            return 'BRANCH';
+        }
+
+        $branch = Branch::query()->find($branchId);
+        $code = (string) ($branch?->code ?? '');
+        $normalized = Str::upper(preg_replace('/[^A-Za-z0-9]/', '', $code) ?? '');
+
+        return $normalized !== '' ? $normalized : 'BRANCH' . $branchId;
+    }
+
+    protected function skuCodeFromName(string $itemName): string
+    {
+        $tokens = preg_split('/[^A-Za-z0-9]+/', Str::upper($itemName), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        if ($tokens === []) {
+            return 'ITEM';
+        }
+
+        $parts = [];
+        foreach (array_slice($tokens, 0, 4) as $token) {
+            $parts[] = substr($token, 0, 3);
+        }
+
+        return implode('-', array_filter($parts)) ?: 'ITEM';
     }
 
     public function toggleActive(int $id): void
@@ -343,7 +404,7 @@ class Index extends Component
     public function render()
     {
         $items = InventoryItem::query()
-            ->with(['category', 'stock'])
+            ->with(['category', 'stock', 'inventoryUnit'])
             ->when($this->search, fn ($q) => $q->where(function ($q) {
                 $q->where('name', 'like', "%{$this->search}%")
                     ->orWhere('sku', 'like', "%{$this->search}%");
@@ -358,6 +419,7 @@ class Index extends Component
             ->paginate($this->perPage);
 
         $categories = InventoryCategory::orderBy('name')->pluck('name', 'id');
+        $units = InventoryUnit::orderBy('name')->pluck('name', 'id');
 
         // Get branches for global admin selector
         $branches = auth()->user()->isGlobalAdmin()
@@ -367,6 +429,7 @@ class Index extends Component
         return view('livewire.inventory.items.index', [
             'items' => $items,
             'categories' => $categories,
+            'units' => $units,
             'branches' => $branches,
         ]);
     }

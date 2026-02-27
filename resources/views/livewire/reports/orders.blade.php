@@ -108,7 +108,7 @@
                         <th class="px-4 py-3">Status</th>
                         <th class="px-4 py-3">Order Date</th>
                         <th class="px-4 py-3">Due Date</th>
-                        <th class="px-4 py-3">Tailor</th>
+                        <th class="px-4 py-3">Tailor(s)</th>
                         <th class="px-4 py-3 text-right">Total</th>
                         <th class="px-4 py-3 text-right">Paid</th>
                         <th class="px-4 py-3 text-right">Balance</th>
@@ -142,7 +142,21 @@
                                     -
                                 @endif
                             </td>
-                            <td class="px-4 py-3">{{ $row->tailor_name ?? 'Unassigned' }}</td>
+                            <td class="px-4 py-3">
+                                @php
+                                    $tailorNames = collect();
+                                    if ($row->assignedTailor?->name) {
+                                        $tailorNames->push($row->assignedTailor->name);
+                                    }
+                                    $lineTailorNames = $row->lines->pluck('assignedTailor.name')->filter()->unique()->values();
+                                    foreach ($lineTailorNames as $lineTailorName) {
+                                        if (! $tailorNames->contains($lineTailorName)) {
+                                            $tailorNames->push($lineTailorName);
+                                        }
+                                    }
+                                @endphp
+                                {{ $tailorNames->isNotEmpty() ? $tailorNames->implode(', ') : 'Unassigned' }}
+                            </td>
                             <td class="px-4 py-3 text-right font-medium">{{ money_tzs($row->total) }}</td>
                             <td class="px-4 py-3 text-right text-emerald-600 dark:text-emerald-400">{{ money_tzs($paidAmount) }}</td>
                             <td class="px-4 py-3 text-right {{ $balance > 0 ? 'text-red-600 dark:text-red-400' : '' }}">

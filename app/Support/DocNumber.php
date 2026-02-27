@@ -83,7 +83,7 @@ class DocNumber
      */
     public static function invoice(): string
     {
-        return self::generate('INV', Invoice::class, 'invoice_no');
+        return self::sequentialFromTable('INV', 'invoices', 'invoice_no');
     }
 
     /**
@@ -153,5 +153,48 @@ class DocNumber
         }
 
         return sprintf('%s-%d-%06d', $prefix, $year, $nextNumber);
+    }
+
+    /**
+     * Generate a sequential number directly from a table/column.
+     * This bypasses model scopes (including branch scope and soft-delete scope),
+     * so uniqueness checks and sequencing include all stored rows.
+     */
+    protected static function sequentialFromTable(string $prefix, string $table, string $column): string
+    {
+        $year = now()->year;
+        $pattern = "{$prefix}-{$year}-%";
+        $regex = '/^' . preg_quote($prefix, '/') . '-' . $year . '-(\d+)$/';
+
+        $existingNumbers = DB::table($table)
+            ->where($column, 'like', $pattern)
+            ->pluck($column);
+
+        $maxSequence = 0;
+
+        foreach ($existingNumbers as $value) {
+            if (! is_string($value)) {
+                continue;
+            }
+
+            if (! preg_match($regex, $value, $matches)) {
+                continue;
+            }
+
+            $sequence = (int) $matches[1];
+            if ($sequence > $maxSequence) {
+                $maxSequence = $sequence;
+            }
+        }
+
+        $nextSequence = $maxSequence + 1;
+
+        do {
+            $candidate = sprintf('%s-%d-%06d', $prefix, $year, $nextSequence);
+            $exists = DB::table($table)->where($column, $candidate)->exists();
+            $nextSequence++;
+        } while ($exists);
+
+        return $candidate;
     }
 }

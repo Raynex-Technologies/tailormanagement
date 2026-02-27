@@ -93,7 +93,7 @@
             <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
                 <thead>
                     <tr class="text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-                        <th class="px-4 py-3">Date</th>
+                        <th class="px-4 py-3">Order Date</th>
                         <th class="px-4 py-3">Order No</th>
                         <th class="px-4 py-3">Customer</th>
                         <th class="px-4 py-3 text-right">Amount</th>
@@ -106,7 +106,11 @@
                     @forelse($this->rows as $row)
                         <tr class="text-sm text-zinc-900 dark:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
                             <td class="px-4 py-3 whitespace-nowrap">
-                                {{ \Carbon\Carbon::parse($row->paid_at)->format('M d, Y H:i') }}
+                                {{
+                                    $row->order_date
+                                        ? \Carbon\Carbon::parse($row->order_date)->format('M d, Y')
+                                        : \Carbon\Carbon::parse($row->order_created_at)->format('M d, Y')
+                                }}
                             </td>
                             <td class="px-4 py-3 whitespace-nowrap">
                                 <a href="{{ route('orders.show', $row->order_id) }}" wire:navigate class="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300">

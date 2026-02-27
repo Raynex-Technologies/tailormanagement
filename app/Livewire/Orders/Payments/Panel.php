@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Orders\Payments;
 
+use App\Enums\OrderStatus;
 use App\Models\Order;
 use App\Models\PaymentMethod;
 use App\Services\Orders\OrderPaymentService;
@@ -52,11 +53,12 @@ class Panel extends Component
     public function mount(Order $order): void
     {
         $user = auth()->user();
+        $orderIsCancelled = $order->status === OrderStatus::Cancelled;
 
         // Check permissions - this panel should only be rendered if user can view payments
         // but we double-check here for security
         $this->canViewPayments = $user->can('viewPayments', $order);
-        $this->canRecordPayments = $user->can('recordPayments', $order);
+        $this->canRecordPayments = ! $orderIsCancelled && $user->can('recordPayments', $order);
 
         if (! $this->canViewPayments) {
             abort(403, 'You do not have permission to view payments.');
@@ -76,6 +78,12 @@ class Panel extends Component
 
     public function openPaymentModal(): void
     {
+        if ($this->order->status === OrderStatus::Cancelled) {
+            session()->flash('error', 'Cannot record payment for a cancelled order.');
+
+            return;
+        }
+
         // Use policy-based authorization
         $this->authorize('recordPayments', $this->order);
 
@@ -93,6 +101,12 @@ class Panel extends Component
 
     public function recordPayment(OrderPaymentService $paymentService): void
     {
+        if ($this->order->status === OrderStatus::Cancelled) {
+            session()->flash('error', 'Cannot record payment for a cancelled order.');
+
+            return;
+        }
+
         // Use policy-based authorization
         $this->authorize('recordPayments', $this->order);
 

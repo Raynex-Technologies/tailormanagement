@@ -8,6 +8,7 @@ use App\Models\DeliveryNote;
 use App\Models\Order;
 use App\Models\OrderStockRequest;
 use App\Models\User;
+use App\Services\Orders\OrderDeletionService;
 use App\Support\DocNumber;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
@@ -74,6 +75,7 @@ class Show extends Component
             'assignedTailor',
             'creator',
             'lines.measurement',
+            'lines.assignedTailor',
             'deliveryNote.deliveredBy',
             'invoice',
             'branch',
@@ -93,12 +95,13 @@ class Show extends Component
     protected function initializePermissions(): void
     {
         $user = auth()->user();
+        $orderIsCancelled = $this->order->status === OrderStatus::Cancelled;
 
         $this->canViewFinancials = $user->can('viewFinancials', $this->order);
         $this->canViewMaterials = $user->can('viewMaterials', $this->order);
         $this->canManageMaterials = $user->can('manageMaterials', $this->order);
         $this->canViewPayments = $user->can('viewPayments', $this->order);
-        $this->canRecordPayments = $user->can('recordPayments', $this->order);
+        $this->canRecordPayments = ! $orderIsCancelled && $user->can('recordPayments', $this->order);
     }
 
     public function getTitle(): string
@@ -124,6 +127,12 @@ class Show extends Component
 
         $newStatusEnum = OrderStatus::from($this->newStatus);
         $oldStatus = $this->order->status;
+
+        if ($newStatusEnum === OrderStatus::Delivered && $this->order->hasOutstandingBalance()) {
+            $this->addError('newStatus', 'Order cannot be marked as delivered until balance is fully paid.');
+
+            return;
+        }
 
         if (! $this->order->canTransitionTo($newStatusEnum)) {
             $this->addError('newStatus', 'Invalid status transition.');
@@ -178,6 +187,23 @@ class Show extends Component
         session()->flash('success', 'Order has been cancelled.');
     }
 
+    public function deleteOrder(): void
+    {
+        $this->authorize('delete', $this->order);
+
+        try {
+            app(OrderDeletionService::class)->delete($this->order, auth()->user());
+        } catch (\Throwable $e) {
+            report($e);
+            session()->flash('error', 'Failed to delete order.');
+
+            return;
+        }
+
+        session()->flash('success', 'Order deleted successfully.');
+        $this->redirect(route('orders.index'), navigate: true);
+    }
+
     public function openAssignTailorModal(): void
     {
         $this->authorize('assignTailor', $this->order);
@@ -188,6 +214,20 @@ class Show extends Component
     public function assignTailor(): void
     {
         $this->authorize('assignTailor', $this->order);
+
+        if ($this->selectedTailorId) {
+            $isValidTailor = User::query()
+                ->whereKey($this->selectedTailorId)
+                ->where('branch_id', $this->order->branch_id)
+                ->whereHas('roles', fn ($q) => $q->where('name', 'tailor'))
+                ->exists();
+
+            if (! $isValidTailor) {
+                $this->addError('selectedTailorId', 'Selected tailor must belong to this order branch.');
+
+                return;
+            }
+        }
 
         $this->order->update(['assigned_tailor_id' => $this->selectedTailorId ?: null]);
         $this->order->refresh();
@@ -200,6 +240,12 @@ class Show extends Component
     public function openDeliveryNoteModal(): void
     {
         $this->authorize('createDeliveryNote', $this->order);
+
+        if ($this->order->hasOutstandingBalance()) {
+            session()->flash('error', 'Cannot create delivery note until the order balance is fully paid.');
+
+            return;
+        }
 
         if (! $this->order->canCreateDeliveryNote()) {
             session()->flash('error', 'Cannot create delivery note for this order.');
@@ -214,6 +260,12 @@ class Show extends Component
     public function createDeliveryNote(): void
     {
         $this->authorize('createDeliveryNote', $this->order);
+
+        if ($this->order->hasOutstandingBalance()) {
+            session()->flash('error', 'Cannot create delivery note until the order balance is fully paid.');
+
+            return;
+        }
 
         if (! $this->order->canCreateDeliveryNote()) {
             session()->flash('error', 'Cannot create delivery note for this order.');
@@ -311,11 +363,31 @@ class Show extends Component
 
         // Get tailors for assignment
         $tailors = User::whereHas('roles', fn ($q) => $q->where('name', 'tailor'))
+            ->where('branch_id', $this->order->branch_id)
             ->orderBy('name')
             ->get(['id', 'name']);
 
+        $tailorNames = collect();
+        if ($this->order->assignedTailor?->name) {
+            $tailorNames->push($this->order->assignedTailor->name);
+        }
+
+        $lineTailorNames = $this->order->lines
+            ->pluck('assignedTailor.name')
+            ->filter()
+            ->unique()
+            ->values();
+
+        foreach ($lineTailorNames as $lineTailorName) {
+            if (! $tailorNames->contains($lineTailorName)) {
+                $tailorNames->push($lineTailorName);
+            }
+        }
+
+        $tailorDisplay = $tailorNames->isNotEmpty() ? $tailorNames->implode(', ') : '—';
+
         // Order is in a final state (no more edits / stock requests)
-        $orderIsFinal = in_array($this->order->status, [OrderStatus::Delivered, OrderStatus::Completed]);
+        $orderIsFinal = in_array($this->order->status, [OrderStatus::Delivered, OrderStatus::Completed, OrderStatus::Cancelled]);
 
         // Determine available actions
         $canEdit = $user->can('update', $this->order) && ! $orderIsFinal;
@@ -324,6 +396,7 @@ class Show extends Component
         $showAssignTailorButton = $canAssignTailor && ! $this->order->assigned_tailor_id;
         $canMarkCompleted = $user->can('markCompleted', $this->order);
         $canCreateDeliveryNote = $user->can('createDeliveryNote', $this->order) && $this->order->canCreateDeliveryNote();
+        $canDelete = $user->can('delete', $this->order);
 
         return view('livewire.orders.show', [
             'nextStatuses' => $nextStatuses,
@@ -335,6 +408,8 @@ class Show extends Component
             'orderIsFinal' => $orderIsFinal,
             'canMarkCompleted' => $canMarkCompleted,
             'canCreateDeliveryNote' => $canCreateDeliveryNote,
+            'canDelete' => $canDelete,
+            'tailorDisplay' => $tailorDisplay,
             // Role-based visibility
             'canViewFinancials' => $this->canViewFinancials,
             'canViewMaterials' => $this->canViewMaterials,

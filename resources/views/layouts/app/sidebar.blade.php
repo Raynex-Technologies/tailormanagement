@@ -4,6 +4,8 @@
         @include('partials.head')
     </head>
     <body class="app-layout min-h-screen">
+        @php($businessName = \App\Models\BusinessSetting::query()->value('business_name') ?: 'Tailex')
+
         {{-- Floating Sidebar --}}
         <aside 
             class="fixed left-4 top-4 bottom-4 w-64 z-50 hidden lg:flex flex-col overflow-hidden"
@@ -15,7 +17,7 @@
                     <div class="flex items-center justify-center size-10 rounded-xl" style="background: linear-gradient(135deg, #A3E635 0%, #84CC16 100%);">
                         <x-app-logo-icon class="size-5 text-navy-900" />
                     </div>
-                    <span class="text-lg font-semibold text-white">{{ config('app.name', 'Tailor Pro') }}</span>
+                    <span class="text-lg font-semibold text-white">{{ $businessName }}</span>
                 </a>
             </div>
 
@@ -92,6 +94,19 @@
                         </svg>
                         {{ __('Invoices') }}
                     </a>
+
+                    @can('payments.view')
+                    <a
+                        href="{{ route('payments.index') }}"
+                        wire:navigate
+                        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('payments.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}"
+                    >
+                        <svg class="size-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 8.25h19.5M2.25 12h19.5M2.25 15.75h19.5M4.875 5.25h14.25A2.625 2.625 0 0 1 21.75 7.875v8.25a2.625 2.625 0 0 1-2.625 2.625H4.875A2.625 2.625 0 0 1 2.25 16.125v-8.25A2.625 2.625 0 0 1 4.875 5.25Z" />
+                        </svg>
+                        {{ __('Payments') }}
+                    </a>
+                    @endcan
                 </div>
                 @endcan
 
@@ -132,6 +147,17 @@
                             <path stroke-linecap="round" stroke-linejoin="round" d="M6 6h.008v.008H6V6Z" />
                         </svg>
                         {{ __('Categories') }}
+                    </a>
+
+                    <a
+                        href="{{ route('inventory.units.index') }}"
+                        wire:navigate
+                        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('inventory.units.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}"
+                    >
+                        <svg class="size-5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5" />
+                        </svg>
+                        {{ __('Units') }}
                     </a>
 
                     <a 
@@ -457,7 +483,7 @@
                         <div class="flex items-center justify-center size-10 rounded-xl" style="background: linear-gradient(135deg, #A3E635 0%, #84CC16 100%);">
                             <x-app-logo-icon class="size-5 text-navy-900" />
                         </div>
-                        <span class="text-lg font-semibold text-white">{{ config('app.name', 'Tailor Pro') }}</span>
+                        <span class="text-lg font-semibold text-white">{{ $businessName }}</span>
                     </a>
                 </div>
 
@@ -505,7 +531,7 @@
                         <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
                     </svg>
                 </button>
-                <span class="text-lg font-semibold text-navy-900 dark:text-white">{{ config('app.name', 'Tailor Pro') }}</span>
+                <span class="text-lg font-semibold text-navy-900 dark:text-white">{{ $businessName }}</span>
             </div>
 
             <div class="relative flex items-center gap-2">

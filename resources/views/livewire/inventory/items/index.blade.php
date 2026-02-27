@@ -95,7 +95,7 @@
                                     {{ $item->category?->name ?? '-' }}
                                 </td>
                                 <td class="px-4 py-3">
-                                    {{ $item->unit }}
+                                    {{ $item->inventoryUnit?->name ?? $item->unit }}
                                 </td>
                                 <td class="px-4 py-3 text-right">
                                     <span class="{{ $isLow ? 'text-red-600 dark:text-red-400 font-semibold' : '' }}">
@@ -213,8 +213,7 @@
                     <flux:input
                         wire:model="sku"
                         label="{{ __('SKU') }}"
-                        placeholder="e.g., FAB-001"
-                        required
+                        placeholder="Leave blank to auto-generate"
                     />
 
                     <flux:select wire:model="inventory_category_id" label="{{ __('Category') }}" required>
@@ -236,12 +235,12 @@
                 @error('name') <p class="text-sm text-red-600 dark:text-red-400">{{ $message }}</p> @enderror
 
                 <div class="grid gap-4 sm:grid-cols-2">
-                    <flux:input
-                        wire:model="unit"
-                        label="{{ __('Unit') }}"
-                        placeholder="e.g., meters, pcs"
-                        required
-                    />
+                    <flux:select wire:model="inventory_unit_id" label="{{ __('Unit') }}" required>
+                        <flux:select.option value="">Select unit</flux:select.option>
+                        @foreach ($units as $id => $name)
+                            <flux:select.option value="{{ $id }}">{{ $name }}</flux:select.option>
+                        @endforeach
+                    </flux:select>
 
                     <flux:input
                         wire:model="reorder_level"
@@ -251,6 +250,7 @@
                         required
                     />
                 </div>
+                @error('inventory_unit_id') <p class="text-sm text-red-600 dark:text-red-400">{{ $message }}</p> @enderror
 
                 <div class="grid gap-4 sm:grid-cols-2">
                     <flux:input

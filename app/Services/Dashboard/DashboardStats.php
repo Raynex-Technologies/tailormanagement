@@ -9,6 +9,7 @@ use App\Models\CapitalAllocation;
 use App\Models\Expense;
 use App\Models\InventoryStock;
 use App\Models\Order;
+use App\Models\OrderExpense;
 use App\Models\OrderPayment;
 use App\Models\PurchaseRequest;
 use App\Models\User;
@@ -111,8 +112,17 @@ class DashboardStats
         $startOfMonth = Carbon::now()->startOfMonth();
         $endOfMonth = Carbon::now()->endOfMonth();
 
+        $expenseSum = (float) Expense::query()
+            ->whereBetween('expense_date', [$startOfMonth->toDateString(), $endOfMonth->toDateString()])
+            ->sum('amount');
+
+        $orderExpenseSum = (float) OrderExpense::query()
+            ->whereHas('order')
+            ->whereBetween('created_at', [$startOfMonth, $endOfMonth])
+            ->sum('amount');
+
         return [
-            'expenses_month_sum' => (float) Expense::whereBetween('expense_date', [$startOfMonth, $endOfMonth])->sum('amount'),
+            'expenses_month_sum' => $expenseSum + $orderExpenseSum,
         ];
     }
 

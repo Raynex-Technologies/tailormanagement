@@ -57,7 +57,7 @@ class Expenses extends Component
         return new ExpensesReport([
             'date_from' => $this->dateFrom,
             'date_to' => $this->dateTo,
-            'category_id' => $this->categoryId ? (int) $this->categoryId : null,
+            'category_id' => $this->categoryId !== '' ? $this->categoryId : null,
             'linked_to_capital' => $this->linkedToCapital !== '' ? $this->linkedToCapital : null,
             'search' => $this->search ?: null,
         ]);
@@ -84,7 +84,12 @@ class Expenses extends Component
     #[Computed]
     public function categories()
     {
-        return ExpenseCategory::orderBy('name')->get(['id', 'name']);
+        return ExpenseCategory::orderBy('name')
+            ->get(['id', 'name'])
+            ->prepend((object) [
+                'id' => 'order_expenses',
+                'name' => 'Order Expenses',
+            ]);
     }
 
     public function resetFilters(): void

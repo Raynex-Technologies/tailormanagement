@@ -19,6 +19,7 @@ use App\Models\PaymentMethod;
 use App\Models\User;
 use App\Support\BranchContext;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Validate;
@@ -71,11 +72,7 @@ class Form extends Component
     #[Validate('nullable|numeric|min:0', as: 'discount')]
     public ?float $discount = 0;
 
-    #[Validate('nullable|numeric|min:0.01', as: 'order expense amount')]
-    public ?float $order_expense_amount = null;
-
-    #[Validate('nullable|string|max:1000', as: 'order expense description')]
-    public ?string $order_expense_notes = null;
+    public array $order_expenses = [];
 
     // Order lines
     public array $lines = [];
@@ -98,7 +95,7 @@ class Form extends Component
     {
         if ($order && $order->exists) {
             $this->authorize('update', $order);
-            $this->order = $order->load(['customer', 'lines.measurement', 'assignedTailor']);
+            $this->order = $order->load(['customer', 'lines.measurement', 'lines.assignedTailor', 'assignedTailor', 'orderExpenses']);
             $this->isEdit = true;
             $this->branch_id = $order->branch_id;
             $this->fillFromOrder();
@@ -108,6 +105,7 @@ class Form extends Component
             $this->order_date = now()->toDateString();
             $this->deposit_payment_method_id = $this->getDefaultPaymentMethodId();
             $this->addLine();
+            $this->syncOrderExpensesWithSelectedTailors();
         }
     }
 
@@ -169,6 +167,7 @@ class Form extends Component
 
             $this->lines[] = [
                 'id' => $line->id,
+                'assigned_tailor_id' => $line->assigned_tailor_id,
                 'item_name' => $line->item_name,
                 'qty' => (float) $line->qty,
                 'unit_price' => (float) $line->unit_price,
@@ -182,6 +181,18 @@ class Form extends Component
             $this->addLine();
         }
 
+        $this->order_expenses = [];
+        foreach ($this->order->orderExpenses->sortBy('id') as $expense) {
+            $this->order_expenses[] = [
+                'id' => $expense->id,
+                'tailor_id' => $expense->tailor_id,
+                'notes' => $expense->notes ?? '',
+                'amount' => (float) $expense->amount,
+            ];
+        }
+
+        $this->syncOrderExpensesWithSelectedTailors();
+
         $this->calculateTotals();
     }
 
@@ -189,6 +200,7 @@ class Form extends Component
     {
         $this->lines[] = [
             'id' => null,
+            'assigned_tailor_id' => null,
             'item_name' => '',
             'qty' => 1,
             'unit_price' => 0,
@@ -198,6 +210,8 @@ class Form extends Component
                 ['key' => '', 'value' => ''],
             ],
         ];
+
+        $this->syncOrderExpensesWithSelectedTailors();
     }
 
     public function removeLine(int $index): void
@@ -206,6 +220,7 @@ class Form extends Component
             unset($this->lines[$index]);
             $this->lines = array_values($this->lines);
             $this->calculateTotals();
+            $this->syncOrderExpensesWithSelectedTailors();
         }
     }
 
@@ -222,22 +237,345 @@ class Form extends Component
         }
     }
 
+    public function addOrderExpense(): void
+    {
+        if (! empty($this->selectedExpenseTailorIds())) {
+            $this->syncOrderExpensesWithSelectedTailors();
+
+            return;
+        }
+
+        $this->normalizeOrderExpenses();
+        $this->order_expenses[] = $this->emptyOrderExpenseRow();
+    }
+
+    public function removeOrderExpense(int $index): void
+    {
+        if (! empty($this->selectedExpenseTailorIds())) {
+            $this->syncOrderExpensesWithSelectedTailors();
+
+            return;
+        }
+
+        if (count($this->order_expenses) > 1) {
+            unset($this->order_expenses[$index]);
+            $this->order_expenses = array_values($this->order_expenses);
+
+            return;
+        }
+
+        $this->order_expenses = [$this->emptyOrderExpenseRow()];
+    }
+
+    protected function normalizeOrderExpenses(): void
+    {
+        if (empty($this->order_expenses)) {
+            $this->order_expenses = [$this->emptyOrderExpenseRow()];
+
+            return;
+        }
+
+        $this->order_expenses = array_values(array_map(function ($expense) {
+            return [
+                'id' => isset($expense['id']) && $expense['id'] !== '' ? (int) $expense['id'] : null,
+                'tailor_id' => isset($expense['tailor_id']) && $expense['tailor_id'] !== '' ? (int) $expense['tailor_id'] : null,
+                'notes' => trim((string) ($expense['notes'] ?? '')),
+                'amount' => ($expense['amount'] ?? null) === '' ? null : ($expense['amount'] ?? null),
+            ];
+        }, $this->order_expenses));
+    }
+
+    protected function emptyOrderExpenseRow(?int $tailorId = null): array
+    {
+        return [
+            'id' => null,
+            'tailor_id' => $tailorId,
+            'notes' => '',
+            'amount' => null,
+        ];
+    }
+
+    protected function isOrderExpenseRowFilled(array $expense): bool
+    {
+        $notes = trim((string) ($expense['notes'] ?? ''));
+        $amount = $expense['amount'] ?? null;
+
+        return $notes !== '' || ($amount !== null && $amount !== '');
+    }
+
+    protected function pickPreferredOrderExpenseRow(array $current, array $candidate): array
+    {
+        if ($this->isOrderExpenseRowFilled($candidate) && ! $this->isOrderExpenseRowFilled($current)) {
+            return $candidate;
+        }
+
+        $currentId = (int) ($current['id'] ?? 0);
+        $candidateId = (int) ($candidate['id'] ?? 0);
+
+        if ($candidateId > 0 && $currentId <= 0) {
+            return $candidate;
+        }
+
+        return $current;
+    }
+
+    /**
+     * Selected tailor IDs for order expenses.
+     * Order tailor overrides inline line-tailor assignments.
+     *
+     * @return array<int>
+     */
+    protected function selectedExpenseTailorIds(): array
+    {
+        if ($this->assigned_tailor_id) {
+            return [(int) $this->assigned_tailor_id];
+        }
+
+        return $this->activeLineTailorIds()->all();
+    }
+
+    /**
+     * Keep order_expenses as one row per unique selected tailor.
+     * If no tailor is selected, keep a single unassigned row.
+     */
+    protected function syncOrderExpensesWithSelectedTailors(): void
+    {
+        $this->normalizeOrderExpenses();
+
+        $selectedTailorIds = $this->selectedExpenseTailorIds();
+        $rowsByTailor = [];
+        $fallbackRows = [];
+
+        foreach ($this->order_expenses as $expense) {
+            $tailorId = (int) ($expense['tailor_id'] ?? 0);
+
+            if ($tailorId > 0) {
+                if (! isset($rowsByTailor[$tailorId])) {
+                    $rowsByTailor[$tailorId] = $expense;
+
+                    continue;
+                }
+
+                $preferred = $this->pickPreferredOrderExpenseRow($rowsByTailor[$tailorId], $expense);
+                if ($preferred !== $rowsByTailor[$tailorId]) {
+                    $fallbackRows[] = $rowsByTailor[$tailorId];
+                    $rowsByTailor[$tailorId] = $preferred;
+                } else {
+                    $fallbackRows[] = $expense;
+                }
+
+                continue;
+            }
+
+            $fallbackRows[] = $expense;
+        }
+
+        if (! empty($selectedTailorIds)) {
+            $syncedRows = [];
+
+            foreach ($selectedTailorIds as $tailorId) {
+                $row = $rowsByTailor[$tailorId]
+                    ?? array_shift($fallbackRows)
+                    ?? $this->emptyOrderExpenseRow($tailorId);
+
+                $row['tailor_id'] = (int) $tailorId;
+                $syncedRows[] = $row;
+            }
+
+            $this->order_expenses = array_values($syncedRows);
+
+            return;
+        }
+
+        $fallbackRow = array_shift($fallbackRows);
+        if (! $fallbackRow && ! empty($rowsByTailor)) {
+            $fallbackRow = array_values($rowsByTailor)[0];
+        }
+
+        if (! $fallbackRow) {
+            $this->order_expenses = [$this->emptyOrderExpenseRow()];
+
+            return;
+        }
+
+        $fallbackRow['tailor_id'] = null;
+        $this->order_expenses = [$fallbackRow];
+    }
+
+    protected function normalizeOrderTailorAssignment(): void
+    {
+        $tailorId = (int) ($this->assigned_tailor_id ?? 0);
+        $this->assigned_tailor_id = $tailorId > 0 ? $tailorId : null;
+    }
+
+    protected function normalizeLineTailorAssignments(): void
+    {
+        $this->normalizeOrderTailorAssignment();
+
+        if ($this->assigned_tailor_id) {
+            $this->lines = array_values(array_map(function ($line) {
+                $line['assigned_tailor_id'] = null;
+
+                return $line;
+            }, $this->lines));
+
+            return;
+        }
+
+        $this->lines = array_values(array_map(function ($line) {
+            $lineTailorId = (int) ($line['assigned_tailor_id'] ?? 0);
+            $line['assigned_tailor_id'] = $lineTailorId > 0 ? $lineTailorId : null;
+
+            return $line;
+        }, $this->lines));
+    }
+
+    public function updatedAssignedTailorId($value): void
+    {
+        if ((int) $value <= 0) {
+            $this->assigned_tailor_id = null;
+            $this->syncOrderExpensesWithSelectedTailors();
+
+            return;
+        }
+
+        $this->lines = array_values(array_map(function ($line) {
+            $line['assigned_tailor_id'] = null;
+
+            return $line;
+        }, $this->lines));
+
+        $this->syncOrderExpensesWithSelectedTailors();
+    }
+
+    public function updatedBranchId($value): void
+    {
+        $branchId = (int) ($value ?? 0);
+        $this->branch_id = $branchId > 0 ? $branchId : null;
+        $this->mustSelectBranch = $this->showBranchSelector && ! $this->isEdit && $this->branch_id === null;
+
+        // Prevent stale cross-branch assignments after branch change.
+        $this->assigned_tailor_id = null;
+        $this->lines = array_values(array_map(function ($line) {
+            $line['assigned_tailor_id'] = null;
+
+            return $line;
+        }, $this->lines));
+
+        $this->syncOrderExpensesWithSelectedTailors();
+    }
+
+    protected function hasFilledOrderExpenses(): bool
+    {
+        foreach ($this->order_expenses as $expense) {
+            $notes = trim((string) ($expense['notes'] ?? ''));
+            $amount = $expense['amount'] ?? null;
+
+            if ($notes !== '' || ($amount !== null && $amount !== '')) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * Tailor IDs from non-empty order lines only.
+     */
+    protected function activeLineTailorIds(): \Illuminate\Support\Collection
+    {
+        return collect($this->lines)
+            ->filter(fn ($line) => trim((string) ($line['item_name'] ?? '')) !== '')
+            ->pluck('assigned_tailor_id')
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+    }
+
+    protected function validateOrderExpenses(): bool
+    {
+        $isValid = true;
+
+        foreach ($this->order_expenses as $index => $expense) {
+            $notes = trim((string) ($expense['notes'] ?? ''));
+            $amount = $expense['amount'] ?? null;
+            $hasNotes = $notes !== '';
+            $hasAmount = $amount !== null && $amount !== '';
+
+            if ($hasNotes && ! $hasAmount) {
+                $this->addError("order_expenses.{$index}.amount", 'Amount is required when description is entered.');
+                $isValid = false;
+            }
+
+            if ($hasAmount && ! $hasNotes) {
+                $this->addError("order_expenses.{$index}.notes", 'Description is required when amount is entered.');
+                $isValid = false;
+            }
+
+            if (($hasNotes || $hasAmount) && (int) ($expense['tailor_id'] ?? 0) <= 0) {
+                $this->addError("order_expenses.{$index}.tailor_id", 'Select an order tailor or assign line tailor(s) before saving order expenses.');
+                $isValid = false;
+            }
+        }
+
+        return $isValid;
+    }
+
+    /**
+     * Validate selected order-level and line-level tailor assignments.
+     */
+    protected function validateTailorAssignments(?int $branchId): bool
+    {
+        $selectedTailorIds = $this->activeLineTailorIds();
+
+        if ($this->assigned_tailor_id) {
+            $selectedTailorIds->push((int) $this->assigned_tailor_id);
+        }
+
+        $selectedTailorIds = $selectedTailorIds->unique()->values();
+
+        if ($selectedTailorIds->isEmpty()) {
+            return true;
+        }
+
+        $validTailorIds = User::query()
+            ->whereIn('id', $selectedTailorIds->all())
+            ->where('branch_id', $branchId)
+            ->whereHas('roles', fn ($q) => $q->where('name', 'tailor'))
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+
+        $invalidIds = $selectedTailorIds->reject(fn ($id) => in_array($id, $validTailorIds, true));
+
+        if ($invalidIds->isEmpty()) {
+            return true;
+        }
+
+        if ($this->assigned_tailor_id && $invalidIds->contains((int) $this->assigned_tailor_id)) {
+            $this->addError('assigned_tailor_id', 'Selected order tailor must be a tailor in the same branch.');
+        }
+
+        foreach ($this->lines as $index => $line) {
+            $lineTailorId = (int) ($line['assigned_tailor_id'] ?? 0);
+            if ($lineTailorId > 0 && $invalidIds->contains($lineTailorId)) {
+                $this->addError("lines.{$index}.assigned_tailor_id", 'Selected line tailor must be a tailor in the same branch.');
+            }
+        }
+
+        return false;
+    }
+
     public function updatedLines(): void
     {
         $this->calculateTotals();
+        $this->syncOrderExpensesWithSelectedTailors();
     }
 
     public function updatedDiscount(): void
     {
         $this->calculateTotals();
-    }
-
-    public function updatedAssignedTailorId($value): void
-    {
-        if (blank($value)) {
-            $this->order_expense_amount = null;
-            $this->order_expense_notes = null;
-        }
     }
 
     public function updatedDepositAmount(): void
@@ -317,6 +655,19 @@ class Form extends Component
         return auth()->user()?->branch_id;
     }
 
+    protected function getEffectiveBranchIdForTailorOptions(): ?int
+    {
+        if ($this->isEdit && $this->order) {
+            return $this->order->branch_id;
+        }
+
+        if (auth()->user()?->isGlobalAdmin()) {
+            return $this->branch_id;
+        }
+
+        return auth()->user()?->branch_id;
+    }
+
     public function getSelectedCustomerProperty(): ?Customer
     {
         if (! $this->customer_id) {
@@ -338,6 +689,8 @@ class Form extends Component
     public function save(): void
     {
         $user = auth()->user();
+        $this->normalizeLineTailorAssignments();
+        $this->syncOrderExpensesWithSelectedTailors();
 
         // Build validation rules
         $rules = [
@@ -346,16 +699,17 @@ class Form extends Component
             'notes' => ['nullable', 'max:1000'],
             'discount' => ['nullable', 'numeric', 'min:0'],
             'deposit_payment_method_id' => ['nullable', 'integer', 'exists:payment_methods,id'],
+            'order_expenses' => ['nullable', 'array'],
+            'order_expenses.*.tailor_id' => ['nullable', 'integer', 'exists:users,id'],
+            'order_expenses.*.notes' => ['nullable', 'string', 'max:1000'],
+            'order_expenses.*.amount' => ['nullable', 'numeric', 'min:0.01'],
+            'assigned_tailor_id' => ['nullable', 'integer', 'exists:users,id'],
             'lines' => ['required', 'array', 'min:1'],
+            'lines.*.assigned_tailor_id' => ['nullable', 'integer', 'exists:users,id'],
             'lines.*.item_name' => ['required', 'string', 'max:191'],
             'lines.*.qty' => ['required', 'numeric', 'min:0.01'],
             'lines.*.unit_price' => ['required', 'numeric', 'min:0'],
         ];
-
-        if (! $this->isEdit && $this->assigned_tailor_id) {
-            $rules['order_expense_amount'] = ['required', 'numeric', 'min:0.01'];
-            $rules['order_expense_notes'] = ['required', 'string', 'max:1000'];
-        }
 
         // Global admins must select branch if no context
         if ($user->isGlobalAdmin() && ! $this->isEdit) {
@@ -363,6 +717,31 @@ class Form extends Component
         }
 
         $this->validate($rules);
+
+        // Determine effective branch_id for create
+        $effectiveBranchId = $this->isEdit
+            ? $this->order->branch_id
+            : ($user->isGlobalAdmin() ? $this->branch_id : $user->branch_id);
+
+        if (! $this->isEdit && ! $effectiveBranchId) {
+            $this->addError('branch_id', 'Please select a branch to create this order.');
+
+            return;
+        }
+
+        if (! $this->validateTailorAssignments($effectiveBranchId)) {
+            return;
+        }
+
+        if (! $this->validateOrderExpenses()) {
+            return;
+        }
+
+        if ($this->hasFilledOrderExpenses() && empty($this->selectedExpenseTailorIds())) {
+            $this->addError('order_expenses', 'Select an order tailor or assign line tailor(s) before saving order expenses.');
+
+            return;
+        }
 
         // Must have customer
         if (! $this->customer_id && ! $this->showNewCustomerForm) {
@@ -374,7 +753,12 @@ class Form extends Component
         if ($this->showNewCustomerForm) {
             $this->validate([
                 'newCustomerName' => ['required', 'max:191'],
-                'newCustomerPhone' => ['required', 'max:20'],
+                'newCustomerPhone' => [
+                    'required',
+                    'max:20',
+                    Rule::unique('customers', 'phone')
+                        ->where(fn ($query) => $query->where('branch_id', $effectiveBranchId)),
+                ],
                 'newCustomerEmail' => ['nullable', 'email', 'max:191'],
             ]);
         }
@@ -406,17 +790,6 @@ class Form extends Component
 
                 return;
             }
-        }
-
-        // Determine effective branch_id for create
-        $effectiveBranchId = $this->isEdit
-            ? $this->order->branch_id
-            : ($user->isGlobalAdmin() ? $this->branch_id : $user->branch_id);
-
-        if (! $this->isEdit && ! $effectiveBranchId) {
-            $this->addError('branch_id', 'Please select a branch to create this order.');
-
-            return;
         }
 
         try {
@@ -470,6 +843,7 @@ class Form extends Component
 
                     $lineAttributes = [
                         'order_id' => $order->id,
+                        'assigned_tailor_id' => $lineData['assigned_tailor_id'] ?: null,
                         'item_name' => $lineData['item_name'],
                         'qty' => $lineData['qty'],
                         'unit_price' => $lineData['unit_price'],
@@ -530,13 +904,53 @@ class Form extends Component
                     event(new OrderPaymentRecorded($order->fresh(), $payment, auth()->user()));
                 }
 
-                if (! $this->isEdit && $this->assigned_tailor_id && $this->order_expense_amount !== null) {
-                    OrderExpense::create([
+                $existingExpenseIds = [];
+                foreach ($this->order_expenses as $expenseData) {
+                    $notes = trim((string) ($expenseData['notes'] ?? ''));
+                    $amount = $expenseData['amount'] ?? null;
+                    $isFilled = $notes !== '' || ($amount !== null && $amount !== '');
+
+                    if (! $isFilled) {
+                        continue;
+                    }
+
+                    $expenseId = (int) ($expenseData['id'] ?? 0);
+                    if ($expenseId > 0) {
+                        $existingExpense = OrderExpense::query()
+                            ->where('order_id', $order->id)
+                            ->find($expenseId);
+
+                        if ($existingExpense) {
+                            $existingExpense->update([
+                                'tailor_id' => (int) ($expenseData['tailor_id'] ?? 0),
+                                'amount' => (float) $amount,
+                                'notes' => $notes ?: null,
+                            ]);
+                            $existingExpenseIds[] = $existingExpense->id;
+
+                            continue;
+                        }
+                    }
+
+                    $tailorIdForExpense = (int) ($expenseData['tailor_id'] ?? 0);
+
+                    if ($tailorIdForExpense <= 0) {
+                        continue;
+                    }
+
+                    $createdExpense = OrderExpense::create([
                         'order_id' => $order->id,
-                        'tailor_id' => $this->assigned_tailor_id,
-                        'amount' => (float) $this->order_expense_amount,
-                        'notes' => $this->order_expense_notes ?: null,
+                        'tailor_id' => $tailorIdForExpense,
+                        'amount' => (float) $amount,
+                        'notes' => $notes ?: null,
                     ]);
+                    $existingExpenseIds[] = $createdExpense->id;
+                }
+
+                if ($this->isEdit) {
+                    $order->orderExpenses()
+                        ->whereNotIn('id', $existingExpenseIds)
+                        ->delete();
                 }
 
                 // Keep invoice aligned with current order details and lines.
@@ -570,10 +984,13 @@ class Form extends Component
                 ->get(['id', 'name', 'phone', 'email', 'address', 'code']);
         }
 
-        // Filter tailors by branch if a branch is selected
+        // Tailor options must always be branch-scoped.
         $tailorsQuery = User::whereHas('roles', fn ($q) => $q->where('name', 'tailor'));
-        if ($this->branch_id) {
-            $tailorsQuery->where('branch_id', $this->branch_id);
+        $tailorBranchId = $this->getEffectiveBranchIdForTailorOptions();
+        if ($tailorBranchId) {
+            $tailorsQuery->where('branch_id', $tailorBranchId);
+        } else {
+            $tailorsQuery->whereRaw('1 = 0');
         }
         $tailors = $tailorsQuery->orderBy('name')->get(['id', 'name']);
 

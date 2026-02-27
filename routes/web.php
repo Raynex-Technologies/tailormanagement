@@ -6,6 +6,7 @@ use App\Livewire\Inventory\Categories\Index as CategoriesIndex;
 use App\Livewire\Inventory\Items\Index as ItemsIndex;
 use App\Livewire\Inventory\Stock\Index as StockIndex;
 use App\Livewire\Inventory\Transactions\Index as TransactionsIndex;
+use App\Livewire\Inventory\Units\Index as UnitsIndex;
 use App\Livewire\Invoices\Index as InvoicesIndex;
 use App\Livewire\Invoices\Show as InvoicesShow;
 use App\Livewire\Orders\Board as OrdersBoard;
@@ -13,6 +14,7 @@ use App\Livewire\Orders\Form as OrdersForm;
 use App\Livewire\Orders\Index as OrdersIndex;
 use App\Livewire\Orders\Show as OrdersShow;
 use App\Livewire\Orders\StockRequests\Index as OrderStockRequestsIndex;
+use App\Livewire\Payments\Index as PaymentsIndex;
 use App\Models\BusinessSetting;
 use App\Livewire\Store\StockRequests\Index as StoreStockRequestsIndex;
 use App\Livewire\Store\StockRequests\Show as StoreStockRequestShow;
@@ -100,6 +102,11 @@ Route::middleware(['auth', 'verified', 'branch.context'])->group(function () {
     Route::get('order-board', OrdersBoard::class)
         ->middleware('can:orders.view')
         ->name('orders.board');
+
+    // Payments Index
+    Route::get('payments', PaymentsIndex::class)
+        ->middleware('can:payments.view')
+        ->name('payments.index');
 
     /*
     |--------------------------------------------------------------------------
@@ -207,6 +214,9 @@ Route::middleware(['auth', 'verified', 'branch.context'])->group(function () {
 
         // Categories Management
         Route::get('categories', CategoriesIndex::class)->name('inventory.categories.index');
+
+        // Units Management
+        Route::get('units', UnitsIndex::class)->name('inventory.units.index');
 
         // Transaction History
         Route::get('transactions', TransactionsIndex::class)->name('inventory.transactions.index');

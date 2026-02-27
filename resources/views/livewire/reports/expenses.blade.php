@@ -13,7 +13,7 @@
         <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
                 <flux:heading size="xl">Expenses Report</flux:heading>
-                <flux:text class="mt-1">Expense tracking by category and capital allocation.</flux:text>
+                <flux:text class="mt-1">Expense tracking by category, order expenses, and capital allocation.</flux:text>
             </div>
             @can('reports.export')
                 <flux:button wire:click="export" variant="primary" size="sm">
@@ -50,7 +50,7 @@
             </flux:select>
             <flux:input
                 wire:model.blur="search"
-                placeholder="Search vendor..."
+                placeholder="Search vendor, reference, or notes..."
                 label="Search"
                 icon="magnifying-glass"
             />

@@ -45,7 +45,7 @@ class Index extends Component
 
         $user = auth()->user();
         if ($user && $user->hasRole('tailor')) {
-            $query->whereHas('order', fn ($q) => $q->where('assigned_tailor_id', $user->id));
+            $query->whereHas('order', fn ($q) => $q->forTailor($user->id));
         }
 
         $invoices = $query

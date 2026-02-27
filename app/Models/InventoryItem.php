@@ -16,6 +16,7 @@ class InventoryItem extends Model
     protected $fillable = [
         'branch_id',
         'inventory_category_id',
+        'inventory_unit_id',
         'sku',
         'name',
         'unit',
@@ -38,6 +39,11 @@ class InventoryItem extends Model
     public function category(): BelongsTo
     {
         return $this->belongsTo(InventoryCategory::class, 'inventory_category_id');
+    }
+
+    public function inventoryUnit(): BelongsTo
+    {
+        return $this->belongsTo(InventoryUnit::class, 'inventory_unit_id');
     }
 
     public function stock(): HasOne
