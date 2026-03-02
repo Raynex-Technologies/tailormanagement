@@ -35,6 +35,7 @@ use App\Policies\OrderStockRequestPolicy;
 use App\Policies\PurchaseOrderPolicy;
 use App\Policies\PurchaseRequestPolicy;
 use App\Policies\UserPolicy;
+use App\Support\InstallationState;
 use Carbon\CarbonImmutable;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -79,7 +80,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        app(InstallationState::class)->bootstrapPreInstallRuntime();
     }
 
     /**

@@ -640,3 +640,143 @@ select:focus[data-flux-control] {
 [data-flux-sidebar]::-webkit-scrollbar-thumb:hover {
     background: rgba(255, 255, 255, 0.25);
 }
+
+/* ============================================
+   INSTALLER
+   ============================================ */
+
+.install-shell {
+    position: relative;
+    overflow: hidden;
+    background:
+        radial-gradient(circle at top left, rgba(163, 230, 53, 0.22), transparent 32%),
+        radial-gradient(circle at bottom right, rgba(251, 191, 36, 0.18), transparent 28%),
+        linear-gradient(135deg, #eef5ec 0%, #f8f5ef 42%, #f3efe7 100%);
+}
+
+.install-orb {
+    position: fixed;
+    border-radius: 9999px;
+    filter: blur(14px);
+    pointer-events: none;
+    opacity: 0.6;
+}
+
+.install-orb-a {
+    top: 3rem;
+    right: -4rem;
+    width: 18rem;
+    height: 18rem;
+    background: rgba(110, 231, 183, 0.28);
+}
+
+.install-orb-b {
+    bottom: 2rem;
+    left: -5rem;
+    width: 20rem;
+    height: 20rem;
+    background: rgba(251, 191, 36, 0.22);
+}
+
+.install-hero {
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.86) 0%, rgba(247, 250, 246, 0.9) 100%);
+}
+
+.install-card {
+    background:
+        linear-gradient(180deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 252, 248, 0.88) 100%);
+}
+
+.install-stat-card {
+    border: 1px solid rgba(148, 163, 184, 0.16);
+    border-radius: 1.25rem;
+    background: rgba(255, 255, 255, 0.7);
+    padding: 1.25rem;
+}
+
+.install-stat-label {
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: #64748b;
+}
+
+.install-stat-value {
+    margin-top: 0.75rem;
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.install-stat-copy {
+    margin-top: 0.5rem;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: #475569;
+}
+
+.install-section-head {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.install-eyebrow {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: #64748b;
+}
+
+.install-section-title {
+    margin-top: 0.4rem;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.install-section-copy {
+    max-width: 20rem;
+    font-size: 0.88rem;
+    line-height: 1.6;
+    color: #64748b;
+}
+
+.install-field {
+    display: grid;
+    gap: 0.55rem;
+}
+
+.install-label {
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: #475569;
+}
+
+.install-input {
+    width: 100%;
+    border-radius: 1rem;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    background: rgba(255, 255, 255, 0.94);
+    padding: 0.9rem 1rem;
+    color: #0f172a;
+    transition: border-color 160ms ease, box-shadow 160ms ease, background 160ms ease;
+}
+
+.install-input:focus {
+    outline: none;
+    border-color: rgba(132, 204, 22, 0.7);
+    box-shadow: 0 0 0 4px rgba(163, 230, 53, 0.14);
+    background: white;
+}
+
+.install-error {
+    font-size: 0.8rem;
+    color: #dc2626;
+}

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\InstallationController;
 use App\Livewire\Administration\BusinessSettings as AdministrationBusinessSettings;
 use App\Livewire\Branches\Index as BranchesIndex;
 use App\Livewire\DeliveryNotes\Show as DeliveryNoteShow;
@@ -25,6 +26,9 @@ use App\Models\PaymentMethod;
 use App\Support\InvoicePdfRenderer;
 use App\Support\BranchContext;
 use Illuminate\Support\Facades\Route;
+
+Route::get('/install', [InstallationController::class, 'create'])->name('install.index');
+Route::post('/install', [InstallationController::class, 'store'])->name('install.store');
 
 Route::get('/', function () {
     return view('welcome');

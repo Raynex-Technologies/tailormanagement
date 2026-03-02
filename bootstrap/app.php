@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\EnsureApplicationIsInstalled;
 use App\Http\Middleware\SetBranchContext;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -17,6 +18,10 @@ return Application::configure(basePath: dirname(__DIR__))
         // Register middleware alias
         $middleware->alias([
             'branch.context' => SetBranchContext::class,
+        ]);
+
+        $middleware->web(prepend: [
+            EnsureApplicationIsInstalled::class,
         ]);
 
         // Apply throttling to web routes

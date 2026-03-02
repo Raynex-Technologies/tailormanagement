@@ -18,8 +18,9 @@ class InventoryCategoriesAndItemsSeeder extends Seeder
     public function run(): void
     {
         if (Branch::query()->count() === 0) {
-            $this->command->warn('No branches found. Running BranchSeeder first...');
-            $this->call(BranchSeeder::class);
+            $this->command->warn('No branches found. Seed branch records before running InventoryCategoriesAndItemsSeeder.');
+
+            return;
         }
 
         $branches = Branch::query()->orderBy('id')->get();

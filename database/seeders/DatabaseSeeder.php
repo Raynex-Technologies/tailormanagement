@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Models\Branch;
 use Illuminate\Database\Seeder;
 
 class DatabaseSeeder extends Seeder
@@ -11,12 +12,17 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // Always run core seeders
+        // Seed only reference data here. Installation-specific records
+        // are created by the first-run installer.
         $this->call([
             RolesAndPermissionsSeeder::class,
-            BranchSeeder::class,
-            SuperAdminSeeder::class,
         ]);
+
+        if (Branch::query()->exists()) {
+            $this->call([
+                InventoryCategoriesAndItemsSeeder::class,
+            ]);
+        }
 
         // Run demo seeder if in local/development environment
         // or if explicitly requested via: php artisan db:seed --class=DemoSeeder
