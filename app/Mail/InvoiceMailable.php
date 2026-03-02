@@ -4,6 +4,7 @@ namespace App\Mail;
 
 use App\Models\BusinessSetting;
 use App\Models\Invoice;
+use App\Models\PaymentMethod;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Attachment;
@@ -45,6 +46,7 @@ class InvoiceMailable extends Mailable
         $html = view('invoices.print', [
             'invoice' => $this->invoice,
             'settings' => $this->settings,
+            'paymentMethods' => PaymentMethod::forInvoiceDocument(),
             'emailMode' => true,
         ])->render();
 

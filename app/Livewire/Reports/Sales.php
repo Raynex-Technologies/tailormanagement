@@ -79,6 +79,26 @@ class Sales extends Component
             ->get(['id', 'name']);
     }
 
+    public function updatedDateFrom(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedDateTo(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedMethod(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedSearch(): void
+    {
+        $this->resetPage();
+    }
+
     public function applyFilters(): void
     {
         $this->resetPage();

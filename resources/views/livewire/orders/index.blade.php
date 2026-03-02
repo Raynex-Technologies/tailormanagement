@@ -1,5 +1,12 @@
 <div>
     <flux:main class="p-6">
+        <div class="mb-6">
+            <flux:breadcrumbs>
+                <flux:breadcrumbs.item :href="route('dashboard')" icon="home" wire:navigate />
+                <flux:breadcrumbs.item>{{ __('Orders') }}</flux:breadcrumbs.item>
+            </flux:breadcrumbs>
+        </div>
+
         {{-- Page Header --}}
         <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -10,7 +17,7 @@
             </div>
 
             @can('orders.create')
-                <flux:button icon="plus" :href="route('orders.create')" wire:navigate>
+                <flux:button variant="primary" icon="plus" :href="route('orders.create')" wire:navigate>
                     {{ __('New Order') }}
                 </flux:button>
             @endcan
@@ -99,21 +106,8 @@
                     <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
                         @forelse ($orders as $order)
                             @php
-                                $statusColor = match($order->status) {
-                                    \App\Enums\OrderStatus::New => 'blue',
-                                    \App\Enums\OrderStatus::InProgress => 'amber',
-                                    \App\Enums\OrderStatus::Ready => 'purple',
-                                    \App\Enums\OrderStatus::Delivered => 'green',
-                                    \App\Enums\OrderStatus::Completed => 'green',
-                                    \App\Enums\OrderStatus::Cancelled => 'red',
-                                    default => 'zinc',
-                                };
-                                $paymentColor = match($order->payment_status) {
-                                    \App\Enums\PaymentStatus::Paid => 'green',
-                                    \App\Enums\PaymentStatus::Partial => 'amber',
-                                    \App\Enums\PaymentStatus::Unpaid => 'red',
-                                    default => 'zinc',
-                                };
+                                $statusColor = $order->status->color();
+                                $paymentColor = $order->payment_status->color();
                             @endphp
                             <tr class="text-sm text-zinc-700 dark:text-zinc-300" wire:key="order-{{ $order->id }}">
                                 <td class="px-4 py-3">
@@ -136,7 +130,7 @@
                                     </flux:badge>
                                 </td>
                                 <td class="px-4 py-3">
-                                    {{ $order->due_date?->format('M d, Y') ?? '—' }}
+                                    {{ $order->due_date?->format('M d, Y') ?? '-' }}
                                 </td>
                                 @if ($canViewFinancials)
                                     <td class="px-4 py-3 text-right font-mono">
@@ -150,18 +144,33 @@
                                 @endif
                                 <td class="px-4 py-3">
                                     @php
-                                        $tailorNames = collect();
-                                        if ($order->assignedTailor?->name) {
-                                            $tailorNames->push($order->assignedTailor->name);
-                                        }
-                                        $lineTailorNames = $order->lines->pluck('assignedTailor.name')->filter()->unique()->values();
-                                        foreach ($lineTailorNames as $lineTailorName) {
-                                            if (! $tailorNames->contains($lineTailorName)) {
-                                                $tailorNames->push($lineTailorName);
-                                            }
-                                        }
+                                        $tailorNames = $order->involvedTailorNames();
                                     @endphp
-                                    {{ $tailorNames->isNotEmpty() ? $tailorNames->implode(', ') : '—' }}
+
+                                    @if ($tailorNames->count() > 1)
+                                        <flux:tooltip :content="$tailorNames->implode(', ')" position="top">
+                                            <div class="inline-flex cursor-help items-center">
+                                                <div class="flex -space-x-2">
+                                                    @foreach ($tailorNames->take(3) as $tailorName)
+                                                        <span class="inline-flex size-7 items-center justify-center rounded-full border border-white bg-zinc-100 text-zinc-600 shadow-sm dark:border-zinc-800 dark:bg-zinc-700 dark:text-zinc-200">
+                                                            <x-icon name="person" class="size-4" />
+                                                            <span class="sr-only">{{ $tailorName }}</span>
+                                                        </span>
+                                                    @endforeach
+
+                                                    @if ($tailorNames->count() > 3)
+                                                        <span class="inline-flex size-7 items-center justify-center rounded-full border border-white bg-zinc-900 text-xs font-semibold text-white shadow-sm dark:border-zinc-800 dark:bg-zinc-200 dark:text-zinc-900">
+                                                            +{{ $tailorNames->count() - 3 }}
+                                                        </span>
+                                                    @endif
+                                                </div>
+                                            </div>
+                                        </flux:tooltip>
+                                    @elseif ($tailorNames->isNotEmpty())
+                                        <span>{{ $tailorNames->first() }}</span>
+                                    @else
+                                        <span>-</span>
+                                    @endif
                                 </td>
                                 <td class="px-4 py-3">
                                     <div class="flex items-center justify-end gap-1">
@@ -195,7 +204,7 @@
                                             {{ __('No orders found.') }}
                                         </flux:text>
                                         @can('orders.create')
-                                            <flux:button size="sm" :href="route('orders.create')" wire:navigate>
+                                            <flux:button size="sm" variant="primary" :href="route('orders.create')" wire:navigate>
                                                 {{ __('Create your first order') }}
                                             </flux:button>
                                         @endcan

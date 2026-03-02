@@ -18,6 +18,14 @@
 >
     {{-- Header --}}
     <div class="flex-shrink-0 border-b border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 px-4 py-3">
+        <div class="mb-3">
+            <flux:breadcrumbs>
+                <flux:breadcrumbs.item :href="route('dashboard')" icon="home" wire:navigate />
+                <flux:breadcrumbs.item :href="route('messages.index')" wire:navigate>{{ __('Messages') }}</flux:breadcrumbs.item>
+                <flux:breadcrumbs.item>{{ $conversation->getDisplayNameFor(auth()->user()) }}</flux:breadcrumbs.item>
+            </flux:breadcrumbs>
+        </div>
+
         <div class="flex items-center justify-between">
             <div class="flex items-center gap-3">
                 <a href="{{ route('messages.index') }}" wire:navigate class="text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200">

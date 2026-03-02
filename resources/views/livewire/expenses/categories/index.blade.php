@@ -26,7 +26,7 @@
                 <flux:heading size="xl">{{ __('Expense Categories') }}</flux:heading>
                 <flux:text class="text-zinc-500">{{ __('Manage expense categories for organizing expenses.') }}</flux:text>
             </div>
-            <flux:button wire:click="openCreateModal">
+            <flux:button variant="primary" wire:click="openCreateModal">
                 <x-icon name="add" class="mr-1 size-4" />
                 {{ __('New Category') }}
             </flux:button>

@@ -102,6 +102,36 @@ class Orders extends Component
             ->get(['id', 'name']);
     }
 
+    public function updatedDateFrom(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedDateTo(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedStatus(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedTailorId(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedPaymentStatus(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedSearch(): void
+    {
+        $this->resetPage();
+    }
+
     public function resetFilters(): void
     {
         $this->dateFrom = Carbon::now()->startOfMonth()->toDateString();

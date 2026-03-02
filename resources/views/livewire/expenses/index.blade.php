@@ -26,7 +26,7 @@
                 <flux:text class="text-zinc-500">{{ __('Track and manage business expenses.') }}</flux:text>
             </div>
             @can('expenses.manage')
-                <flux:button :href="route('expenses.create')" wire:navigate>
+                <flux:button variant="primary" :href="route('expenses.create')" wire:navigate>
                     <x-icon name="add" class="mr-1 size-4" />
                     {{ __('New Expense') }}
                 </flux:button>

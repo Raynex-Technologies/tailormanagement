@@ -160,6 +160,45 @@ class ProcurementFlowTest extends TestCase
         ]);
     }
 
+    public function test_approving_purchase_request_rejects_non_positive_review_quantities(): void
+    {
+        $accountant = $this->actingAsRole('accountant', $this->branch);
+
+        CapitalAllocation::create([
+            'branch_id' => $this->branch->id,
+            'allocation_no' => 'CA-TEST-004',
+            'accountant_id' => $accountant->id,
+            'initial_amount' => 500000,
+            'spent_amount' => 0,
+            'starts_on' => now()->startOfMonth(),
+            'ends_on' => now()->endOfMonth(),
+            'status' => CapitalAllocationStatus::Open,
+            'created_by' => $accountant->id,
+        ]);
+
+        $pr = PurchaseRequest::create([
+            'branch_id' => $this->branch->id,
+            'request_no' => 'PR-TEST-004',
+            'requested_by' => $accountant->id,
+            'status' => PurchaseRequestStatus::Submitted,
+            'estimated_total' => 50000,
+            'note' => 'Invalid reviewed qty',
+        ]);
+
+        $prItem = $pr->items()->create([
+            'item_name' => 'Test Item',
+            'qty' => 10,
+            'unit_price_est' => 5000,
+            'line_total_est' => 50000,
+        ]);
+
+        $this->expectException(ValidationException::class);
+
+        $this->prService->approve($pr, $accountant, [
+            ['id' => $prItem->id, 'qty' => 0, 'unit_price_est' => 5000],
+        ]);
+    }
+
     public function test_receiving_against_po_increases_inventory(): void
     {
         $user = $this->actingAsRole('storekeeper', $this->branch);

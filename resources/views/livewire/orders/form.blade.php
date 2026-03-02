@@ -3,6 +3,7 @@
         {{-- Page Header --}}
         <div class="mb-6">
             <flux:breadcrumbs>
+                <flux:breadcrumbs.item :href="route('dashboard')" icon="home" wire:navigate />
                 <flux:breadcrumbs.item :href="route('orders.index')" wire:navigate>Orders</flux:breadcrumbs.item>
                 <flux:breadcrumbs.item>{{ $isEdit ? 'Edit' : 'Create' }}</flux:breadcrumbs.item>
             </flux:breadcrumbs>

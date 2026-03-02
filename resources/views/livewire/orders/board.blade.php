@@ -1,5 +1,13 @@
 <div>
     <flux:main class="p-6">
+        <div class="mb-6">
+            <flux:breadcrumbs>
+                <flux:breadcrumbs.item :href="route('dashboard')" icon="home" wire:navigate />
+                <flux:breadcrumbs.item :href="route('orders.index')" wire:navigate>{{ __('Orders') }}</flux:breadcrumbs.item>
+                <flux:breadcrumbs.item>{{ __('Board') }}</flux:breadcrumbs.item>
+            </flux:breadcrumbs>
+        </div>
+
         {{-- Page Header --}}
         <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -10,7 +18,7 @@
             </div>
 
             @can('orders.create')
-                <flux:button icon="plus" :href="route('orders.create')" wire:navigate>
+                <flux:button variant="primary" icon="plus" :href="route('orders.create')" wire:navigate>
                     {{ __('New Order') }}
                 </flux:button>
             @endcan

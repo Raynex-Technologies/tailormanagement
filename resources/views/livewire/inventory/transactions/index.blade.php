@@ -1,5 +1,13 @@
 <div>
     <flux:main class="p-6">
+        <div class="mb-6">
+            <flux:breadcrumbs>
+                <flux:breadcrumbs.item :href="route('dashboard')" icon="home" wire:navigate />
+                <flux:breadcrumbs.item :href="route('inventory.stock')" wire:navigate>{{ __('Inventory') }}</flux:breadcrumbs.item>
+                <flux:breadcrumbs.item>{{ __('Transactions') }}</flux:breadcrumbs.item>
+            </flux:breadcrumbs>
+        </div>
+
         {{-- Page Header --}}
         <div class="mb-6">
             <flux:heading size="xl">{{ __('Inventory Transactions') }}</flux:heading>

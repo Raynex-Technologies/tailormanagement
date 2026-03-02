@@ -3,6 +3,7 @@
         {{-- Page Header --}}
         <div class="mb-6">
             <flux:breadcrumbs>
+                <flux:breadcrumbs.item :href="route('dashboard')" icon="home" wire:navigate />
                 <flux:breadcrumbs.item :href="route('store.stock-requests.index')" wire:navigate>Stock Requests</flux:breadcrumbs.item>
                 <flux:breadcrumbs.item>Request #{{ $stockRequest->id }}</flux:breadcrumbs.item>
             </flux:breadcrumbs>

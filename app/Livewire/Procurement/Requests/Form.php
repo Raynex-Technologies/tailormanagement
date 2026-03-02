@@ -4,6 +4,7 @@ namespace App\Livewire\Procurement\Requests;
 
 use App\Models\Branch;
 use App\Models\InventoryItem;
+use App\Models\Scopes\BranchScope;
 use App\Models\PurchaseRequest;
 use App\Services\Procurement\PurchaseRequestService;
 use App\Support\BranchContext;
@@ -30,6 +31,7 @@ class Form extends Component
     public string $productSearch = '';
     public array $searchResults = [];
     public bool $showSearchDropdown = false;
+    public ?string $branchChangeMessage = null;
 
     protected function rules(): array
     {
@@ -123,6 +125,7 @@ class Form extends Component
      */
     public function updatedProductSearch(): void
     {
+        $this->resetValidation('items');
         $this->searchInventory();
     }
 
@@ -131,10 +134,33 @@ class Form extends Component
      */
     public function updatedBranchId(): void
     {
-        // Clear search results when branch changes
+        $this->branchChangeMessage = null;
         $this->searchResults = [];
         $this->productSearch = '';
         $this->showSearchDropdown = false;
+
+        if (empty($this->items)) {
+            return;
+        }
+
+        $removedInventoryItems = collect($this->items)
+            ->filter(fn (array $item) => ! empty($item['inventory_item_id']));
+
+        if ($removedInventoryItems->isEmpty()) {
+            return;
+        }
+
+        $this->items = collect($this->items)
+            ->reject(fn (array $item) => ! empty($item['inventory_item_id']))
+            ->values()
+            ->toArray();
+
+        $removedCount = $removedInventoryItems->count();
+        $this->branchChangeMessage = trans_choice(
+            '{1} Changing the branch removed 1 inventory item from this draft.|[2,*] Changing the branch removed :count inventory items from this draft.',
+            $removedCount,
+            ['count' => $removedCount]
+        );
     }
 
     /**
@@ -164,7 +190,7 @@ class Form extends Component
         // Query inventory items for the specific branch
         // IMPORTANT: Use withoutGlobalScope to bypass BranchScoped trait,
         // then manually filter by the target branch to avoid scope issues
-        $this->searchResults = InventoryItem::withoutGlobalScope(\App\Models\Scopes\BranchScope::class)
+        $this->searchResults = InventoryItem::withoutGlobalScope(BranchScope::class)
             ->where('branch_id', $branchId)
             ->where('is_active', true)
             ->where(function ($query) use ($searchTerm) {
@@ -172,6 +198,7 @@ class Form extends Component
                     ->orWhere('sku', 'like', "%{$searchTerm}%");
             })
             ->with('stock')
+            ->orderBy('name')
             ->limit(10)
             ->get()
             ->map(function ($item) {
@@ -195,9 +222,11 @@ class Form extends Component
      */
     public function selectProduct(int $inventoryItemId): void
     {
+        $this->branchChangeMessage = null;
+
         $branchId = $this->getSearchBranchId();
 
-        $invItem = InventoryItem::withoutGlobalScope(\App\Models\Scopes\BranchScope::class)
+        $invItem = InventoryItem::withoutGlobalScope(BranchScope::class)
             ->where('branch_id', $branchId)
             ->where('id', $inventoryItemId)
             ->with('stock')
@@ -239,6 +268,8 @@ class Form extends Component
      */
     public function addManualItem(): void
     {
+        $this->branchChangeMessage = null;
+
         $this->items[] = [
             'id' => null,
             'inventory_item_id' => null,
@@ -255,6 +286,7 @@ class Form extends Component
      */
     public function removeItem(int $index): void
     {
+        $this->branchChangeMessage = null;
         unset($this->items[$index]);
         $this->items = array_values($this->items);
     }

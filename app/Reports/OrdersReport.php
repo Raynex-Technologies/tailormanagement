@@ -135,57 +135,11 @@ class OrdersReport
      */
     protected function baseQuery()
     {
-        $query = Order::query();
-
-        // Date range filter
-        if ($this->dateFrom) {
-            $query->where(function ($q) {
-                $q->whereDate('orders.order_date', '>=', $this->dateFrom)
-                    ->orWhere(function ($legacyQuery) {
-                        // Keep legacy rows (without order_date) filterable.
-                        $legacyQuery->whereNull('orders.order_date')
-                            ->whereDate('orders.created_at', '>=', $this->dateFrom);
-                    });
-            });
-        }
-
-        if ($this->dateTo) {
-            $query->where(function ($q) {
-                $q->whereDate('orders.order_date', '<=', $this->dateTo)
-                    ->orWhere(function ($legacyQuery) {
-                        // Keep legacy rows (without order_date) filterable.
-                        $legacyQuery->whereNull('orders.order_date')
-                            ->whereDate('orders.created_at', '<=', $this->dateTo);
-                    });
-            });
-        }
-
-        // Status filter
-        if ($this->status) {
-            $query->where('orders.status', $this->status);
-        }
-
-        // Tailor filter
-        if ($this->tailorId) {
-            $query->assignedTo($this->tailorId);
-        }
-
-        // Payment status filter
-        if ($this->paymentStatus) {
-            $query->where('orders.payment_status', $this->paymentStatus);
-        }
-
-        // Search filter
-        if ($this->search) {
-            $query->where(function ($q) {
-                $q->where('orders.order_no', 'like', "%{$this->search}%")
-                    ->orWhereHas('customer', function ($cq) {
-                        $cq->where('name', 'like', "%{$this->search}%")
-                            ->orWhere('phone', 'like', "%{$this->search}%");
-                    });
-            });
-        }
-
-        return $query;
+        return Order::query()
+            ->dateRange($this->dateFrom, $this->dateTo)
+            ->status($this->status)
+            ->assignedTo($this->tailorId)
+            ->when($this->paymentStatus, fn ($query) => $query->where('orders.payment_status', $this->paymentStatus))
+            ->search($this->search);
     }
 }

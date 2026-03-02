@@ -10,9 +10,7 @@
                 {{-- Sort Dropdown --}}
                 <flux:dropdown position="bottom" align="end">
                     <button class="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium text-zinc-600 dark:text-zinc-400 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-colors">
-                        <svg class="size-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M3 7.5 7.5 3m0 0L12 7.5M7.5 3v13.5m13.5 0L16.5 21m0 0L12 16.5m4.5 4.5V7.5" />
-                        </svg>
+                        <i class="fa-duotone fa-arrow-down-arrow-up size-3.5"></i>
                         {{ $sortBy === 'priority' ? __('Priority') : ($sortBy === 'time' ? __('Due Time') : __('Recent')) }}
                     </button>
                     <flux:menu class="w-36">
@@ -34,9 +32,7 @@
                     class="flex items-center justify-center size-9 rounded-xl transition-all hover:shadow-lg"
                     style="background: linear-gradient(135deg, #A3E635 0%, #84CC16 100%); color: #1E1F2E;"
                 >
-                    <svg class="size-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                    </svg>
+                    <i class="fa-duotone fa-plus size-5"></i>
                 </button>
             </div>
         </div>
@@ -66,9 +62,7 @@
                         style="{{ $todo->is_done ? 'box-shadow: 0 2px 8px rgba(163, 230, 53, 0.3);' : '' }}"
                     >
                         @if ($todo->is_done)
-                            <svg class="size-3" fill="none" viewBox="0 0 24 24" stroke-width="3" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="m4.5 12.75 6 6 9-13.5" />
-                            </svg>
+                            <i class="fa-duotone fa-check size-3"></i>
                         @endif
                     </button>
 
@@ -82,14 +76,12 @@
                         {{-- Countdown / Due Time (below title) --}}
                         @if ($remaining && !$todo->is_done)
                             <div class="mt-1 flex items-center gap-1.5">
-                                <svg class="size-3.5 {{ $isOverdue ? 'text-red-500' : 'text-zinc-400' }}" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                                </svg>
+                                <i class="fa-duotone fa-clock size-3.5 {{ $isOverdue ? 'text-red-500' : 'text-zinc-400' }}"></i>
                                 @if(!$isOverdue && $remainingSeconds && $remainingSeconds < 3600)
                                     {{-- Live countdown for tasks under 1 hour --}}
-                                    <span 
+                                    <span
                                         class="text-xs font-medium text-zinc-500 dark:text-zinc-400"
-                                        x-data="{ 
+                                        x-data="{
                                             remaining: {{ $remainingSeconds }},
                                             formatTime(seconds) {
                                                 if (seconds <= 0) return 'Overdue';
@@ -128,18 +120,14 @@
                                 wire:click="editTask({{ $todo->id }})"
                                 class="flex items-center justify-center size-6 rounded-lg text-zinc-400 hover:text-blue-500 hover:bg-blue-50 dark:hover:bg-blue-900/20 transition-all"
                             >
-                                <svg class="size-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125" />
-                                </svg>
+                                <i class="fa-duotone fa-pen-to-square size-3.5"></i>
                             </button>
                             <button
                                 wire:click="deleteTask({{ $todo->id }})"
                                 wire:confirm="{{ __('Are you sure you want to delete this task?') }}"
                                 class="flex items-center justify-center size-6 rounded-lg text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all"
                             >
-                                <svg class="size-3.5" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-                                </svg>
+                                <i class="fa-duotone fa-xmark size-3.5"></i>
                             </button>
                         </div>
                     </div>
@@ -147,9 +135,7 @@
             @empty
                 <div class="py-10 text-center">
                     <div class="flex items-center justify-center size-14 rounded-2xl mx-auto mb-3" style="background: rgba(163, 230, 53, 0.1);">
-                        <svg class="size-7" style="color: #84CC16;" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                        </svg>
+                        <i class="fa-duotone fa-circle-check size-7" style="color: #84CC16;"></i>
                     </div>
                     <p class="text-sm font-medium text-zinc-900 dark:text-white">{{ __('All caught up!') }}</p>
                     <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">{{ __('Click + to add a task') }}</p>
@@ -298,9 +284,7 @@
                                     wire:confirm="{{ __('Delete this category?') }}"
                                     class="text-zinc-400 hover:text-red-500"
                                 >
-                                    <svg class="size-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" />
-                                    </svg>
+                                    <i class="fa-duotone fa-xmark size-4"></i>
                                 </button>
                             </div>
                         @endforeach

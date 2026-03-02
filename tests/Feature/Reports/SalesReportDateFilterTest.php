@@ -13,6 +13,18 @@ use Tests\TestCase;
 
 class SalesReportDateFilterTest extends TestCase
 {
+    public function test_sales_report_page_uses_live_filter_bindings(): void
+    {
+        $this->actingAsRole('accountant', $this->branch);
+
+        $this->get(route('reports.sales'))
+            ->assertOk()
+            ->assertSee('wire:model.live="dateFrom"', false)
+            ->assertSee('wire:model.live="dateTo"', false)
+            ->assertSee('wire:model.live="method"', false)
+            ->assertSee('wire:model.live.debounce.300ms="search"', false);
+    }
+
     public function test_sales_report_filters_by_order_date_not_payment_date(): void
     {
         $user = $this->actingAsRole('accountant', $this->branch);
@@ -114,4 +126,3 @@ class SalesReportDateFilterTest extends TestCase
         $this->assertContains($legacyOrder->id, $orderIds);
     }
 }
-

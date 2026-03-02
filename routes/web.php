@@ -1,6 +1,7 @@
 <?php
 
 use App\Livewire\Administration\BusinessSettings as AdministrationBusinessSettings;
+use App\Livewire\Branches\Index as BranchesIndex;
 use App\Livewire\DeliveryNotes\Show as DeliveryNoteShow;
 use App\Livewire\Inventory\Categories\Index as CategoriesIndex;
 use App\Livewire\Inventory\Items\Index as ItemsIndex;
@@ -20,6 +21,8 @@ use App\Livewire\Store\StockRequests\Index as StoreStockRequestsIndex;
 use App\Livewire\Store\StockRequests\Show as StoreStockRequestShow;
 use App\Models\Branch;
 use App\Models\Invoice;
+use App\Models\PaymentMethod;
+use App\Support\InvoicePdfRenderer;
 use App\Support\BranchContext;
 use Illuminate\Support\Facades\Route;
 
@@ -50,6 +53,11 @@ Route::middleware(['auth', 'verified', 'branch.context'])->group(function () {
     // Dashboard - accessible to all authenticated users
     Route::get('dashboard', \App\Livewire\Dashboard::class)
         ->name('dashboard');
+
+    // Branch Management
+    Route::get('administration/branches', BranchesIndex::class)
+        ->middleware('can:branches.view')
+        ->name('branches.index');
 
     // My Tasks - personal todo management
     Route::get('tasks', \App\Livewire\Tasks\Index::class)->name('tasks.index');
@@ -114,37 +122,41 @@ Route::middleware(['auth', 'verified', 'branch.context'])->group(function () {
     |--------------------------------------------------------------------------
     */
     Route::prefix('invoices')->middleware('can:orders.view')->group(function () {
+        $invoiceDocumentData = function (Invoice $invoice): array {
+            return [
+                'invoice' => $invoice->load(['order.customer', 'order.branch', 'lines', 'branch']),
+                'settings' => BusinessSetting::instance(),
+                'paymentMethods' => PaymentMethod::forInvoiceDocument(),
+            ];
+        };
+
         Route::get('/', InvoicesIndex::class)->name('invoices.index');
         Route::get('/{invoice}', InvoicesShow::class)->name('invoices.show');
 
-        Route::get('/{invoice}/print', function (Invoice $invoice) {
+        Route::get('/{invoice}/print', function (Invoice $invoice) use ($invoiceDocumentData) {
             if (! auth()->user()->can('view', $invoice)) {
                 abort(403);
             }
 
-            return view('invoices.print', [
-                'invoice' => $invoice->load(['order.customer', 'order.branch', 'lines', 'branch']),
-                'settings' => BusinessSetting::instance(),
-            ]);
+            return view('invoices.print', $invoiceDocumentData($invoice));
         })->name('invoices.print');
 
-        Route::get('/{invoice}/download', function (Invoice $invoice) {
+        Route::get('/{invoice}/download', function (Invoice $invoice, InvoicePdfRenderer $pdfRenderer) use ($invoiceDocumentData) {
             if (! auth()->user()->can('view', $invoice)) {
                 abort(403);
             }
 
-            $invoice->load(['order.customer', 'order.branch', 'lines', 'branch']);
-            $settings = BusinessSetting::instance();
-            $html = view('invoices.print', [
-                'invoice' => $invoice,
-                'settings' => $settings,
-                'downloadMode' => true,
-            ])->render();
+            $documentData = $invoiceDocumentData($invoice);
+            $pdf = $pdfRenderer->render(
+                $documentData['invoice'],
+                $documentData['settings'],
+                $documentData['paymentMethods']
+            );
 
             return response()->streamDownload(
-                fn () => print($html),
-                "{$invoice->invoice_no}.html",
-                ['Content-Type' => 'text/html; charset=UTF-8']
+                fn () => print($pdf),
+                $invoice->invoice_no.'.pdf',
+                ['Content-Type' => 'application/pdf']
             );
         })->name('invoices.download');
     });
@@ -341,7 +353,7 @@ Route::middleware(['auth', 'verified', 'branch.context'])->group(function () {
             return redirect()->back()->with('status', "Switched to branch: {$branch->name}");
         })->name('admin.set-active-branch');
 
-        // Clear active branch (see all branches)
+        // Reset to the default active branch
         Route::post('active-branch', function () {
             $user = auth()->user();
 
@@ -351,7 +363,7 @@ Route::middleware(['auth', 'verified', 'branch.context'])->group(function () {
 
             BranchContext::clearActiveBranch();
 
-            return redirect()->back()->with('status', 'Viewing all branches.');
+            return redirect()->back()->with('status', 'Switched to the default branch.');
         })->name('admin.clear-active-branch');
     });
 });

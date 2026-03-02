@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Http\Middleware\SetBranchContext;
 use App\Models\Branch;
 use App\Models\CapitalAllocation;
 use App\Models\Conversation;
@@ -45,6 +46,7 @@ use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
+use Livewire\Livewire;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -88,6 +90,10 @@ class AppServiceProvider extends ServiceProvider
         // Fix MySQL key length issue for older MySQL versions
         Schema::defaultStringLength(191);
 
+        Livewire::addPersistentMiddleware([
+            SetBranchContext::class,
+        ]);
+
         $this->configureDefaults();
         $this->configureGates();
         $this->configureRateLimiting();
@@ -107,6 +113,7 @@ class AppServiceProvider extends ServiceProvider
         // All listeners are auto-discovered:
         // - SendOrderCreatedSms      -> OrderCreated
         // - SendOrderStatusSms       -> OrderStatusChanged
+        // - SendOrderDueDateChangedSms -> OrderDueDateChanged
         // - SendOrderPaymentSms      -> OrderPaymentRecorded
         // - CreateInAppNotificationForPayment -> OrderPaymentRecorded
         // - ClearBranchContextOnLogout -> Logout

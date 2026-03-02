@@ -3,6 +3,7 @@
         {{-- Page Header --}}
         <div class="mb-6">
             <flux:breadcrumbs>
+                <flux:breadcrumbs.item :href="route('dashboard')" icon="home" wire:navigate />
                 <flux:breadcrumbs.item :href="route('orders.index')" wire:navigate>Orders</flux:breadcrumbs.item>
                 <flux:breadcrumbs.item :href="route('orders.show', $order)" wire:navigate>{{ $order->order_no }}</flux:breadcrumbs.item>
                 <flux:breadcrumbs.item>Stock Requests</flux:breadcrumbs.item>
@@ -17,7 +18,7 @@
                 </div>
 
                 @if ($canCreate)
-                    <flux:button wire:click="openNewRequestModal">
+                    <flux:button variant="primary" wire:click="openNewRequestModal">
                         <x-icon name="add" class="mr-1 size-4" />
                         New Request
                     </flux:button>
@@ -132,7 +133,7 @@
                             No stock requests have been made for this order yet.
                         </flux:text>
                         @if ($canCreate)
-                            <flux:button class="mt-4" wire:click="openNewRequestModal">
+                            <flux:button class="mt-4" variant="primary" wire:click="openNewRequestModal">
                                 <x-icon name="add" class="mr-1 size-4" />
                                 Create First Request
                             </flux:button>

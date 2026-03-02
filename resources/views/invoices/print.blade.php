@@ -116,6 +116,12 @@
     </style>
 </head>
 <body>
+    @php
+        $paymentMethods = ($paymentMethods ?? \App\Models\PaymentMethod::forInvoiceDocument())
+            ->take(3)
+            ->values();
+    @endphp
+
     @if (empty($emailMode) && empty($downloadMode))
         <button class="print-btn no-print" onclick="window.print()">Print</button>
     @endif
@@ -178,6 +184,23 @@
                 @endif
             </div>
         </div>
+
+        @if ($paymentMethods->isNotEmpty())
+            <div class="card" style="margin-bottom: 20px;">
+                <h3>Payment Methods</h3>
+                @foreach ($paymentMethods as $paymentMethod)
+                    <div @if (! $loop->last) style="margin-bottom: 10px;" @endif>
+                        <p><strong>{{ $paymentMethod->name }}</strong></p>
+                        @if ($paymentMethod->account_number)
+                            <p><strong>Account Number:</strong> {{ $paymentMethod->account_number }}</p>
+                        @endif
+                        @if ($paymentMethod->account_holder_name)
+                            <p><strong>Account Holder:</strong> {{ $paymentMethod->account_holder_name }}</p>
+                        @endif
+                    </div>
+                @endforeach
+            </div>
+        @endif
 
         <table>
             <thead>

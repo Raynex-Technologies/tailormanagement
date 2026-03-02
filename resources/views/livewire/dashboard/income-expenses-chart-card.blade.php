@@ -1,4 +1,4 @@
-<div class="rounded-2xl bg-white dark:bg-zinc-800/50 p-5 shadow-sm border border-zinc-200/50 dark:border-zinc-700/50">
+<div class="rounded-2xl bg-white dark:bg-zinc-800/50 p-5 shadow-sm border border-zinc-200/50 dark:border-zinc-700/50 overflow-hidden">
     <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
             <h2 class="text-lg font-semibold text-zinc-900 dark:text-white">{{ __('Income vs Expenses') }}</h2>
@@ -32,13 +32,14 @@
     </div>
 
     @if ($this->chartData['requires_branch_selection'])
-        <div class="mt-4 rounded-xl border border-amber-200/60 dark:border-amber-800/60 bg-amber-50/70 dark:bg-amber-900/20 p-4">
+        <div class="mt-4 rounded-xl border border-amber-200 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-900/20 p-4 flex items-center gap-3">
+            <i class="fa-duotone fa-triangle-exclamation text-amber-500 shrink-0"></i>
             <p class="text-sm font-medium text-amber-700 dark:text-amber-300">{{ __('Select a branch to view income and expense trends.') }}</p>
         </div>
     @else
         <div
             wire:key="{{ $this->chartKey }}"
-            class="mt-4"
+            class="mt-4 min-w-0"
             x-data="{
                 chart: null,
                 payload: @js($this->chartData),
@@ -70,14 +71,27 @@
 
                     this.destroyChart();
 
+                    const isDark = document.documentElement.classList.contains('dark');
+                    const gridColor = isDark ? '#3F3F46' : '#E5E7EB';
+                    const labelColor = isDark ? '#A1A1AA' : '#6B7280';
+                    const xAxisLabelColors = this.payload.categories.map(() => labelColor);
+                    const xAxisRotate = this.payload.categories.length > 6 ? -45 : 0;
+                    const xAxisTickAmount = this.payload.categories.length > 1
+                        ? Math.min(this.payload.categories.length, 6)
+                        : undefined;
+
                     const options = {
                         chart: {
                             type: 'area',
+                            width: '100%',
                             height: 320,
                             toolbar: { show: false },
                             zoom: { enabled: false },
-                            fontFamily: 'DM Sans, sans-serif'
+                            fontFamily: 'DM Sans, sans-serif',
+                            background: 'transparent',
+                            parentHeightOffset: 0
                         },
+                        theme: { mode: isDark ? 'dark' : 'light' },
                         series: this.payload.series,
                         colors: ['#22C55E', '#EF4444'],
                         stroke: {
@@ -95,18 +109,37 @@
                         },
                         dataLabels: { enabled: false },
                         grid: {
-                            borderColor: '#E5E7EB',
+                            borderColor: gridColor,
                             strokeDashArray: 4
                         },
                         xaxis: {
                             categories: this.payload.categories,
+                            tickAmount: xAxisTickAmount,
+                            axisBorder: {
+                                color: gridColor
+                            },
+                            axisTicks: {
+                                color: gridColor
+                            },
                             labels: {
-                                style: { colors: '#6B7280' }
+                                show: true,
+                                hideOverlappingLabels: false,
+                                trim: false,
+                                rotate: xAxisRotate,
+                                minHeight: xAxisRotate === 0 ? undefined : 56,
+                                maxHeight: xAxisRotate === 0 ? 36 : 72,
+                                style: {
+                                    colors: xAxisLabelColors,
+                                    fontSize: '12px'
+                                }
                             }
                         },
                         yaxis: {
                             labels: {
-                                style: { colors: '#6B7280' },
+                                style: {
+                                    colors: [labelColor],
+                                    fontSize: '12px'
+                                },
                                 formatter: (value) => Number(value).toLocaleString()
                             }
                         },

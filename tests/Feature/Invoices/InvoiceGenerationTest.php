@@ -9,12 +9,23 @@ use App\Livewire\Administration\BusinessSettings;
 use App\Models\Customer;
 use App\Models\Invoice;
 use App\Models\Order;
+use App\Models\PaymentMethod;
 use Carbon\CarbonImmutable;
 use Livewire\Livewire;
 use Tests\TestCase;
 
 class InvoiceGenerationTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        PaymentMethod::query()->updateOrCreate(
+            ['id' => 1],
+            ['name' => 'Default']
+        );
+    }
+
     public function test_order_creation_generates_invoice_with_lines(): void
     {
         $user = $this->actingAsRole('admin', $this->branch);
@@ -120,5 +131,107 @@ class InvoiceGenerationTest extends TestCase
             'phone' => '+255700000000',
             'email' => 'info@raynex.test',
         ]);
+    }
+
+    public function test_invoice_download_returns_pdf_response(): void
+    {
+        $user = $this->actingAsRole('admin', $this->branch);
+
+        $customer = Customer::factory()->create([
+            'branch_id' => $this->branch->id,
+            'name' => 'Jane Client',
+        ]);
+
+        $order = Order::create([
+            'branch_id' => $this->branch->id,
+            'customer_id' => $customer->id,
+            'status' => OrderStatus::InProgress,
+            'priority' => Priority::Normal,
+            'due_date' => now()->addDays(7),
+            'subtotal' => 0,
+            'discount' => 0,
+            'total' => 0,
+            'payment_status' => PaymentStatus::Unpaid,
+            'created_by' => $user->id,
+        ]);
+
+        $order->lines()->create([
+            'item_name' => 'Wedding Suit',
+            'qty' => 1,
+            'unit_price' => 250000,
+            'line_total' => 250000,
+        ]);
+
+        $order->recalculateTotals();
+
+        $invoice = Invoice::where('order_id', $order->id)->firstOrFail();
+
+        $response = $this->get(route('invoices.download', $invoice));
+
+        $response->assertOk();
+        $response->assertHeader('Content-Type', 'application/pdf');
+        $this->assertStringContainsString('.pdf', (string) $response->headers->get('content-disposition'));
+        $this->assertStringStartsWith('%PDF-', $response->streamedContent());
+    }
+
+    public function test_invoice_document_limits_configured_payment_methods_to_three(): void
+    {
+        $user = $this->actingAsRole('admin', $this->branch);
+
+        PaymentMethod::query()->create([
+            'name' => 'Bank Transfer',
+            'account_number' => '111222333',
+            'account_holder_name' => 'Raynex Tailors',
+        ]);
+        PaymentMethod::query()->create([
+            'name' => 'Card',
+            'account_number' => 'CARD-4455',
+            'account_holder_name' => 'Raynex Tailors',
+        ]);
+        PaymentMethod::query()->create([
+            'name' => 'Cash Office',
+            'account_holder_name' => 'Front Desk',
+        ]);
+        PaymentMethod::query()->create([
+            'name' => 'Mobile Money',
+            'account_number' => '255700123456',
+            'account_holder_name' => 'Raynex Mobile',
+        ]);
+
+        $customer = Customer::factory()->create([
+            'branch_id' => $this->branch->id,
+        ]);
+
+        $order = Order::create([
+            'branch_id' => $this->branch->id,
+            'customer_id' => $customer->id,
+            'status' => OrderStatus::InProgress,
+            'priority' => Priority::Normal,
+            'due_date' => now()->addDays(10),
+            'subtotal' => 120000,
+            'discount' => 0,
+            'total' => 120000,
+            'payment_status' => PaymentStatus::Unpaid,
+            'created_by' => $user->id,
+        ]);
+
+        $invoice = Invoice::where('order_id', $order->id)->firstOrFail();
+
+        $printResponse = $this->get(route('invoices.print', $invoice));
+
+        $printResponse->assertOk();
+        $printResponse->assertSee('Bank Transfer');
+        $printResponse->assertSee('Card');
+        $printResponse->assertSee('Cash Office');
+        $printResponse->assertDontSee('Mobile Money');
+
+        $pdfResponse = $this->get(route('invoices.download', $invoice));
+        $pdfContent = $pdfResponse->streamedContent();
+
+        $pdfResponse->assertOk();
+        $this->assertStringContainsString('Bank Transfer', $pdfContent);
+        $this->assertStringContainsString('Card', $pdfContent);
+        $this->assertStringContainsString('Cash Office', $pdfContent);
+        $this->assertStringNotContainsString('Mobile Money', $pdfContent);
     }
 }

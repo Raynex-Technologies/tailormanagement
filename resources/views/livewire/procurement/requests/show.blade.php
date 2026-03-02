@@ -142,7 +142,7 @@
                                         <flux:input
                                             type="number"
                                             wire:model.blur="reviewedItems.{{ $item->id }}.qty"
-                                            step="1"
+                                            step="0.01"
                                             min="0.01"
                                             class="w-24"
                                         />
@@ -151,7 +151,7 @@
                                         <flux:input
                                             type="number"
                                             wire:model.blur="reviewedItems.{{ $item->id }}.unit_price_est"
-                                            step="1"
+                                            step="0.01"
                                             min="0"
                                             class="w-28"
                                         />

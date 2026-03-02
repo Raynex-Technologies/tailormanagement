@@ -33,26 +33,29 @@
         @if ($this->distribution['has_data'])
             <div class="space-y-2">
                 @foreach ($this->distribution['items'] as $item)
-                    <div class="flex items-center justify-between gap-3 rounded-xl px-3 py-2 bg-zinc-50/70 dark:bg-zinc-800/70">
-                        <div class="min-w-0 flex items-center gap-2">
+                    <div class="flex items-center justify-between gap-3 rounded-xl px-3 py-2.5 bg-zinc-50 dark:bg-zinc-800/70 border border-zinc-100 dark:border-zinc-700/50">
+                        <div class="min-w-0 flex items-center gap-2.5">
                             <span class="size-2.5 rounded-full shrink-0" style="background-color: {{ $item['color'] }};"></span>
                             <span class="truncate text-sm font-medium text-zinc-700 dark:text-zinc-200">{{ $item['name'] }}</span>
                         </div>
-                        <div class="text-right">
-                            <p class="text-sm font-semibold text-zinc-900 dark:text-white">{{ number_format($item['percentage'], 1) }}%</p>
+                        <div class="text-right shrink-0">
+                            <p class="text-sm font-bold text-zinc-900 dark:text-white">{{ number_format($item['percentage'], 1) }}%</p>
                             <p class="text-xs text-zinc-500 dark:text-zinc-400">{{ number_format($item['amount'], 0) }} TZS</p>
                         </div>
                     </div>
                 @endforeach
             </div>
 
-            <div class="pt-2 text-xs text-zinc-500 dark:text-zinc-400">
+            <div class="mt-2 pt-3 border-t border-zinc-100 dark:border-zinc-700/50 text-xs text-zinc-500 dark:text-zinc-400">
                 {{ number_format($this->distribution['total_payments']) }} {{ __('payments') }}
             </div>
         @else
-            <div class="py-6 text-center">
-                <p class="text-sm font-medium text-zinc-700 dark:text-zinc-200">{{ __('No payment data') }}</p>
-                <p class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('No payments were recorded in this period.') }}</p>
+            <div class="py-8 text-center">
+                <div class="flex items-center justify-center size-12 rounded-2xl bg-zinc-100 dark:bg-zinc-800 mx-auto mb-3">
+                    <i class="fa-duotone fa-credit-card size-5 text-zinc-400 dark:text-zinc-500"></i>
+                </div>
+                <p class="text-sm font-medium text-zinc-700 dark:text-zinc-300">{{ __('No payment data') }}</p>
+                <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{{ __('No payments recorded in this period.') }}</p>
             </div>
         @endif
     </div>

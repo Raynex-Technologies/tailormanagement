@@ -33,6 +33,11 @@
     --color-lime-500: #A3E635;
     --color-lime-600: #84CC16;
 
+    /* Brand Orange for create/add/save actions */
+    --color-brand-orange-400: #ff8a5d;
+    --color-brand-orange-500: #fe6328;
+    --color-brand-orange-600: #e65721;
+
     /* Keep zinc for compatibility */
     --color-zinc-50: #fafafa;
     --color-zinc-100: #f5f5f5;
@@ -47,16 +52,16 @@
     --color-zinc-950: #0a0a0a;
 
     /* Accent Colors */
-    --color-accent: var(--color-lime-500);
-    --color-accent-content: var(--color-lime-500);
-    --color-accent-foreground: var(--color-navy-900);
+    --color-accent: var(--color-brand-orange-500);
+    --color-accent-content: var(--color-brand-orange-600);
+    --color-accent-foreground: var(--color-white);
 }
 
 @layer theme {
     .dark {
-        --color-accent: var(--color-lime-400);
-        --color-accent-content: var(--color-lime-400);
-        --color-accent-foreground: var(--color-navy-900);
+        --color-accent: var(--color-brand-orange-500);
+        --color-accent-content: var(--color-brand-orange-400);
+        --color-accent-foreground: var(--color-white);
     }
 }
 
@@ -440,16 +445,16 @@ select:focus[data-flux-control] {
     --tw-ring-offset-color: #1E1F2E;
 }
 
-/* Buttons with lime accent */
+/* Primary buttons use the brand orange accent */
 [data-flux-button][data-variant="primary"] {
-    background: var(--color-lime-400) !important;
-    color: #1E1F2E !important;
+    background: var(--color-brand-orange-500) !important;
+    color: white !important;
     border: none !important;
     font-weight: 600 !important;
 }
 
 [data-flux-button][data-variant="primary"]:hover {
-    background: var(--color-lime-500) !important;
+    background: var(--color-brand-orange-600) !important;
 }
 
 /* ============================================

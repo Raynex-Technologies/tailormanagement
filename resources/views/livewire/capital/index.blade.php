@@ -20,7 +20,7 @@
                 <flux:text class="text-zinc-500">{{ __('Manage budget allocations for accountants.') }}</flux:text>
             </div>
             @can('capital.assign')
-                <flux:button :href="route('capital.create')" wire:navigate>
+                <flux:button variant="primary" :href="route('capital.create')" wire:navigate>
                     <x-icon name="add" class="mr-1 size-4" />
                     {{ __('New Allocation') }}
                 </flux:button>

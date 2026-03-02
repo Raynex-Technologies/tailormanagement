@@ -26,7 +26,7 @@
                 <flux:text class="text-zinc-500">{{ __('Manage customer profiles and contacts.') }}</flux:text>
             </div>
             @if ($canManage)
-                <flux:button wire:click="openCreateModal">
+                <flux:button variant="primary" wire:click="openCreateModal">
                     <x-icon name="add" class="mr-1 size-4" />
                     {{ __('New Customer') }}
                 </flux:button>

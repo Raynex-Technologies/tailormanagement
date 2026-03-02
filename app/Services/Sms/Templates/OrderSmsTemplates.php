@@ -6,6 +6,8 @@ use App\Enums\OrderStatus;
 use App\Models\Order;
 use App\Models\OrderPayment;
 use App\Models\SmsTemplate;
+use Carbon\CarbonInterface;
+use Illuminate\Support\Carbon;
 
 class OrderSmsTemplates
 {
@@ -39,12 +41,13 @@ class OrderSmsTemplates
         $customerName = $replacements['customer_name'] ?? 'Customer';
 
         return match ($category) {
-            'order_created' => "[{$appName}] Order {$orderNo} created. Total: " . ($replacements['total_amount'] ?? '') . '. Thank you!',
-            'order_status_change' => "[{$appName}] Order {$orderNo} status: " . ($replacements['status'] ?? '') . '.',
-            'order_delivered' => "[{$appName}] Order {$orderNo} has been DELIVERED. Thank you!",
+            'order_created' => "[{$appName}] Order {$orderNo} for " . ($replacements['garments'] ?? 'your items') . ' created on ' . ($replacements['order_date'] ?? '') . '. Due: ' . ($replacements['due_date'] ?? '') . '.',
+            'order_status_change' => "[{$appName}] Order {$orderNo} status: " . ($replacements['status'] ?? '') . '. Due: ' . ($replacements['due_date'] ?? '') . '.',
+            'order_delivered' => "[{$appName}] Order {$orderNo} for " . ($replacements['garments'] ?? 'your items') . ' has been DELIVERED. Thank you!',
+            'order_delivery_date_change' => "[{$appName}] Order {$orderNo} due date updated from " . ($replacements['old_due_date'] ?? '') . ' to ' . ($replacements['new_due_date'] ?? $replacements['due_date'] ?? '') . '.',
             'order_cancelled' => "[{$appName}] Order {$orderNo} has been cancelled.",
             'order_payment' => "[{$appName}] Payment received for order {$orderNo}. Balance: " . ($replacements['balance_due'] ?? '') . '.',
-            'order_due_date_reminder' => "[{$appName}] Reminder: Order {$orderNo} is due on " . ($replacements['expected_delivery_date'] ?? '') . '.',
+            'order_due_date_reminder' => "[{$appName}] Reminder: Order {$orderNo} is due on " . ($replacements['due_date'] ?? $replacements['expected_delivery_date'] ?? '') . '.',
             default => "[{$appName}] Order {$orderNo} update.",
         };
     }
@@ -54,14 +57,33 @@ class OrderSmsTemplates
      */
     public static function replacementsForOrder(Order $order, ?OrderPayment $payment = null): array
     {
-        $order->loadMissing('customer');
-        $dueDate = $order->due_date?->format('M d, Y');
+        $order->loadMissing(['customer', 'lines']);
+        $orderDate = $order->order_date?->format('M d, Y') ?? $order->created_at?->format('M d, Y') ?? '';
+        $dueDate = $order->due_date?->format('M d, Y') ?? '';
+        $garments = $order->lines
+            ->map(function ($line) {
+                $itemName = trim((string) $line->item_name);
+                $qty = self::formatQuantity($line->qty);
+
+                if ($itemName === '') {
+                    return null;
+                }
+
+                return $qty === '1'
+                    ? $itemName
+                    : "{$itemName} x{$qty}";
+            })
+            ->filter()
+            ->implode(', ');
 
         $replacements = [
             'customer_name' => $order->customer?->name ?? 'Customer',
             'order_number' => $order->order_no,
+            'garments' => $garments !== '' ? $garments : __('Order items'),
+            'order_date' => $orderDate,
             'status' => $order->status?->label() ?? $order->status,
-            'expected_delivery_date' => $dueDate ?? '',
+            'due_date' => $dueDate,
+            'expected_delivery_date' => $dueDate,
             'total_amount' => money_tzs($order->total),
             'amount_paid' => $payment ? money_tzs($payment->amount) : money_tzs($order->paid_amount),
             'balance_due' => money_tzs($order->balance_due),
@@ -117,6 +139,17 @@ class OrderSmsTemplates
         return self::resolveTemplate('order_due_date_reminder', $replacements);
     }
 
+    public static function dueDateChanged(Order $order, ?string $oldDueDate, string $newDueDate): string
+    {
+        $replacements = self::replacementsForOrder($order);
+        $replacements['old_due_date'] = self::formatDateValue($oldDueDate);
+        $replacements['new_due_date'] = self::formatDateValue($newDueDate);
+        $replacements['due_date'] = $replacements['new_due_date'];
+        $replacements['expected_delivery_date'] = $replacements['new_due_date'];
+
+        return self::resolveTemplate('order_delivery_date_change', $replacements);
+    }
+
     protected static function getStatusLabel(string $status): string
     {
         return match ($status) {
@@ -147,5 +180,29 @@ class OrderSmsTemplates
     public static function shouldNotifyForStatus(string $status): bool
     {
         return in_array($status, self::getNotifiableStatuses());
+    }
+
+    protected static function formatDateValue(null|string|CarbonInterface $value): string
+    {
+        if ($value instanceof CarbonInterface) {
+            return $value->format('M d, Y');
+        }
+
+        if (blank($value)) {
+            return '';
+        }
+
+        return Carbon::parse($value)->format('M d, Y');
+    }
+
+    protected static function formatQuantity(mixed $value): string
+    {
+        $quantity = (float) $value;
+
+        if (fmod($quantity, 1.0) === 0.0) {
+            return (string) (int) $quantity;
+        }
+
+        return rtrim(rtrim(number_format($quantity, 2, '.', ''), '0'), '.');
     }
 }

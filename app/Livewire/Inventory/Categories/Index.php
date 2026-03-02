@@ -6,6 +6,7 @@ use App\Models\Branch;
 use App\Models\InventoryCategory;
 use App\Support\BranchContext;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
@@ -31,6 +32,7 @@ class Index extends Component
     // Form fields
     public string $name = '';
     public string $slug = '';
+    public bool $slugManuallyEdited = false;
 
     // Branch selection for global admins
     public ?int $branchId = null;
@@ -62,10 +64,16 @@ class Index extends Component
         $uniqueRule = $this->isEditing
             ? "unique:inventory_categories,name,{$this->editingId},id,branch_id,{$effectiveBranchId}"
             : "unique:inventory_categories,name,NULL,id,branch_id,{$effectiveBranchId}";
+        $slugRule = Rule::unique('inventory_categories', 'slug')
+            ->where(fn ($query) => $query->where('branch_id', $effectiveBranchId));
+
+        if ($this->isEditing && $this->editingId) {
+            $slugRule = $slugRule->ignore($this->editingId);
+        }
 
         $rules = [
             'name' => ['required', 'string', 'max:255', $uniqueRule],
-            'slug' => ['required', 'string', 'max:255'],
+            'slug' => ['nullable', 'string', 'max:255', $slugRule],
         ];
 
         // Branch_id required for global admins if no context
@@ -79,6 +87,7 @@ class Index extends Component
     protected $messages = [
         'name.required' => 'Category name is required.',
         'name.unique' => 'A category with this name already exists.',
+        'slug.unique' => 'This slug is already in use for the selected branch.',
         'branchId.required' => 'Please select a branch for this category.',
     ];
 
@@ -89,16 +98,21 @@ class Index extends Component
 
     public function updatedName(): void
     {
-        if (! $this->isEditing || empty($this->slug)) {
+        if (! $this->slugManuallyEdited) {
             $this->slug = Str::slug($this->name);
         }
+    }
+
+    public function updatedSlug(string $value): void
+    {
+        $this->slugManuallyEdited = trim($value) !== '';
     }
 
     public function openCreateModal(): void
     {
         $this->authorize('inventory.items.manage');
 
-        $this->reset(['name', 'slug', 'editingId']);
+        $this->reset(['name', 'slug', 'editingId', 'slugManuallyEdited']);
         $this->isEditing = false;
 
         // Pre-fill branch_id for global admins if context exists
@@ -118,6 +132,7 @@ class Index extends Component
         $this->editingId = $category->id;
         $this->name = $category->name;
         $this->slug = $category->slug;
+        $this->slugManuallyEdited = true;
         $this->branchId = $category->branch_id;
         $this->isEditing = true;
         $this->showModal = true;
@@ -126,6 +141,10 @@ class Index extends Component
     public function save(): void
     {
         $this->authorize('inventory.items.manage');
+
+        $this->name = trim($this->name);
+        $this->slug = trim($this->slug);
+        $this->slug = $this->slug === '' ? '' : Str::slug($this->slug);
 
         $this->validate();
 
@@ -139,7 +158,7 @@ class Index extends Component
             $category = InventoryCategory::findOrFail($this->editingId);
             $category->update([
                 'name' => $this->name,
-                'slug' => $this->slug,
+                'slug' => $this->slug === '' ? null : $this->slug,
             ]);
 
             session()->flash('success', 'Category updated successfully.');
@@ -147,7 +166,7 @@ class Index extends Component
             InventoryCategory::create([
                 'branch_id' => $effectiveBranchId,
                 'name' => $this->name,
-                'slug' => $this->slug,
+                'slug' => $this->slug === '' ? null : $this->slug,
             ]);
 
             session()->flash('success', 'Category created successfully.');
@@ -159,7 +178,7 @@ class Index extends Component
     public function closeModal(): void
     {
         $this->showModal = false;
-        $this->reset(['name', 'slug', 'editingId', 'isEditing']);
+        $this->reset(['name', 'slug', 'editingId', 'isEditing', 'slugManuallyEdited']);
         $this->resetValidation();
     }
 

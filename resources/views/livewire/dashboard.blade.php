@@ -1,17 +1,20 @@
 <div class="space-y-6">
+    <flux:breadcrumbs>
+        <flux:breadcrumbs.item :href="route('dashboard')" icon="home" wire:navigate />
+        <flux:breadcrumbs.item>{{ __('Dashboard') }}</flux:breadcrumbs.item>
+    </flux:breadcrumbs>
+
     @if ($canViewDashboard)
         {{-- Branch Selection Banner (for global admins without branch context) --}}
         @if ($stats['needs_branch_selection'])
-            <div class="rounded-2xl p-4 border" style="background: linear-gradient(135deg, rgba(251, 191, 36, 0.1) 0%, rgba(245, 158, 11, 0.1) 100%); border-color: rgba(251, 191, 36, 0.3);">
+            <div class="rounded-2xl p-4 border border-amber-200 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-900/20">
                 <div class="flex items-center gap-3">
-                    <div class="flex items-center justify-center size-10 rounded-xl" style="background: rgba(251, 191, 36, 0.2);">
-                        <svg class="size-5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
-                        </svg>
+                    <div class="flex items-center justify-center size-10 rounded-xl bg-amber-100 dark:bg-amber-900/50 shrink-0">
+                        <i class="fa-duotone fa-triangle-exclamation size-5 text-amber-500"></i>
                     </div>
                     <div>
                         <p class="font-semibold text-amber-700 dark:text-amber-300">{{ __('No branch selected') }}</p>
-                        <p class="text-sm text-amber-600/80 dark:text-amber-400/80">{{ __('Select a branch from the sidebar to view dashboard statistics.') }}</p>
+                        <p class="text-sm text-amber-600 dark:text-amber-400">{{ __('Select a branch from the sidebar to view dashboard statistics.') }}</p>
                     </div>
                 </div>
             </div>
@@ -32,26 +35,95 @@
             </div>
             <div class="flex items-center gap-3">
                 @if ($currentBranch)
-                    <span class="inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-sm font-medium" style="background: rgba(163, 230, 53, 0.15); color: #65A30D;">
-                        <svg class="size-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 21v-7.5a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 .75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349M3.75 21V9.349m0 0a3.001 3.001 0 0 0 3.75-.615A2.993 2.993 0 0 0 9.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 0 0 2.25 1.016c.896 0 1.7-.393 2.25-1.015a3.001 3.001 0 0 0 3.75.614m-16.5 0a3.004 3.004 0 0 1-.621-4.72l1.189-1.19A1.5 1.5 0 0 1 5.378 3h13.243a1.5 1.5 0 0 1 1.06.44l1.19 1.189a3 3 0 0 1-.621 4.72M6.75 18h3.75a.75.75 0 0 0 .75-.75V13.5a.75.75 0 0 0-.75-.75H6.75a.75.75 0 0 0-.75.75v3.75c0 .414.336.75.75.75Z" />
-                        </svg>
+                    <span class="inline-flex items-center gap-1.5 rounded-xl bg-lime-100 dark:bg-lime-900/30 px-3 py-1.5 text-sm font-medium text-lime-700 dark:text-lime-400">
+                        <i class="fa-duotone fa-building size-4"></i>
                         {{ $currentBranch->name }}
                     </span>
                 @endif
                 <span class="inline-flex items-center gap-1.5 rounded-xl bg-zinc-100 dark:bg-zinc-800 px-3 py-1.5 text-sm text-zinc-600 dark:text-zinc-400">
-                    <svg class="size-4" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
-                    </svg>
+                    <i class="fa-duotone fa-calendar size-4"></i>
                     {{ now()->format('M j, Y') }}
                 </span>
             </div>
         </div>
 
+        {{-- KPI Overview Cards --}}
+        @if (!$stats['needs_branch_selection'])
+        @php
+            $monthRevenue  = $stats['sales']['payments_month_sum'];
+            $monthExpenses = $stats['expenses']['expenses_month_sum'];
+            $fmt = fn($v) => $v >= 1_000_000
+                ? number_format($v / 1_000_000, 1) . 'M'
+                : ($v >= 1_000 ? number_format($v / 1_000, 0) . 'K' : number_format($v, 0));
+        @endphp
+        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {{-- Total Orders --}}
+            <div class="rounded-2xl bg-white dark:bg-zinc-800/50 p-5 shadow-sm border border-zinc-200/50 dark:border-zinc-700/50">
+                <div class="flex items-start justify-between">
+                    <div class="flex items-center justify-center size-11 rounded-xl bg-indigo-50 dark:bg-indigo-900/30">
+                        <i class="fa-duotone fa-bag-shopping size-5 text-indigo-500"></i>
+                    </div>
+                    @if ($stats['orders']['new_orders_count'] > 0)
+                        <span class="inline-flex items-center rounded-lg bg-lime-100 dark:bg-lime-900/30 px-2 py-0.5 text-xs font-semibold text-lime-700 dark:text-lime-400">
+                            +{{ $stats['orders']['new_orders_count'] }} {{ __('new') }}
+                        </span>
+                    @endif
+                </div>
+                <div class="mt-3">
+                    <p class="text-3xl font-bold tracking-tight text-zinc-900 dark:text-white">{{ number_format($stats['orders']['total_orders_count']) }}</p>
+                    <p class="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">{{ __('Total Orders') }}</p>
+                </div>
+            </div>
+
+            {{-- Active Orders --}}
+            <div class="rounded-2xl bg-white dark:bg-zinc-800/50 p-5 shadow-sm border border-zinc-200/50 dark:border-zinc-700/50">
+                <div class="flex items-start justify-between">
+                    <div class="flex items-center justify-center size-11 rounded-xl bg-violet-50 dark:bg-violet-900/30">
+                        <i class="fa-duotone fa-clock size-5 text-violet-500"></i>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <p class="text-3xl font-bold tracking-tight text-zinc-900 dark:text-white">{{ number_format($stats['orders']['in_progress_orders_count']) }}</p>
+                    <p class="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">{{ __('Active Orders') }}</p>
+                </div>
+            </div>
+
+            {{-- Revenue This Month --}}
+            <div class="rounded-2xl bg-white dark:bg-zinc-800/50 p-5 shadow-sm border border-zinc-200/50 dark:border-zinc-700/50">
+                <div class="flex items-start justify-between">
+                    <div class="flex items-center justify-center size-11 rounded-xl bg-emerald-50 dark:bg-emerald-900/30">
+                        <i class="fa-duotone fa-arrow-trend-up size-5 text-emerald-500"></i>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <p class="text-3xl font-bold tracking-tight text-zinc-900 dark:text-white">
+                        {{ $fmt($monthRevenue) }} <span class="text-sm font-normal text-zinc-400 dark:text-zinc-500">TZS</span>
+                    </p>
+                    <p class="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">{{ __('Revenue This Month') }}</p>
+                </div>
+            </div>
+
+            {{-- Expenses This Month --}}
+            <div class="rounded-2xl bg-white dark:bg-zinc-800/50 p-5 shadow-sm border border-zinc-200/50 dark:border-zinc-700/50">
+                <div class="flex items-start justify-between">
+                    <div class="flex items-center justify-center size-11 rounded-xl bg-rose-50 dark:bg-rose-900/30">
+                        <i class="fa-duotone fa-receipt size-5 text-rose-500"></i>
+                    </div>
+                </div>
+                <div class="mt-3">
+                    <p class="text-3xl font-bold tracking-tight text-zinc-900 dark:text-white">
+                        {{ $fmt($monthExpenses) }} <span class="text-sm font-normal text-zinc-400 dark:text-zinc-500">TZS</span>
+                    </p>
+                    <p class="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">{{ __('Expenses This Month') }}</p>
+                </div>
+            </div>
+        </div>
+        @endif
+
         {{-- Main Content Grid --}}
         <div class="grid gap-6 lg:grid-cols-3">
             {{-- Left: KPI Stats --}}
-            <div class="space-y-6 lg:col-span-2">
+            <div class="space-y-6 lg:col-span-2 min-w-0">
                 <livewire:dashboard.order-progress-card />
 
                 <livewire:dashboard.income-expenses-chart-card />
@@ -61,22 +133,18 @@
                 <div class="grid gap-4 sm:grid-cols-2">
                     {{-- Low Stock Alert --}}
                     @if ($stats['inventory']['low_stock_count'] > 0)
-                        <div class="rounded-2xl p-4 border" style="background: linear-gradient(135deg, rgba(251, 191, 36, 0.08) 0%, rgba(245, 158, 11, 0.08) 100%); border-color: rgba(251, 191, 36, 0.25);">
+                        <div class="rounded-2xl p-4 border border-amber-200 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-900/20">
                             <div class="flex items-center gap-3">
-                                <div class="flex items-center justify-center size-10 rounded-xl" style="background: rgba(251, 191, 36, 0.2);">
-                                    <svg class="size-5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" />
-                                    </svg>
+                                <div class="flex items-center justify-center size-10 rounded-xl bg-amber-100 dark:bg-amber-900/50 shrink-0">
+                                    <i class="fa-duotone fa-triangle-exclamation size-5 text-amber-500"></i>
                                 </div>
-                                <div class="flex-1">
+                                <div class="flex-1 min-w-0">
                                     <p class="font-semibold text-amber-700 dark:text-amber-300">{{ __('Low Stock') }}</p>
-                                    <p class="text-sm text-amber-600/80 dark:text-amber-400/80">{{ $stats['inventory']['low_stock_count'] }} {{ __('items need restocking') }}</p>
+                                    <p class="text-sm text-amber-600 dark:text-amber-400">{{ $stats['inventory']['low_stock_count'] }} {{ __('items need restocking') }}</p>
                                 </div>
                                 @can('inventory.view')
-                                    <a href="{{ route('inventory.stock') }}" wire:navigate class="flex items-center justify-center size-8 rounded-lg bg-amber-500/10 hover:bg-amber-500/20 transition-colors">
-                                        <svg class="size-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
-                                        </svg>
+                                    <a href="{{ route('inventory.stock') }}" wire:navigate class="flex items-center justify-center size-8 rounded-lg bg-amber-100 dark:bg-amber-900/50 hover:bg-amber-200 dark:hover:bg-amber-800/50 transition-colors shrink-0">
+                                        <i class="fa-duotone fa-arrow-right size-4 text-amber-600 dark:text-amber-400"></i>
                                     </a>
                                 @endcan
                             </div>
@@ -85,22 +153,18 @@
 
                     {{-- Pending Purchase Requests --}}
                     @if ($stats['procurement']['pending_purchase_requests_count'] > 0)
-                        <div class="rounded-2xl p-4 border" style="background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, rgba(37, 99, 235, 0.08) 100%); border-color: rgba(59, 130, 246, 0.25);">
+                        <div class="rounded-2xl p-4 border border-blue-200 dark:border-blue-800/50 bg-blue-50 dark:bg-blue-900/20">
                             <div class="flex items-center gap-3">
-                                <div class="flex items-center justify-center size-10 rounded-xl" style="background: rgba(59, 130, 246, 0.2);">
-                                    <svg class="size-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 0 0 2.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 0 0-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 0 0 .75-.75 2.25 2.25 0 0 0-.1-.664m-5.8 0A2.251 2.251 0 0 1 13.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25ZM6.75 12h.008v.008H6.75V12Zm0 3h.008v.008H6.75V15Zm0 3h.008v.008H6.75V18Z" />
-                                    </svg>
+                                <div class="flex items-center justify-center size-10 rounded-xl bg-blue-100 dark:bg-blue-900/50 shrink-0">
+                                    <i class="fa-duotone fa-clipboard-list size-5 text-blue-500"></i>
                                 </div>
-                                <div class="flex-1">
+                                <div class="flex-1 min-w-0">
                                     <p class="font-semibold text-blue-700 dark:text-blue-300">{{ __('Pending Requests') }}</p>
-                                    <p class="text-sm text-blue-600/80 dark:text-blue-400/80">{{ $stats['procurement']['pending_purchase_requests_count'] }} {{ __('awaiting review') }}</p>
+                                    <p class="text-sm text-blue-600 dark:text-blue-400">{{ $stats['procurement']['pending_purchase_requests_count'] }} {{ __('awaiting review') }}</p>
                                 </div>
                                 @can('procurement.view')
-                                    <a href="{{ route('procurement.requests.index') }}" wire:navigate class="flex items-center justify-center size-8 rounded-lg bg-blue-500/10 hover:bg-blue-500/20 transition-colors">
-                                        <svg class="size-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5 21 12m0 0-7.5 7.5M21 12H3" />
-                                        </svg>
+                                    <a href="{{ route('procurement.requests.index') }}" wire:navigate class="flex items-center justify-center size-8 rounded-lg bg-blue-100 dark:bg-blue-900/50 hover:bg-blue-200 dark:hover:bg-blue-800/50 transition-colors shrink-0">
+                                        <i class="fa-duotone fa-arrow-right size-4 text-blue-600 dark:text-blue-400"></i>
                                     </a>
                                 @endcan
                             </div>
@@ -114,44 +178,36 @@
                     <h2 class="text-lg font-semibold text-zinc-900 dark:text-white mb-4">{{ __('Quick Actions') }}</h2>
                     <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
                         @can('orders.create')
-                            <a href="{{ route('orders.create') }}" wire:navigate class="group flex items-center gap-3 rounded-xl border border-zinc-200 dark:border-zinc-700 p-4 transition-all hover:border-lime-400 hover:shadow-md" style="hover:background: rgba(163, 230, 53, 0.05);">
+                            <a href="{{ route('orders.create') }}" wire:navigate class="group flex items-center gap-3 rounded-xl border border-zinc-200 dark:border-zinc-700 p-4 transition-all hover:border-lime-400 hover:bg-lime-50/50 dark:hover:bg-lime-900/10 hover:shadow-md">
                                 <div class="flex items-center justify-center size-10 rounded-xl transition-colors" style="background: rgba(163, 230, 53, 0.15);">
-                                    <svg class="size-5" style="color: #65A30D;" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                                    </svg>
+                                    <i class="fa-duotone fa-plus size-5" style="color: #65A30D;"></i>
                                 </div>
                                 <span class="font-medium text-zinc-700 dark:text-zinc-300 group-hover:text-zinc-900 dark:group-hover:text-white">{{ __('New Order') }}</span>
                             </a>
                         @endcan
 
                         @can('orders.view')
-                            <a href="{{ route('orders.board') }}" wire:navigate class="group flex items-center gap-3 rounded-xl border border-zinc-200 dark:border-zinc-700 p-4 transition-all hover:border-blue-400 hover:shadow-md">
+                            <a href="{{ route('orders.board') }}" wire:navigate class="group flex items-center gap-3 rounded-xl border border-zinc-200 dark:border-zinc-700 p-4 transition-all hover:border-blue-400 hover:bg-blue-50/50 dark:hover:bg-blue-900/10 hover:shadow-md">
                                 <div class="flex items-center justify-center size-10 rounded-xl bg-blue-50 dark:bg-blue-900/30">
-                                    <svg class="size-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z" />
-                                    </svg>
+                                    <i class="fa-duotone fa-table-columns size-5 text-blue-500"></i>
                                 </div>
                                 <span class="font-medium text-zinc-700 dark:text-zinc-300 group-hover:text-zinc-900 dark:group-hover:text-white">{{ __('Order Board') }}</span>
                             </a>
                         @endcan
 
                         @can('inventory.view')
-                            <a href="{{ route('inventory.stock') }}" wire:navigate class="group flex items-center gap-3 rounded-xl border border-zinc-200 dark:border-zinc-700 p-4 transition-all hover:border-emerald-400 hover:shadow-md">
+                            <a href="{{ route('inventory.stock') }}" wire:navigate class="group flex items-center gap-3 rounded-xl border border-zinc-200 dark:border-zinc-700 p-4 transition-all hover:border-emerald-400 hover:bg-emerald-50/50 dark:hover:bg-emerald-900/10 hover:shadow-md">
                                 <div class="flex items-center justify-center size-10 rounded-xl bg-emerald-50 dark:bg-emerald-900/30">
-                                    <svg class="size-5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" />
-                                    </svg>
+                                    <i class="fa-duotone fa-boxes-stacked size-5 text-emerald-500"></i>
                                 </div>
                                 <span class="font-medium text-zinc-700 dark:text-zinc-300 group-hover:text-zinc-900 dark:group-hover:text-white">{{ __('Inventory') }}</span>
                             </a>
                         @endcan
 
                         @can('reports.view')
-                            <a href="{{ route('reports.index') }}" wire:navigate class="group flex items-center gap-3 rounded-xl border border-zinc-200 dark:border-zinc-700 p-4 transition-all hover:border-violet-400 hover:shadow-md">
+                            <a href="{{ route('reports.index') }}" wire:navigate class="group flex items-center gap-3 rounded-xl border border-zinc-200 dark:border-zinc-700 p-4 transition-all hover:border-violet-400 hover:bg-violet-50/50 dark:hover:bg-violet-900/10 hover:shadow-md">
                                 <div class="flex items-center justify-center size-10 rounded-xl bg-violet-50 dark:bg-violet-900/30">
-                                    <svg class="size-5 text-violet-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
-                                    </svg>
+                                    <i class="fa-duotone fa-chart-column size-5 text-violet-500"></i>
                                 </div>
                                 <span class="font-medium text-zinc-700 dark:text-zinc-300 group-hover:text-zinc-900 dark:group-hover:text-white">{{ __('Reports') }}</span>
                             </a>
@@ -161,10 +217,64 @@
             </div>
 
             {{-- Right: Todo + Payments Cards --}}
-            <div class="lg:col-span-1">
+            <div class="lg:col-span-1 min-w-0">
                 <div class="space-y-6">
                     <livewire:dashboard.todo-card />
                     <livewire:dashboard.payment-method-distribution-card />
+
+                    {{-- Top Customers — header outside card --}}
+                    <div class="flex items-center justify-between">
+                        <h2 class="text-lg font-semibold text-zinc-900 dark:text-white">{{ __('Top Customers') }}</h2>
+                        @can('users.view')
+                            <a href="{{ route('customers.index') }}" wire:navigate class="flex items-center justify-center size-8 rounded-full bg-lime-100 dark:bg-lime-900/30 text-lime-600 dark:text-lime-400 hover:bg-lime-200 dark:hover:bg-lime-800/40 transition-colors">
+                                <i class="fa-duotone fa-plus size-3.5"></i>
+                            </a>
+                        @endcan
+                    </div>
+
+                    @php
+                        $customerColors = ['violet', 'amber', 'emerald', 'blue', 'rose'];
+                        $customerIcons = ['fa-crown', 'fa-medal', 'fa-award', 'fa-star', 'fa-gem'];
+                    @endphp
+
+                    @forelse ($stats['customers']['top_by_orders'] as $customer)
+                        @php
+                            $color = $customerColors[$loop->index % count($customerColors)];
+                            $icon = $customerIcons[$loop->index % count($customerIcons)];
+                        @endphp
+                        <a
+                            @can('users.view') href="{{ route('customers.show', $customer) }}" wire:navigate @endcan
+                            class="flex items-center gap-3 rounded-2xl bg-white dark:bg-zinc-800/50 p-4 shadow-sm border border-zinc-200/50 dark:border-zinc-700/50 group hover:border-lime-300 dark:hover:border-lime-700/50 transition-colors"
+                        >
+                            <div class="flex items-center justify-center size-11 rounded-xl bg-{{ $color }}-100 dark:bg-{{ $color }}-900/30 shrink-0">
+                                <i class="fa-duotone {{ $icon }} size-5 text-{{ $color }}-500"></i>
+                            </div>
+                            <div class="flex-1 min-w-0">
+                                <p class="truncate text-sm font-semibold text-zinc-900 dark:text-white group-hover:text-lime-700 dark:group-hover:text-lime-400 transition-colors">{{ $customer->name }}</p>
+                                <p class="truncate text-xs text-zinc-500 dark:text-zinc-400">
+                                    {{ $customer->phone ?: __('No phone saved') }}
+                                </p>
+                            </div>
+                            <span class="inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium shrink-0
+                                {{ $loop->first
+                                    ? 'border-lime-200 dark:border-lime-800/50 bg-lime-50 dark:bg-lime-900/20 text-lime-700 dark:text-lime-400'
+                                    : 'border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-800/70 text-zinc-600 dark:text-zinc-400' }}">
+                                {{ number_format($customer->orders_count) }} {{ __('orders') }}
+                            </span>
+                        </a>
+                    @empty
+                        <div class="rounded-2xl bg-white dark:bg-zinc-800/50 p-6 shadow-sm border border-zinc-200/50 dark:border-zinc-700/50">
+                            <div class="py-10 text-center">
+                                <div class="flex items-center justify-center size-14 rounded-2xl mx-auto mb-3 bg-zinc-100 dark:bg-zinc-800">
+                                    <i class="fa-duotone fa-users size-7 text-zinc-400 dark:text-zinc-500"></i>
+                                </div>
+                                <p class="text-sm font-medium text-zinc-900 dark:text-white">{{ __('No customers yet') }}</p>
+                                <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+                                    {{ $stats['needs_branch_selection'] ? __('Select a branch to view customer rankings.') : __('No customer orders yet.') }}
+                                </p>
+                            </div>
+                        </div>
+                    @endforelse
                 </div>
             </div>
         </div>
@@ -183,9 +293,7 @@
             <div class="p-8 sm:p-10" style="background: linear-gradient(135deg, rgba(163, 230, 53, 0.08) 0%, rgba(132, 204, 22, 0.04) 100%);">
                 <div class="flex flex-col items-center text-center max-w-lg mx-auto">
                     <div class="flex items-center justify-center size-16 rounded-2xl mb-5" style="background: rgba(163, 230, 53, 0.2);">
-                        <svg class="size-8" style="color: #65A30D;" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.182 15.182a4.5 4.5 0 0 1-6.364 0M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM9.75 9.75c0 .414-.168.75-.375.75S9 10.164 9 9.75 9.168 9 9.375 9s.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Zm5.625 0c0 .414-.168.75-.375.75s-.375-.336-.375-.75.168-.75.375-.75.375.336.375.75Zm-.375 0h.008v.015h-.008V9.75Z" />
-                        </svg>
+                        <i class="fa-duotone fa-face-smile size-8" style="color: #65A30D;"></i>
                     </div>
                     <h2 class="text-xl font-bold text-zinc-900 dark:text-white mb-2">
                         {{ __('Welcome back, :name!', ['name' => $user->name]) }}
@@ -206,9 +314,7 @@
                         @can('orders.create')
                             <a href="{{ route('orders.create') }}" wire:navigate class="group flex items-center gap-3 rounded-xl border border-zinc-200 dark:border-zinc-700 p-4 transition-all hover:border-lime-400 hover:shadow-md">
                                 <div class="flex items-center justify-center size-10 rounded-xl transition-colors" style="background: rgba(163, 230, 53, 0.15);">
-                                    <svg class="size-5" style="color: #65A30D;" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                                    </svg>
+                                    <i class="fa-duotone fa-plus size-5" style="color: #65A30D;"></i>
                                 </div>
                                 <div>
                                     <span class="font-medium text-zinc-700 dark:text-zinc-300 group-hover:text-zinc-900 dark:group-hover:text-white">{{ __('New Order') }}</span>
@@ -220,9 +326,7 @@
                         @can('orders.view')
                             <a href="{{ route('orders.board') }}" wire:navigate class="group flex items-center gap-3 rounded-xl border border-zinc-200 dark:border-zinc-700 p-4 transition-all hover:border-blue-400 hover:shadow-md">
                                 <div class="flex items-center justify-center size-10 rounded-xl bg-blue-50 dark:bg-blue-900/30">
-                                    <svg class="size-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 0 1 6 3.75h2.25A2.25 2.25 0 0 1 10.5 6v2.25a2.25 2.25 0 0 1-2.25 2.25H6a2.25 2.25 0 0 1-2.25-2.25V6ZM3.75 15.75A2.25 2.25 0 0 1 6 13.5h2.25a2.25 2.25 0 0 1 2.25 2.25V18a2.25 2.25 0 0 1-2.25 2.25H6A2.25 2.25 0 0 1 3.75 18v-2.25ZM13.5 6a2.25 2.25 0 0 1 2.25-2.25H18A2.25 2.25 0 0 1 20.25 6v2.25A2.25 2.25 0 0 1 18 10.5h-2.25a2.25 2.25 0 0 1-2.25-2.25V6ZM13.5 15.75a2.25 2.25 0 0 1 2.25-2.25H18a2.25 2.25 0 0 1 2.25 2.25V18A2.25 2.25 0 0 1 18 20.25h-2.25A2.25 2.25 0 0 1 13.5 18v-2.25Z" />
-                                    </svg>
+                                    <i class="fa-duotone fa-table-columns size-5 text-blue-500"></i>
                                 </div>
                                 <div>
                                     <span class="font-medium text-zinc-700 dark:text-zinc-300 group-hover:text-zinc-900 dark:group-hover:text-white">{{ __('Order Board') }}</span>
@@ -234,9 +338,7 @@
                         @can('orders.view')
                             <a href="{{ route('orders.index') }}" wire:navigate class="group flex items-center gap-3 rounded-xl border border-zinc-200 dark:border-zinc-700 p-4 transition-all hover:border-indigo-400 hover:shadow-md">
                                 <div class="flex items-center justify-center size-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/30">
-                                    <svg class="size-5 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0ZM3.75 12h.007v.008H3.75V12Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm-.375 5.25h.007v.008H3.75v-.008Zm.375 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Z" />
-                                    </svg>
+                                    <i class="fa-duotone fa-clipboard-list size-5 text-indigo-500"></i>
                                 </div>
                                 <div>
                                     <span class="font-medium text-zinc-700 dark:text-zinc-300 group-hover:text-zinc-900 dark:group-hover:text-white">{{ __('All Orders') }}</span>
@@ -248,9 +350,7 @@
                         @can('inventory.view')
                             <a href="{{ route('inventory.stock') }}" wire:navigate class="group flex items-center gap-3 rounded-xl border border-zinc-200 dark:border-zinc-700 p-4 transition-all hover:border-emerald-400 hover:shadow-md">
                                 <div class="flex items-center justify-center size-10 rounded-xl bg-emerald-50 dark:bg-emerald-900/30">
-                                    <svg class="size-5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" />
-                                    </svg>
+                                    <i class="fa-duotone fa-boxes-stacked size-5 text-emerald-500"></i>
                                 </div>
                                 <div>
                                     <span class="font-medium text-zinc-700 dark:text-zinc-300 group-hover:text-zinc-900 dark:group-hover:text-white">{{ __('Inventory') }}</span>
@@ -262,9 +362,7 @@
                         @can('messages.use')
                             <a href="{{ route('messages.index') }}" wire:navigate class="group flex items-center gap-3 rounded-xl border border-zinc-200 dark:border-zinc-700 p-4 transition-all hover:border-pink-400 hover:shadow-md">
                                 <div class="flex items-center justify-center size-10 rounded-xl bg-pink-50 dark:bg-pink-900/30">
-                                    <svg class="size-5 text-pink-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H8.25m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0H12m4.125 0a.375.375 0 1 1-.75 0 .375.375 0 0 1 .75 0Zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 0 1-2.555-.337A5.972 5.972 0 0 1 5.41 20.97a5.969 5.969 0 0 1-.474-.065 4.48 4.48 0 0 0 .978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25Z" />
-                                    </svg>
+                                    <i class="fa-duotone fa-comments size-5 text-pink-500"></i>
                                 </div>
                                 <div>
                                     <span class="font-medium text-zinc-700 dark:text-zinc-300 group-hover:text-zinc-900 dark:group-hover:text-white">{{ __('Messages') }}</span>
@@ -276,9 +374,7 @@
                         @can('todos.use')
                             <a href="{{ route('tasks.index') }}" wire:navigate class="group flex items-center gap-3 rounded-xl border border-zinc-200 dark:border-zinc-700 p-4 transition-all hover:border-amber-400 hover:shadow-md">
                                 <div class="flex items-center justify-center size-10 rounded-xl bg-amber-50 dark:bg-amber-900/30">
-                                    <svg class="size-5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
-                                    </svg>
+                                    <i class="fa-duotone fa-circle-check size-5 text-amber-500"></i>
                                 </div>
                                 <div>
                                     <span class="font-medium text-zinc-700 dark:text-zinc-300 group-hover:text-zinc-900 dark:group-hover:text-white">{{ __('My Tasks') }}</span>
@@ -290,9 +386,7 @@
                         @can('expenses.view')
                             <a href="{{ route('expenses.index') }}" wire:navigate class="group flex items-center gap-3 rounded-xl border border-zinc-200 dark:border-zinc-700 p-4 transition-all hover:border-red-400 hover:shadow-md">
                                 <div class="flex items-center justify-center size-10 rounded-xl bg-red-50 dark:bg-red-900/30">
-                                    <svg class="size-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3m-3.75 3h15a2.25 2.25 0 0 0 2.25-2.25V6.75A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25v10.5A2.25 2.25 0 0 0 4.5 19.5Z" />
-                                    </svg>
+                                    <i class="fa-duotone fa-receipt size-5 text-red-500"></i>
                                 </div>
                                 <div>
                                     <span class="font-medium text-zinc-700 dark:text-zinc-300 group-hover:text-zinc-900 dark:group-hover:text-white">{{ __('Expenses') }}</span>
@@ -304,9 +398,7 @@
                         @can('reports.view')
                             <a href="{{ route('reports.index') }}" wire:navigate class="group flex items-center gap-3 rounded-xl border border-zinc-200 dark:border-zinc-700 p-4 transition-all hover:border-violet-400 hover:shadow-md">
                                 <div class="flex items-center justify-center size-10 rounded-xl bg-violet-50 dark:bg-violet-900/30">
-                                    <svg class="size-5 text-violet-500" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
-                                    </svg>
+                                    <i class="fa-duotone fa-chart-column size-5 text-violet-500"></i>
                                 </div>
                                 <div>
                                     <span class="font-medium text-zinc-700 dark:text-zinc-300 group-hover:text-zinc-900 dark:group-hover:text-white">{{ __('Reports') }}</span>

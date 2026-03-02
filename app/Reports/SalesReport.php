@@ -132,46 +132,11 @@ class SalesReport
      */
     protected function baseQuery()
     {
-        $query = OrderPayment::query();
-
-        // Date range filter on order date (fallback to order created_at for legacy rows).
-        if ($this->dateFrom) {
-            $query->whereHas('order', function ($orderQuery) {
-                $orderQuery->whereDate('order_date', '>=', $this->dateFrom)
-                    ->orWhere(function ($legacyQuery) {
-                        $legacyQuery->whereNull('order_date')
-                            ->whereDate('created_at', '>=', $this->dateFrom);
-                    });
+        return OrderPayment::query()
+            ->whereHas('order', fn ($orderQuery) => $orderQuery->dateRange($this->dateFrom, $this->dateTo))
+            ->when($this->paymentMethodId, fn ($query) => $query->where('order_payments.payment_method_id', $this->paymentMethodId))
+            ->when($this->search, function ($query) {
+                $query->whereHas('order', fn ($orderQuery) => $orderQuery->search($this->search));
             });
-        }
-
-        if ($this->dateTo) {
-            $query->whereHas('order', function ($orderQuery) {
-                $orderQuery->whereDate('order_date', '<=', $this->dateTo)
-                    ->orWhere(function ($legacyQuery) {
-                        $legacyQuery->whereNull('order_date')
-                            ->whereDate('created_at', '<=', $this->dateTo);
-                    });
-            });
-        }
-
-        // Method filter
-        if ($this->paymentMethodId) {
-            $query->where('order_payments.payment_method_id', $this->paymentMethodId);
-        }
-
-        // Search filter (order_no or customer name)
-        if ($this->search) {
-            $query->where(function ($q) {
-                $q->whereHas('order', function ($oq) {
-                    $oq->where('order_no', 'like', "%{$this->search}%")
-                        ->orWhereHas('customer', function ($cq) {
-                            $cq->where('name', 'like', "%{$this->search}%");
-                        });
-                });
-            });
-        }
-
-        return $query;
     }
 }

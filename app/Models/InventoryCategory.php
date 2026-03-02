@@ -21,10 +21,55 @@ class InventoryCategory extends Model
     protected static function booted(): void
     {
         static::creating(function (InventoryCategory $category) {
-            if (empty($category->slug)) {
-                $category->slug = Str::slug($category->name);
-            }
+            $category->slug = static::resolveSlug($category->slug, $category->name, $category->branch_id);
         });
+
+        static::updating(function (InventoryCategory $category) {
+            if (! $category->isDirty('slug') && filled($category->slug)) {
+                return;
+            }
+
+            $category->slug = static::resolveSlug(
+                $category->slug,
+                $category->name,
+                $category->branch_id,
+                $category->getKey()
+            );
+        });
+    }
+
+    protected static function resolveSlug(?string $slug, string $name, ?int $branchId, ?int $ignoreId = null): string
+    {
+        $normalizedSlug = Str::slug((string) $slug);
+
+        if ($normalizedSlug !== '') {
+            return $normalizedSlug;
+        }
+
+        return static::generateUniqueSlug($name, $branchId, $ignoreId);
+    }
+
+    protected static function generateUniqueSlug(string $name, ?int $branchId, ?int $ignoreId = null): string
+    {
+        $baseSlug = Str::slug($name);
+
+        if ($baseSlug === '') {
+            $baseSlug = 'category';
+        }
+
+        $candidate = $baseSlug;
+        $suffix = 2;
+
+        while (static::withoutBranchScope()
+            ->where('branch_id', $branchId)
+            ->where('slug', $candidate)
+            ->when($ignoreId !== null, fn ($query) => $query->where('id', '!=', $ignoreId))
+            ->exists()) {
+            $candidate = "{$baseSlug}-{$suffix}";
+            $suffix++;
+        }
+
+        return $candidate;
     }
 
     public function items(): HasMany

@@ -5,12 +5,12 @@ namespace Tests\Feature\Orders;
 use App\Enums\OrderStatus;
 use App\Enums\PaymentStatus;
 use App\Livewire\Orders\Form as OrderForm;
+use App\Livewire\Orders\Show as OrderShow;
 use App\Models\Customer;
 use App\Models\Order;
 use App\Models\OrderExpense;
 use App\Models\OrderLine;
 use App\Models\OrderPayment;
-use App\Models\User;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -585,6 +585,93 @@ class OrderFlowTest extends TestCase
         $this->assertContains($lineAssignedOrder->id, $forTailorOrderIds);
         $this->assertContains($orderAssignedOrder->id, $forTailorOrderIds);
         $this->assertNotContains($otherOrder->id, $forTailorOrderIds);
+    }
+
+    public function test_order_collects_unique_involved_tailor_names_from_order_and_line_assignments(): void
+    {
+        $manager = $this->actingAsRole('branch_manager', $this->branch);
+        $tailorA = $this->createUserWithRole('tailor', $this->branch);
+        $tailorB = $this->createUserWithRole('tailor', $this->branch);
+        $customer = Customer::factory()->create(['branch_id' => $this->branch->id]);
+
+        $order = Order::create([
+            'branch_id' => $this->branch->id,
+            'customer_id' => $customer->id,
+            'assigned_tailor_id' => $tailorA->id,
+            'status' => OrderStatus::New,
+            'subtotal' => 95000,
+            'discount' => 0,
+            'total' => 95000,
+            'payment_status' => PaymentStatus::Unpaid,
+            'created_by' => $manager->id,
+        ]);
+
+        OrderLine::create([
+            'order_id' => $order->id,
+            'assigned_tailor_id' => $tailorA->id,
+            'item_name' => 'Suit',
+            'qty' => 1,
+            'unit_price' => 50000,
+            'line_total' => 50000,
+        ]);
+
+        OrderLine::create([
+            'order_id' => $order->id,
+            'assigned_tailor_id' => $tailorB->id,
+            'item_name' => 'Shirt',
+            'qty' => 1,
+            'unit_price' => 45000,
+            'line_total' => 45000,
+        ]);
+
+        $order->load(['assignedTailor', 'lines.assignedTailor']);
+
+        $this->assertSame(
+            [$tailorA->name, $tailorB->name],
+            $order->involvedTailorNames()->all()
+        );
+        $this->assertTrue($order->hasPerItemTailorAssignments());
+        $this->assertTrue($order->hasTailorAssignments());
+    }
+
+    public function test_order_show_hides_assign_tailor_button_when_line_tailors_already_exist(): void
+    {
+        $manager = $this->actingAsRole('branch_manager', $this->branch);
+        $tailorA = $this->createUserWithRole('tailor', $this->branch);
+        $tailorB = $this->createUserWithRole('tailor', $this->branch);
+        $customer = Customer::factory()->create(['branch_id' => $this->branch->id]);
+
+        $order = Order::create([
+            'branch_id' => $this->branch->id,
+            'customer_id' => $customer->id,
+            'status' => OrderStatus::New,
+            'subtotal' => 95000,
+            'discount' => 0,
+            'total' => 95000,
+            'payment_status' => PaymentStatus::Unpaid,
+            'created_by' => $manager->id,
+        ]);
+
+        OrderLine::create([
+            'order_id' => $order->id,
+            'assigned_tailor_id' => $tailorA->id,
+            'item_name' => 'Suit',
+            'qty' => 1,
+            'unit_price' => 50000,
+            'line_total' => 50000,
+        ]);
+
+        OrderLine::create([
+            'order_id' => $order->id,
+            'assigned_tailor_id' => $tailorB->id,
+            'item_name' => 'Shirt',
+            'qty' => 1,
+            'unit_price' => 45000,
+            'line_total' => 45000,
+        ]);
+
+        Livewire::test(OrderShow::class, ['order' => $order])
+            ->assertDontSeeHtml('wire:click="openAssignTailorModal"');
     }
 
     public function test_create_order_can_assign_different_tailors_per_line_item(): void

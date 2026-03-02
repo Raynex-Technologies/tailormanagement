@@ -222,8 +222,15 @@ class BranchContext
 
         // Global admins can switch branches via session
         if ($user->isGlobalAdmin()) {
-            $sessionBranchId = session('active_branch_id');
-            self::set($sessionBranchId ?? $user->branch_id);
+            $branchId = self::defaultGlobalAdminBranchId();
+
+            self::set($branchId);
+
+            if ($branchId !== null) {
+                session([self::getSessionKey() => $branchId]);
+            } else {
+                session()->forget(self::getSessionKey());
+            }
 
             return;
         }
@@ -246,9 +253,44 @@ class BranchContext
      */
     public static function clearActiveBranch(): void
     {
-        session()->forget('active_branch_id');
+        session()->forget(self::getSessionKey());
 
         $user = Auth::user();
+
+        if ($user?->isGlobalAdmin()) {
+            self::set(self::defaultGlobalAdminBranchId());
+
+            return;
+        }
+
         self::set($user?->branch_id);
+    }
+
+    /**
+     * Resolve the active branch for global admins.
+     * Keeps an explicit session selection when valid, otherwise defaults
+     * to the first active branch in the database.
+     */
+    protected static function defaultGlobalAdminBranchId(): ?int
+    {
+        $sessionBranchId = session(self::getSessionKey());
+
+        if ($sessionBranchId !== null) {
+            $activeSessionBranchId = Branch::query()
+                ->active()
+                ->whereKey($sessionBranchId)
+                ->value('id');
+
+            if ($activeSessionBranchId !== null) {
+                return (int) $activeSessionBranchId;
+            }
+        }
+
+        $firstActiveBranchId = Branch::query()
+            ->active()
+            ->orderBy('id')
+            ->value('id');
+
+        return $firstActiveBranchId !== null ? (int) $firstActiveBranchId : null;
     }
 }

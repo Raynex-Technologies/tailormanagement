@@ -20,7 +20,7 @@
                 <flux:text class="text-zinc-500">{{ __('Manage purchase requests for inventory items.') }}</flux:text>
             </div>
             @can('procurement.request.create')
-                <flux:button :href="route('procurement.requests.create')" wire:navigate>
+                <flux:button variant="primary" :href="route('procurement.requests.create')" wire:navigate>
                     <x-icon name="add" class="mr-1 size-4" />
                     {{ __('New Request') }}
                 </flux:button>

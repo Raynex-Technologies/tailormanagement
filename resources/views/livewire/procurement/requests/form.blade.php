@@ -20,13 +20,19 @@
         </flux:callout>
     @endif
 
+    @if ($branchChangeMessage)
+        <flux:callout variant="warning" icon="exclamation-triangle">
+            {{ $branchChangeMessage }}
+        </flux:callout>
+    @endif
+
     <form wire:submit="save">
         {{-- Branch Selector for Global Admins (Create only) --}}
         @if ($showBranchSelector && !$isEdit)
-            <flux:card class="mb-6">
+            <flux:card class="mb-6 overflow-visible border border-zinc-200/80 shadow-sm shadow-zinc-950/5 dark:border-zinc-700/80 dark:shadow-black/20">
                 <flux:heading size="lg" class="mb-4">{{ __('Branch Assignment') }}</flux:heading>
                 <div class="max-w-md">
-                    <flux:select wire:model.blur="branchId" label="{{ __('Branch') }}" required>
+                    <flux:select wire:model.live="branchId" label="{{ __('Branch') }}" required>
                         <flux:select.option value="">{{ __('-- Select Branch --') }}</flux:select.option>
                         @foreach ($branches as $branch)
                             <flux:select.option value="{{ $branch->id }}">{{ $branch->name }}</flux:select.option>
@@ -42,7 +48,7 @@
             </flux:card>
         @endif
 
-        <flux:card class="mb-6">
+        <flux:card class="mb-6 overflow-visible border border-zinc-200/80 shadow-sm shadow-zinc-950/5 dark:border-zinc-700/80 dark:shadow-black/20">
             <flux:heading size="xl" class="mb-2">
                 {{ $isEdit ? __('Edit Purchase Request') : __('New Purchase Request') }}
             </flux:heading>
@@ -51,17 +57,19 @@
             </flux:text>
 
             {{-- Product Search Bar --}}
-            <div class="mb-6">
+            <div class="relative z-20 mb-6">
                 <flux:label class="mb-2">{{ __('Search Products') }}</flux:label>
                 <div class="relative">
                     <div class="relative">
                         <x-icon name="search" class="absolute left-3 top-1/2 size-5 -translate-y-1/2 text-zinc-400" />
                         <input
                             type="text"
-                            wire:model.blur="productSearch"
+                            wire:model.live.debounce.300ms="productSearch"
+                            wire:focus="searchInventory"
                             wire:keydown.escape="closeSearchDropdown"
                             placeholder="{{ $canSearch ? __('Search by product name or SKU...') : __('Select a branch first...') }}"
                             class="w-full rounded-lg border border-zinc-300 bg-white py-3 pl-10 pr-4 text-sm shadow-sm transition focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-zinc-600 dark:bg-zinc-800 dark:text-white dark:focus:border-indigo-400 {{ !$canSearch ? 'cursor-not-allowed opacity-60' : '' }}"
+                            autocomplete="off"
                             {{ !$canSearch ? 'disabled' : '' }}
                         />
                         @if ($productSearch)
@@ -78,7 +86,7 @@
                     {{-- Search Results Dropdown --}}
                     @if ($showSearchDropdown && count($searchResults) > 0)
                         <div
-                            class="absolute z-50 mt-1 max-h-80 w-full overflow-auto rounded-lg border border-zinc-200 bg-white shadow-xl dark:border-zinc-700 dark:bg-zinc-800"
+                            class="absolute z-50 mt-1 max-h-80 w-full overflow-auto rounded-lg border border-zinc-200 bg-white shadow-xl shadow-zinc-950/10 dark:border-zinc-700 dark:bg-zinc-800 dark:shadow-black/30"
                             wire:click.outside="closeSearchDropdown"
                         >
                             @foreach ($searchResults as $product)
@@ -98,8 +106,8 @@
                                         </div>
                                         <div class="mt-1 flex items-center gap-4 text-sm text-zinc-500 dark:text-zinc-400">
                                             <span>
-                                                {{ __('Stock') }}: 
-                                                <span class="{{ $product['current_stock'] <= $product['reorder_level'] ? 'text-red-600 dark:text-red-400 font-medium' : '' }}">
+                                                {{ __('Stock') }}:
+                                                <span class="{{ $product['current_stock'] <= $product['reorder_level'] ? 'font-medium text-red-600 dark:text-red-400' : '' }}">
                                                     {{ number_format($product['current_stock'], 0) }}
                                                 </span>
                                                 @if ($product['unit'])
@@ -116,7 +124,7 @@
                             @endforeach
                         </div>
                     @elseif ($productSearch && strlen($productSearch) >= 2 && count($searchResults) === 0)
-                        <div class="absolute z-50 mt-1 w-full rounded-lg border border-zinc-200 bg-white p-4 text-center shadow-xl dark:border-zinc-700 dark:bg-zinc-800">
+                        <div class="absolute z-50 mt-1 w-full rounded-lg border border-zinc-200 bg-white p-4 text-center shadow-xl shadow-zinc-950/10 dark:border-zinc-700 dark:bg-zinc-800 dark:shadow-black/30">
                             <x-icon name="search" class="mx-auto size-8 text-zinc-300 dark:text-zinc-600" />
                             <p class="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
                                 {{ __('No products found for') }} "{{ $productSearch }}"
@@ -134,7 +142,7 @@
 
                 @if (!$canSearch && $showBranchSelector)
                     <flux:text class="mt-2 text-sm text-amber-600 dark:text-amber-400">
-                        <x-icon name="warning" class="inline-block size-4 mr-1" />
+                        <x-icon name="warning" class="mr-1 inline-block size-4" />
                         {{ __('Please select a branch above to search products.') }}
                     </flux:text>
                 @endif
@@ -211,7 +219,7 @@
                                                 {{ number_format($item['current_stock'], 0) }}
                                             </span>
                                         @else
-                                            <span class="text-zinc-400">—</span>
+                                            <span class="text-zinc-400">&mdash;</span>
                                         @endif
                                     </div>
 
@@ -221,7 +229,7 @@
                                         <input
                                             type="number"
                                             wire:model.blur="items.{{ $index }}.qty"
-                                            step="1"
+                                            step="0.01"
                                             min="0.01"
                                             class="w-full rounded-lg border border-zinc-300 px-3 py-2 text-center text-sm dark:border-zinc-600 dark:bg-zinc-700 dark:text-white sm:w-20"
                                         />
@@ -236,7 +244,7 @@
                                         <input
                                             type="number"
                                             wire:model.blur="items.{{ $index }}.unit_price_est"
-                                            step="1"
+                                            step="0.01"
                                             min="0"
                                             class="w-full rounded-lg border border-zinc-300 px-3 py-2 text-right text-sm dark:border-zinc-600 dark:bg-zinc-700 dark:text-white sm:w-28"
                                         />
@@ -282,7 +290,7 @@
         </flux:card>
 
         {{-- Note --}}
-        <flux:card class="mb-6">
+        <flux:card class="mb-6 overflow-visible border border-zinc-200/80 shadow-sm shadow-zinc-950/5 dark:border-zinc-700/80 dark:shadow-black/20">
             <flux:label for="note">{{ __('Notes') }}</flux:label>
             <flux:textarea
                 id="note"

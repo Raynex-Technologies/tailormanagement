@@ -1,5 +1,13 @@
 <div>
     <flux:main class="p-6">
+        <div class="mb-6">
+            <flux:breadcrumbs>
+                <flux:breadcrumbs.item :href="route('dashboard')" icon="home" wire:navigate />
+                <flux:breadcrumbs.item :href="route('inventory.stock')" wire:navigate>{{ __('Inventory') }}</flux:breadcrumbs.item>
+                <flux:breadcrumbs.item>{{ __('Items') }}</flux:breadcrumbs.item>
+            </flux:breadcrumbs>
+        </div>
+
         {{-- Page Header --}}
         <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -10,7 +18,7 @@
             </div>
 
             @can('inventory.items.manage')
-                <flux:button icon="plus" wire:click="openCreateModal">
+                <flux:button variant="primary" icon="plus" wire:click="openCreateModal">
                     {{ __('New Item') }}
                 </flux:button>
             @endcan
@@ -165,7 +173,7 @@
                                             {{ __('No items found.') }}
                                         </flux:text>
                                         @can('inventory.items.manage')
-                                            <flux:button size="sm" wire:click="openCreateModal">
+                                            <flux:button size="sm" variant="primary" wire:click="openCreateModal">
                                                 {{ __('Create your first item') }}
                                             </flux:button>
                                         @endcan
@@ -281,7 +289,7 @@
                     <flux:button type="button" variant="ghost" wire:click="closeItemModal">
                         {{ __('Cancel') }}
                     </flux:button>
-                    <flux:button type="submit">
+                    <flux:button type="submit" variant="primary">
                         {{ $isEditing ? __('Update') : __('Create') }}
                     </flux:button>
                 </div>

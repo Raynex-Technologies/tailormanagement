@@ -17,8 +17,7 @@ class BranchSwitcher extends Component
 
     public function mount(): void
     {
-        // Initialize from current context
-        $this->selectedBranchId = BranchContext::id();
+        $this->selectedBranchId = BranchContext::id() ?? $this->defaultBranchId();
     }
 
     /**
@@ -34,10 +33,11 @@ class BranchSwitcher extends Component
      */
     public function switchBranch(mixed $value): void
     {
-        $branchId = $this->normalizeBranchId($value);
+        $branchId = $this->normalizeBranchId($value) ?? $this->defaultBranchId();
 
         if ($branchId === null) {
-            $this->clearSelection();
+            session()->flash('error', 'No active branches are available.');
+            $this->selectedBranchId = null;
 
             return;
         }
@@ -55,17 +55,6 @@ class BranchSwitcher extends Component
 
         BranchContext::setActiveBranch($branchId);
         $this->selectedBranchId = $branchId;
-
-        $this->redirectToPreviousPage();
-    }
-
-    /**
-     * Clear the branch selection.
-     */
-    public function clearSelection(): void
-    {
-        BranchContext::clearActiveBranch();
-        $this->selectedBranchId = BranchContext::id();
 
         $this->redirectToPreviousPage();
     }
@@ -91,6 +80,19 @@ class BranchSwitcher extends Component
     }
 
     /**
+     * Get the fallback branch for initial load or invalid selections.
+     */
+    protected function defaultBranchId(): ?int
+    {
+        $branchId = Branch::query()
+            ->where('is_active', true)
+            ->orderBy('id')
+            ->value('id');
+
+        return $branchId !== null ? (int) $branchId : null;
+    }
+
+    /**
      * Force a full reload so branch-scoped data refreshes immediately.
      */
     protected function redirectToPreviousPage(): void
@@ -108,20 +110,6 @@ class BranchSwitcher extends Component
             ->get(['id', 'name', 'code']);
     }
 
-    /**
-     * Get the current branch name for display.
-     */
-    public function getCurrentBranchNameProperty(): string
-    {
-        if ($this->selectedBranchId === null) {
-            return 'Select Branch...';
-        }
-
-        $branch = Branch::find($this->selectedBranchId);
-
-        return $branch?->name ?? 'Unknown Branch';
-    }
-
     public function render()
     {
         // Only render for global admins
@@ -135,7 +123,6 @@ class BranchSwitcher extends Component
 
         return view('livewire.admin.branch-switcher', [
             'branches' => $this->branches,
-            'currentBranchName' => $this->currentBranchName,
         ]);
     }
 }

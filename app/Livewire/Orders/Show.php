@@ -3,6 +3,7 @@
 namespace App\Livewire\Orders;
 
 use App\Enums\OrderStatus;
+use App\Events\OrderDueDateChanged;
 use App\Events\OrderStatusChanged;
 use App\Models\DeliveryNote;
 use App\Models\Order;
@@ -10,6 +11,7 @@ use App\Models\OrderStockRequest;
 use App\Models\User;
 use App\Services\Orders\OrderDeletionService;
 use App\Support\DocNumber;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
@@ -50,12 +52,14 @@ class Show extends Component
     public bool $showStatusModal = false;
     public bool $showAssignTailorModal = false;
     public bool $showDeliveryNoteModal = false;
+    public bool $showDueDateModal = false;
 
     // Form data
     public string $newStatus = '';
     public ?int $selectedTailorId = null;
     public string $receivedByName = '';
     public string $receivedByPhone = '';
+    public ?string $updatedDueDate = null;
 
     public function mount(Order $order): void
     {
@@ -237,6 +241,46 @@ class Show extends Component
         session()->flash('success', "Tailor assigned: {$tailorName}");
     }
 
+    public function openDueDateModal(): void
+    {
+        $this->authorize('update', $this->order);
+
+        $this->resetErrorBag('updatedDueDate');
+        $this->updatedDueDate = $this->order->due_date?->isBefore(today())
+            ? today()->toDateString()
+            : ($this->order->due_date?->toDateString() ?? today()->toDateString());
+        $this->showDueDateModal = true;
+    }
+
+    public function updateDueDate(): void
+    {
+        $this->authorize('update', $this->order);
+
+        $validated = $this->validate([
+            'updatedDueDate' => ['required', 'date', 'after_or_equal:today'],
+        ]);
+
+        $oldDueDate = $this->order->due_date?->toDateString();
+        $newDueDate = Carbon::parse($validated['updatedDueDate'])->toDateString();
+
+        if ($oldDueDate === $newDueDate) {
+            $this->addError('updatedDueDate', __('Select a different due date to continue.'));
+
+            return;
+        }
+
+        $this->order->update(['due_date' => $newDueDate]);
+        $this->order->refresh();
+        $this->loadOrderRelations();
+        $this->showDueDateModal = false;
+
+        event(new OrderDueDateChanged($this->order, $oldDueDate, $newDueDate, auth()->user()));
+
+        session()->flash('success', __('Order due date updated to :date.', [
+            'date' => $this->order->due_date?->format('M d, Y') ?? $newDueDate,
+        ]));
+    }
+
     public function openDeliveryNoteModal(): void
     {
         $this->authorize('createDeliveryNote', $this->order);
@@ -367,24 +411,8 @@ class Show extends Component
             ->orderBy('name')
             ->get(['id', 'name']);
 
-        $tailorNames = collect();
-        if ($this->order->assignedTailor?->name) {
-            $tailorNames->push($this->order->assignedTailor->name);
-        }
-
-        $lineTailorNames = $this->order->lines
-            ->pluck('assignedTailor.name')
-            ->filter()
-            ->unique()
-            ->values();
-
-        foreach ($lineTailorNames as $lineTailorName) {
-            if (! $tailorNames->contains($lineTailorName)) {
-                $tailorNames->push($lineTailorName);
-            }
-        }
-
-        $tailorDisplay = $tailorNames->isNotEmpty() ? $tailorNames->implode(', ') : '—';
+        $tailorNames = $this->order->involvedTailorNames();
+        $tailorDisplay = $tailorNames->isNotEmpty() ? $tailorNames->implode(', ') : '-';
 
         // Order is in a final state (no more edits / stock requests)
         $orderIsFinal = in_array($this->order->status, [OrderStatus::Delivered, OrderStatus::Completed, OrderStatus::Cancelled]);
@@ -393,7 +421,7 @@ class Show extends Component
         $canEdit = $user->can('update', $this->order) && ! $orderIsFinal;
         $canChangeStatus = $user->can('changeStatus', $this->order);
         $canAssignTailor = $user->can('assignTailor', $this->order);
-        $showAssignTailorButton = $canAssignTailor && ! $this->order->assigned_tailor_id;
+        $showAssignTailorButton = $canAssignTailor && ! $this->order->hasTailorAssignments();
         $canMarkCompleted = $user->can('markCompleted', $this->order);
         $canCreateDeliveryNote = $user->can('createDeliveryNote', $this->order) && $this->order->canCreateDeliveryNote();
         $canDelete = $user->can('delete', $this->order);

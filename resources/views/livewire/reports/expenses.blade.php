@@ -1,133 +1,152 @@
-<flux:main class="p-6">
+<flux:main class="space-y-6 p-6">
     {{-- Breadcrumbs --}}
-    <div class="mb-6">
-        <flux:breadcrumbs>
-            <flux:breadcrumbs.item href="{{ route('dashboard') }}" wire:navigate icon="home" />
-            <flux:breadcrumbs.item href="{{ route('reports.index') }}" wire:navigate>Reports</flux:breadcrumbs.item>
-            <flux:breadcrumbs.item>Expenses Report</flux:breadcrumbs.item>
-        </flux:breadcrumbs>
-    </div>
+    <flux:breadcrumbs>
+        <flux:breadcrumbs.item href="{{ route('dashboard') }}" wire:navigate icon="home" />
+        <flux:breadcrumbs.item href="{{ route('reports.index') }}" wire:navigate>{{ __('Reports') }}</flux:breadcrumbs.item>
+        <flux:breadcrumbs.item>{{ __('Expenses Report') }}</flux:breadcrumbs.item>
+    </flux:breadcrumbs>
 
     {{-- Header --}}
-    <flux:card class="mb-6">
-        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-                <flux:heading size="xl">Expenses Report</flux:heading>
-                <flux:text class="mt-1">Expense tracking by category, order expenses, and capital allocation.</flux:text>
+    <div class="rounded-2xl bg-white dark:bg-zinc-800/50 p-6 shadow-sm border border-zinc-200/50 dark:border-zinc-700/50">
+        <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+            <div class="flex items-start gap-4">
+                <div class="flex items-center justify-center size-12 rounded-xl bg-red-100 dark:bg-red-900/30">
+                    <i class="fa-duotone fa-receipt size-6 text-red-600 dark:text-red-400"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold text-zinc-900 dark:text-white">{{ __('Expenses Report') }}</h1>
+                    <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">{{ __('Expense tracking by category, order expenses, and capital allocation.') }}</p>
+                </div>
             </div>
             @can('reports.export')
                 <flux:button wire:click="export" variant="primary" size="sm">
-                    <x-icon name="download" class="mr-1 size-4" />
-                    Export CSV
+                    <i class="fa-duotone fa-download mr-1.5 size-4"></i>
+                    {{ __('Export CSV') }}
                 </flux:button>
             @endcan
         </div>
-    </flux:card>
+    </div>
 
     {{-- Filters --}}
-    <flux:card class="mb-6">
+    <div class="rounded-2xl bg-white dark:bg-zinc-800/50 p-5 shadow-sm border border-zinc-200/50 dark:border-zinc-700/50">
         <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
-            <flux:input
-                wire:model.blur="dateFrom"
-                type="date"
-                label="From Date"
-            />
-            <flux:input
-                wire:model.blur="dateTo"
-                type="date"
-                label="To Date"
-            />
-            <flux:select wire:model.blur="categoryId" label="Category">
-                <option value="">All Categories</option>
+            <flux:input wire:model.blur="dateFrom" type="date" label="{{ __('From Date') }}" />
+            <flux:input wire:model.blur="dateTo" type="date" label="{{ __('To Date') }}" />
+            <flux:select wire:model.blur="categoryId" label="{{ __('Category') }}">
+                <option value="">{{ __('All Categories') }}</option>
                 @foreach($this->categories as $cat)
                     <option value="{{ $cat->id }}">{{ $cat->name }}</option>
                 @endforeach
             </flux:select>
-            <flux:select wire:model.blur="linkedToCapital" label="Capital Linked">
-                <option value="">All</option>
-                <option value="1">Yes - Linked</option>
-                <option value="0">No - Not Linked</option>
+            <flux:select wire:model.blur="linkedToCapital" label="{{ __('Capital Linked') }}">
+                <option value="">{{ __('All') }}</option>
+                <option value="1">{{ __('Yes - Linked') }}</option>
+                <option value="0">{{ __('No - Not Linked') }}</option>
             </flux:select>
-            <flux:input
-                wire:model.blur="search"
-                placeholder="Search vendor, reference, or notes..."
-                label="Search"
-                icon="magnifying-glass"
-            />
+            <flux:input wire:model.blur="search" placeholder="{{ __('Search vendor, reference, or notes...') }}" label="{{ __('Search') }}" icon="magnifying-glass" />
             <div class="flex items-end">
                 <flux:button wire:click="resetFilters" variant="ghost" size="sm">
-                    <x-icon name="close" class="mr-1 size-4" />
-                    Reset
+                    <i class="fa-duotone fa-xmark mr-1 size-4"></i>
+                    {{ __('Reset') }}
                 </flux:button>
             </div>
         </div>
-    </flux:card>
+    </div>
 
-    {{-- Summary Cards --}}
-    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
-        <flux:card>
-            <flux:text class="text-sm font-medium text-zinc-500 dark:text-zinc-400">Total Expenses</flux:text>
-            <flux:heading size="xl" class="mt-1 text-red-600 dark:text-red-400">
-                {{ money_tzs($this->summary['total_expenses']) }}
-            </flux:heading>
-        </flux:card>
-        <flux:card>
-            <flux:text class="text-sm font-medium text-zinc-500 dark:text-zinc-400">Number of Expenses</flux:text>
-            <flux:heading size="xl" class="mt-1">
-                {{ number_format($this->summary['total_count']) }}
-            </flux:heading>
-        </flux:card>
-        <flux:card>
-            <flux:text class="text-sm font-medium text-zinc-500 dark:text-zinc-400">Linked to Capital</flux:text>
-            <flux:heading size="xl" class="mt-1 text-purple-600 dark:text-purple-400">
-                {{ money_tzs($this->summary['linked_to_capital_total']) }}
-            </flux:heading>
-        </flux:card>
-        <flux:card>
-            <flux:text class="text-sm font-medium text-zinc-500 dark:text-zinc-400">Top Category</flux:text>
-            <flux:heading size="xl" class="mt-1">
-                {{ $this->summary['top_category'] }}
-            </flux:heading>
-            <flux:text class="text-xs text-zinc-400">{{ money_tzs($this->summary['top_category_amount']) }}</flux:text>
-        </flux:card>
+    {{-- Summary KPI Cards --}}
+    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div class="rounded-2xl bg-white dark:bg-zinc-800/50 p-5 shadow-sm border border-zinc-200/50 dark:border-zinc-700/50">
+            <div class="flex items-center justify-center size-11 rounded-xl bg-red-50 dark:bg-red-900/30 mb-3">
+                <i class="fa-duotone fa-receipt size-5 text-red-500"></i>
+            </div>
+            <p class="text-3xl font-bold tracking-tight text-red-600 dark:text-red-400">{{ money_tzs($this->summary['total_expenses']) }}</p>
+            <p class="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">{{ __('Total Expenses') }}</p>
+        </div>
+
+        <div class="rounded-2xl bg-white dark:bg-zinc-800/50 p-5 shadow-sm border border-zinc-200/50 dark:border-zinc-700/50">
+            <div class="flex items-center justify-center size-11 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 mb-3">
+                <i class="fa-duotone fa-hashtag size-5 text-indigo-500"></i>
+            </div>
+            <p class="text-3xl font-bold tracking-tight text-zinc-900 dark:text-white">{{ number_format($this->summary['total_count']) }}</p>
+            <p class="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">{{ __('Number of Expenses') }}</p>
+        </div>
+
+        <div class="rounded-2xl bg-white dark:bg-zinc-800/50 p-5 shadow-sm border border-zinc-200/50 dark:border-zinc-700/50">
+            <div class="flex items-center justify-center size-11 rounded-xl bg-violet-50 dark:bg-violet-900/30 mb-3">
+                <i class="fa-duotone fa-building-columns size-5 text-violet-500"></i>
+            </div>
+            <p class="text-3xl font-bold tracking-tight text-violet-600 dark:text-violet-400">{{ money_tzs($this->summary['linked_to_capital_total']) }}</p>
+            <p class="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">{{ __('Linked to Capital') }}</p>
+        </div>
+
+        <div class="rounded-2xl bg-white dark:bg-zinc-800/50 p-5 shadow-sm border border-zinc-200/50 dark:border-zinc-700/50">
+            <div class="flex items-center justify-center size-11 rounded-xl bg-amber-50 dark:bg-amber-900/30 mb-3">
+                <i class="fa-duotone fa-trophy size-5 text-amber-500"></i>
+            </div>
+            <p class="text-3xl font-bold tracking-tight text-zinc-900 dark:text-white">{{ $this->summary['top_category'] }}</p>
+            <p class="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">{{ __('Top Category') }} &middot; {{ money_tzs($this->summary['top_category_amount']) }}</p>
+        </div>
     </div>
 
     {{-- Category Breakdown --}}
-    <flux:card class="mb-6">
-        <flux:heading size="lg" class="mb-4">Breakdown by Category</flux:heading>
-        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            @forelse($this->categoryBreakdown as $cat)
-                <div class="rounded-lg border border-zinc-200 dark:border-zinc-700 p-4">
-                    <div class="flex items-center justify-between">
-                        <span class="font-medium text-zinc-900 dark:text-white">{{ $cat->category_name }}</span>
-                        <span class="text-sm text-zinc-500 dark:text-zinc-400">{{ $cat->count }} items</span>
-                    </div>
-                    <div class="mt-2 text-lg font-semibold text-red-600 dark:text-red-400">
-                        {{ money_tzs($cat->total) }}
-                    </div>
+    <div class="rounded-2xl bg-white dark:bg-zinc-800/50 shadow-sm border border-zinc-200/50 dark:border-zinc-700/50 overflow-hidden">
+        <div class="border-b border-zinc-100 dark:border-zinc-700/50 px-5 py-4">
+            <div class="flex items-center gap-3">
+                <div class="flex items-center justify-center size-10 rounded-xl bg-amber-100 dark:bg-amber-900/30">
+                    <i class="fa-duotone fa-chart-pie size-5 text-amber-600 dark:text-amber-400"></i>
                 </div>
-            @empty
-                <div class="col-span-full text-center text-zinc-500 dark:text-zinc-400">
-                    No expenses found.
-                </div>
-            @endforelse
+                <h2 class="text-lg font-semibold text-zinc-900 dark:text-white">{{ __('Breakdown by Category') }}</h2>
+            </div>
         </div>
-    </flux:card>
+        <div class="p-5">
+            <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                @forelse($this->categoryBreakdown as $cat)
+                    <div class="rounded-xl border border-zinc-200 dark:border-zinc-700 bg-zinc-50 dark:bg-zinc-900/50 p-4">
+                        <div class="flex items-center justify-between">
+                            <span class="font-medium text-zinc-900 dark:text-white">{{ $cat->category_name }}</span>
+                            <span class="text-xs text-zinc-500 dark:text-zinc-400">{{ $cat->count }} {{ __('items') }}</span>
+                        </div>
+                        <div class="mt-2 text-lg font-semibold text-red-600 dark:text-red-400">
+                            {{ money_tzs($cat->total) }}
+                        </div>
+                    </div>
+                @empty
+                    <div class="col-span-full py-8 text-center">
+                        <div class="flex items-center justify-center size-12 rounded-2xl mx-auto mb-3 bg-zinc-100 dark:bg-zinc-800">
+                            <i class="fa-duotone fa-chart-pie size-6 text-zinc-400 dark:text-zinc-500"></i>
+                        </div>
+                        <p class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('No expenses found.') }}</p>
+                    </div>
+                @endforelse
+            </div>
+        </div>
+    </div>
 
     {{-- Data Table --}}
-    <flux:card>
-        <flux:heading size="lg" class="mb-4">Expense Details</flux:heading>
+    <div class="rounded-2xl bg-white dark:bg-zinc-800/50 shadow-sm border border-zinc-200/50 dark:border-zinc-700/50 overflow-hidden">
+        <div class="border-b border-zinc-100 dark:border-zinc-700/50 px-5 py-4">
+            <div class="flex items-center gap-3">
+                <div class="flex items-center justify-center size-10 rounded-xl bg-red-100 dark:bg-red-900/30">
+                    <i class="fa-duotone fa-table-list size-5 text-red-600 dark:text-red-400"></i>
+                </div>
+                <div>
+                    <h2 class="text-lg font-semibold text-zinc-900 dark:text-white">{{ __('Expense Details') }}</h2>
+                    <p class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('Individual expense records for the selected period') }}</p>
+                </div>
+            </div>
+        </div>
+
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
                 <thead>
                     <tr class="text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-                        <th class="px-4 py-3">Date</th>
-                        <th class="px-4 py-3">Category</th>
-                        <th class="px-4 py-3">Vendor</th>
-                        <th class="px-4 py-3 text-right">Amount</th>
-                        <th class="px-4 py-3">Capital Allocation</th>
-                        <th class="px-4 py-3">Created By</th>
-                        <th class="px-4 py-3">Reference</th>
+                        <th class="px-4 py-3">{{ __('Date') }}</th>
+                        <th class="px-4 py-3">{{ __('Category') }}</th>
+                        <th class="px-4 py-3">{{ __('Vendor') }}</th>
+                        <th class="px-4 py-3 text-right">{{ __('Amount') }}</th>
+                        <th class="px-4 py-3">{{ __('Capital Allocation') }}</th>
+                        <th class="px-4 py-3">{{ __('Created By') }}</th>
+                        <th class="px-4 py-3">{{ __('Reference') }}</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
@@ -138,7 +157,7 @@
                             </td>
                             <td class="px-4 py-3">
                                 <span class="inline-flex items-center rounded-full bg-zinc-100 dark:bg-zinc-700 px-2 py-0.5 text-xs font-medium">
-                                    {{ $row->category_name ?? 'Uncategorized' }}
+                                    {{ $row->category_name ?? __('Uncategorized') }}
                                 </span>
                             </td>
                             <td class="px-4 py-3">{{ $row->vendor ?? '-' }}</td>
@@ -151,7 +170,7 @@
                                         {{ $row->allocation_no }}
                                     </a>
                                 @else
-                                    -
+                                    <span class="text-zinc-400">-</span>
                                 @endif
                             </td>
                             <td class="px-4 py-3">{{ $row->created_by_name ?? '-' }}</td>
@@ -159,8 +178,12 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="7" class="px-4 py-12 text-center text-zinc-500 dark:text-zinc-400">
-                                No expenses found for the selected filters.
+                            <td colspan="7" class="px-4 py-16 text-center">
+                                <div class="flex items-center justify-center size-14 rounded-2xl mx-auto mb-3 bg-zinc-100 dark:bg-zinc-800">
+                                    <i class="fa-duotone fa-receipt size-7 text-zinc-400 dark:text-zinc-500"></i>
+                                </div>
+                                <p class="text-sm font-medium text-zinc-900 dark:text-white">{{ __('No expenses found') }}</p>
+                                <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">{{ __('Try adjusting the filters or date range.') }}</p>
                             </td>
                         </tr>
                     @endforelse
@@ -169,9 +192,9 @@
         </div>
 
         @if($this->rows->hasPages())
-            <div class="mt-4 border-t border-zinc-200 dark:border-zinc-700 pt-4">
+            <div class="px-5 py-3 border-t border-zinc-100 dark:border-zinc-700/50">
                 {{ $this->rows->links() }}
             </div>
         @endif
-    </flux:card>
+    </div>
 </flux:main>

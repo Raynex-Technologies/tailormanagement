@@ -1,6 +1,14 @@
 <div>
     {{-- Page Header --}}
     <flux:main class="p-6">
+        <div class="mb-6">
+            <flux:breadcrumbs>
+                <flux:breadcrumbs.item :href="route('dashboard')" icon="home" wire:navigate />
+                <flux:breadcrumbs.item :href="route('inventory.stock')" wire:navigate>{{ __('Inventory') }}</flux:breadcrumbs.item>
+                <flux:breadcrumbs.item>{{ __('Categories') }}</flux:breadcrumbs.item>
+            </flux:breadcrumbs>
+        </div>
+
         <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
                 <flux:heading size="xl">{{ __('Inventory Categories') }}</flux:heading>
@@ -10,7 +18,7 @@
             </div>
 
             @can('inventory.items.manage')
-                <flux:button icon="plus" wire:click="openCreateModal">
+                <flux:button variant="primary" icon="plus" wire:click="openCreateModal">
                     {{ __('New Category') }}
                 </flux:button>
             @endcan
@@ -105,7 +113,7 @@
                                             {{ __('No categories found.') }}
                                         </flux:text>
                                         @can('inventory.items.manage')
-                                            <flux:button size="sm" wire:click="openCreateModal">
+                                            <flux:button size="sm" variant="primary" wire:click="openCreateModal">
                                                 {{ __('Create your first category') }}
                                             </flux:button>
                                         @endcan
@@ -166,9 +174,11 @@
                 <flux:input
                     wire:model="slug"
                     label="{{ __('Slug') }}"
-                    placeholder="e.g., fabrics"
-                    required
+                    placeholder="Leave blank to auto-generate"
                 />
+                <p class="text-xs text-zinc-500 dark:text-zinc-400">
+                    {{ __('Optional. If left blank, a slug will be generated from the category name.') }}
+                </p>
                 @error('slug')
                     <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
                 @enderror
@@ -177,7 +187,7 @@
                     <flux:button type="button" variant="ghost" wire:click="closeModal">
                         {{ __('Cancel') }}
                     </flux:button>
-                    <flux:button type="submit">
+                    <flux:button type="submit" variant="primary">
                         {{ $isEditing ? __('Update') : __('Create') }}
                     </flux:button>
                 </div>

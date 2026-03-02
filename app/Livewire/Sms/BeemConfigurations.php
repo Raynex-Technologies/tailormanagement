@@ -42,12 +42,7 @@ class BeemConfigurations extends Component
         $this->sender_name = $config->sender_name ?? '';
 
         $smsTemplates = SmsTemplate::instance();
-        $this->templates = $smsTemplates->templates ?? [];
-        foreach (SmsTemplate::CATEGORIES as $cat) {
-            if (! isset($this->templates[$cat])) {
-                $this->templates[$cat] = '';
-            }
-        }
+        $this->templates = SmsTemplate::normalizeTemplates($smsTemplates->templates ?? []);
     }
 
     public function saveCredentials(): void
@@ -82,10 +77,7 @@ class BeemConfigurations extends Component
             'templates.*' => 'nullable|string|max:1000',
         ]);
 
-        $data = [];
-        foreach (SmsTemplate::CATEGORIES as $cat) {
-            $data[$cat] = $this->templates[$cat] ?? '';
-        }
+        $data = SmsTemplate::normalizeTemplates($this->templates);
 
         $row = SmsTemplate::instance();
         $row->update(['templates' => $data]);
@@ -125,6 +117,10 @@ class BeemConfigurations extends Component
         return view('livewire.sms.beem-configurations', [
             'categoryLabels' => SmsTemplate::categoryLabels(),
             'categories' => SmsTemplate::CATEGORIES,
+            'categoryVariables' => collect(SmsTemplate::CATEGORIES)
+                ->mapWithKeys(fn (string $category) => [$category => SmsTemplate::variablesForCategory($category)])
+                ->all(),
+            'variableDefinitions' => SmsTemplate::variableDefinitions(),
         ]);
     }
 }

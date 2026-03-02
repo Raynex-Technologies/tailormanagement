@@ -6,6 +6,7 @@ use App\Enums\CapitalAllocationStatus;
 use App\Enums\OrderStatus;
 use App\Enums\PurchaseRequestStatus;
 use App\Models\CapitalAllocation;
+use App\Models\Customer;
 use App\Models\Expense;
 use App\Models\InventoryStock;
 use App\Models\Order;
@@ -15,7 +16,6 @@ use App\Models\PurchaseRequest;
 use App\Models\User;
 use App\Support\BranchContext;
 use Carbon\Carbon;
-use Illuminate\Support\Facades\DB;
 
 class DashboardStats
 {
@@ -40,6 +40,7 @@ class DashboardStats
             'procurement' => $this->getProcurementStats(),
             'expenses' => $this->getExpenseStats(),
             'capital' => $this->getCapitalStats(),
+            'customers' => $this->getCustomerStats(),
         ];
     }
 
@@ -144,6 +145,22 @@ class DashboardStats
     }
 
     /**
+     * Get customer statistics.
+     */
+    protected function getCustomerStats(): array
+    {
+        return [
+            'top_by_orders' => Customer::query()
+                ->withCount('orders')
+                ->has('orders')
+                ->orderByDesc('orders_count')
+                ->orderBy('name')
+                ->limit(5)
+                ->get(['id', 'name', 'phone']),
+        ];
+    }
+
+    /**
      * Return empty stats structure.
      */
     protected function emptyStats(bool $needsBranchSelection = false): array
@@ -173,6 +190,9 @@ class DashboardStats
             'capital' => [
                 'open_allocations_count' => 0,
                 'total_remaining_capital_sum' => 0,
+            ],
+            'customers' => [
+                'top_by_orders' => collect(),
             ],
         ];
     }

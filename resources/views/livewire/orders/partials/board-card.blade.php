@@ -1,19 +1,6 @@
 @php
-    $statusColor = match($order->status) {
-        \App\Enums\OrderStatus::New => 'blue',
-        \App\Enums\OrderStatus::InProgress => 'amber',
-        \App\Enums\OrderStatus::Ready => 'purple',
-        \App\Enums\OrderStatus::Delivered => 'green',
-        \App\Enums\OrderStatus::Completed => 'green',
-        \App\Enums\OrderStatus::Cancelled => 'red',
-        default => 'zinc',
-    };
-    $paymentColor = match($order->payment_status) {
-        \App\Enums\PaymentStatus::Paid => 'green',
-        \App\Enums\PaymentStatus::Partial => 'amber',
-        \App\Enums\PaymentStatus::Unpaid => 'red',
-        default => 'zinc',
-    };
+    $statusColor = $order->status->color();
+    $paymentColor = $order->payment_status->color();
     $hideComplete = $hideCompleteButton ?? false;
 @endphp
 

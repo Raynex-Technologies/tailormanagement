@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Support\Collection;
 
 class Order extends Model
 {
@@ -253,24 +254,27 @@ class Order extends Model
      */
     public function scopeDateRange(Builder $query, ?string $from, ?string $to): Builder
     {
+        $orderDateColumn = $query->qualifyColumn('order_date');
+        $createdAtColumn = $query->qualifyColumn('created_at');
+
         if ($from) {
-            $query->where(function (Builder $dateQuery) use ($from) {
-                $dateQuery->whereDate('order_date', '>=', $from)
-                    ->orWhere(function (Builder $legacyQuery) use ($from) {
+            $query->where(function (Builder $dateQuery) use ($from, $orderDateColumn, $createdAtColumn) {
+                $dateQuery->whereDate($orderDateColumn, '>=', $from)
+                    ->orWhere(function (Builder $legacyQuery) use ($from, $orderDateColumn, $createdAtColumn) {
                         // Keep legacy rows (without order_date) filterable.
-                        $legacyQuery->whereNull('order_date')
-                            ->whereDate('created_at', '>=', $from);
+                        $legacyQuery->whereNull($orderDateColumn)
+                            ->whereDate($createdAtColumn, '>=', $from);
                     });
             });
         }
 
         if ($to) {
-            $query->where(function (Builder $dateQuery) use ($to) {
-                $dateQuery->whereDate('order_date', '<=', $to)
-                    ->orWhere(function (Builder $legacyQuery) use ($to) {
+            $query->where(function (Builder $dateQuery) use ($to, $orderDateColumn, $createdAtColumn) {
+                $dateQuery->whereDate($orderDateColumn, '<=', $to)
+                    ->orWhere(function (Builder $legacyQuery) use ($to, $orderDateColumn, $createdAtColumn) {
                         // Keep legacy rows (without order_date) filterable.
-                        $legacyQuery->whereNull('order_date')
-                            ->whereDate('created_at', '<=', $to);
+                        $legacyQuery->whereNull($orderDateColumn)
+                            ->whereDate($createdAtColumn, '<=', $to);
                     });
             });
         }
@@ -425,6 +429,62 @@ class Order extends Model
         }
 
         return $this->lines()->where('assigned_tailor_id', $tailorId)->exists();
+    }
+
+    /**
+     * Get unique tailor names involved in this order from both order-level and line-level assignment.
+     */
+    public function involvedTailorNames(): Collection
+    {
+        $tailorNames = collect();
+
+        $orderTailorName = $this->relationLoaded('assignedTailor')
+            ? $this->assignedTailor?->name
+            : $this->assignedTailor()->value('name');
+
+        if (filled($orderTailorName)) {
+            $tailorNames->push($orderTailorName);
+        }
+
+        if ($this->relationLoaded('lines')) {
+            $this->lines->loadMissing('assignedTailor:id,name');
+
+            $lineTailorNames = $this->lines
+                ->pluck('assignedTailor.name');
+        } else {
+            $lineTailorNames = $this->lines()
+                ->with('assignedTailor:id,name')
+                ->get()
+                ->pluck('assignedTailor.name');
+        }
+
+        return $tailorNames
+            ->merge($lineTailorNames)
+            ->filter()
+            ->unique()
+            ->values();
+    }
+
+    /**
+     * Check whether any order line has an explicit tailor assignment.
+     */
+    public function hasPerItemTailorAssignments(): bool
+    {
+        if ($this->relationLoaded('lines')) {
+            return $this->lines->contains(
+                fn (OrderLine $line) => filled($line->assigned_tailor_id)
+            );
+        }
+
+        return $this->lines()->whereNotNull('assigned_tailor_id')->exists();
+    }
+
+    /**
+     * Check whether the order has any tailor assignment at order level or line level.
+     */
+    public function hasTailorAssignments(): bool
+    {
+        return filled($this->assigned_tailor_id) || $this->hasPerItemTailorAssignments();
     }
 
     /**
