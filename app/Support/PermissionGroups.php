@@ -78,6 +78,13 @@ class PermissionGroups
             'reports.view',
             'reports.export',
         ],
+        'Installments' => [
+            'installments.view',
+            'installments.manage',
+            'installments.packages.manage',
+            'installments.payments.record',
+            'installments.analytics.view',
+        ],
         'Messaging' => [
             'messages.use',
             'messages.group.create',

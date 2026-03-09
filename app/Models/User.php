@@ -190,6 +190,16 @@ class User extends Authenticatable
         return $this->hasMany(OrderPayment::class, 'received_by');
     }
 
+    public function installmentPlans(): HasMany
+    {
+        return $this->hasMany(InstallmentPlan::class, 'created_by');
+    }
+
+    public function installmentPayments(): HasMany
+    {
+        return $this->hasMany(InstallmentPayment::class, 'received_by');
+    }
+
     // ============================================
     // Inventory
     // ============================================

@@ -8,6 +8,12 @@ use App\Livewire\Inventory\Items\Index as ItemsIndex;
 use App\Livewire\Inventory\Stock\Index as StockIndex;
 use App\Livewire\Inventory\Transactions\Index as TransactionsIndex;
 use App\Livewire\Inventory\Units\Index as UnitsIndex;
+use App\Livewire\Installments\Analytics as InstallmentsAnalytics;
+use App\Livewire\Installments\Dashboard as InstallmentsDashboard;
+use App\Livewire\Installments\Packages\Index as InstallmentPackagesIndex;
+use App\Livewire\Installments\Plans\Form as InstallmentPlansForm;
+use App\Livewire\Installments\Plans\Index as InstallmentPlansIndex;
+use App\Livewire\Installments\Plans\Show as InstallmentPlansShow;
 use App\Livewire\Invoices\Index as InvoicesIndex;
 use App\Livewire\Invoices\Show as InvoicesShow;
 use App\Livewire\Orders\Board as OrdersBoard;
@@ -232,6 +238,26 @@ Route::middleware(['auth', 'verified', 'branch.context'])->group(function () {
 
         // Transaction History
         Route::get('transactions', TransactionsIndex::class)->name('inventory.transactions.index');
+    });
+
+    /*
+    |--------------------------------------------------------------------------
+    | Installments Module
+    |--------------------------------------------------------------------------
+    */
+    Route::prefix('installments')->middleware('can:installments.view')->group(function () {
+        Route::get('/', InstallmentsDashboard::class)->name('installments.dashboard');
+        Route::get('/plans', InstallmentPlansIndex::class)->name('installments.plans.index');
+        Route::get('/plans/create', InstallmentPlansForm::class)
+            ->middleware('can:installments.manage')
+            ->name('installments.plans.create');
+        Route::get('/plans/{plan}', InstallmentPlansShow::class)->name('installments.plans.show');
+        Route::get('/packages', InstallmentPackagesIndex::class)
+            ->middleware('can:installments.packages.manage')
+            ->name('installments.packages.index');
+        Route::get('/analytics', InstallmentsAnalytics::class)
+            ->middleware('can:installments.analytics.view')
+            ->name('installments.analytics');
     });
 
     /*

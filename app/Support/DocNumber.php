@@ -7,6 +7,7 @@ use App\Models\Customer;
 use App\Models\DeliveryNote;
 use App\Models\GoodsReceipt;
 use App\Models\Invoice;
+use App\Models\InstallmentPlan;
 use App\Models\Order;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseRequest;
@@ -84,6 +85,15 @@ class DocNumber
     public static function invoice(): string
     {
         return self::sequentialFromTable('INV', 'invoices', 'invoice_no');
+    }
+
+    /**
+     * Generate a unique installment plan number.
+     * Format: INS-YYYY-XXXXXX
+     */
+    public static function installmentPlan(): string
+    {
+        return self::generate('INS', InstallmentPlan::class, 'plan_no');
     }
 
     /**

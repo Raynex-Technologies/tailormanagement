@@ -192,6 +192,13 @@ class RolesAndPermissionsSeeder extends Seeder
             'reports.view',
             'reports.export',
 
+            // Installments
+            'installments.view',
+            'installments.manage',
+            'installments.packages.manage',
+            'installments.payments.record',
+            'installments.analytics.view',
+
             // Messaging
             'messages.use',
             'messages.group.create',
@@ -279,6 +286,12 @@ class RolesAndPermissionsSeeder extends Seeder
                 // Reports - FULL ACCESS
                 'reports.view',
                 'reports.export',
+                // Installments - FULL ACCESS
+                'installments.view',
+                'installments.manage',
+                'installments.packages.manage',
+                'installments.payments.record',
+                'installments.analytics.view',
                 // Messaging
                 'messages.use',
                 'messages.group.create',
@@ -346,6 +359,12 @@ class RolesAndPermissionsSeeder extends Seeder
                 // Reports - FULL ACCESS
                 'reports.view',
                 'reports.export',
+                // Installments - FULL ACCESS
+                'installments.view',
+                'installments.manage',
+                'installments.packages.manage',
+                'installments.payments.record',
+                'installments.analytics.view',
                 // Messaging
                 'messages.use',
                 'messages.group.create',
@@ -390,6 +409,10 @@ class RolesAndPermissionsSeeder extends Seeder
                 // Reports - FULL ACCESS
                 'reports.view',
                 'reports.export',
+                // Installments - Finance oversight
+                'installments.view',
+                'installments.payments.record',
+                'installments.analytics.view',
                 // Messaging
                 'messages.use',
                 // Todos
@@ -469,6 +492,10 @@ class RolesAndPermissionsSeeder extends Seeder
             // -----------------------------------------------------------------
             'sales' => [
                 'dashboard.view',
+                // Installments - sales can create and collect installment sales
+                'installments.view',
+                'installments.manage',
+                'installments.payments.record',
                 // Orders - VIEW ONLY
                 'orders.view',
                 // Messaging

@@ -13,6 +13,8 @@ use App\Models\InventoryCategory;
 use App\Models\InventoryItem;
 use App\Models\InventoryUnit;
 use App\Models\Invoice;
+use App\Models\InstallmentPlan;
+use App\Models\Package;
 use App\Models\Message;
 use App\Models\Order;
 use App\Models\OrderStockRequest;
@@ -29,11 +31,13 @@ use App\Policies\InventoryCategoryPolicy;
 use App\Policies\InventoryItemPolicy;
 use App\Policies\InventoryUnitPolicy;
 use App\Policies\InvoicePolicy;
+use App\Policies\InstallmentPlanPolicy;
 use App\Policies\MessagePolicy;
 use App\Policies\OrderPolicy;
 use App\Policies\OrderStockRequestPolicy;
 use App\Policies\PurchaseOrderPolicy;
 use App\Policies\PurchaseRequestPolicy;
+use App\Policies\PackagePolicy;
 use App\Policies\UserPolicy;
 use Carbon\CarbonImmutable;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -66,8 +70,10 @@ class AppServiceProvider extends ServiceProvider
         InventoryItem::class => InventoryItemPolicy::class,
         InventoryUnit::class => InventoryUnitPolicy::class,
         Invoice::class => InvoicePolicy::class,
+        InstallmentPlan::class => InstallmentPlanPolicy::class,
         Message::class => MessagePolicy::class,
         Order::class => OrderPolicy::class,
+        Package::class => PackagePolicy::class,
         OrderStockRequest::class => OrderStockRequestPolicy::class,
         PurchaseOrder::class => PurchaseOrderPolicy::class,
         PurchaseRequest::class => PurchaseRequestPolicy::class,

@@ -236,6 +236,53 @@
                 </div>
                 @endcan
 
+                {{-- Installments Group --}}
+                @can('installments.view')
+                <div class="nav-group">
+                    <h3 class="px-3 mb-2 text-[0.65rem] font-semibold uppercase tracking-wider text-white/35">{{ __('Installments') }}</h3>
+
+                    <a
+                        href="{{ route('installments.dashboard') }}"
+                        wire:navigate
+                        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('installments.dashboard') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}"
+                    >
+                        <i class="fa-duotone fa-money-check-dollar-pen size-5"></i>
+                        {{ __('Dashboard') }}
+                    </a>
+
+                    <a
+                        href="{{ route('installments.plans.index') }}"
+                        wire:navigate
+                        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('installments.plans.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}"
+                    >
+                        <i class="fa-duotone fa-file-invoice-dollar size-5"></i>
+                        {{ __('Plans') }}
+                    </a>
+
+                    @can('installments.packages.manage')
+                    <a
+                        href="{{ route('installments.packages.index') }}"
+                        wire:navigate
+                        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('installments.packages.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}"
+                    >
+                        <i class="fa-duotone fa-box-open-full size-5"></i>
+                        {{ __('Packages') }}
+                    </a>
+                    @endcan
+
+                    @can('installments.analytics.view')
+                    <a
+                        href="{{ route('installments.analytics') }}"
+                        wire:navigate
+                        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('installments.analytics') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}"
+                    >
+                        <i class="fa-duotone fa-chart-line-up size-5"></i>
+                        {{ __('Analytics') }}
+                    </a>
+                    @endcan
+                </div>
+                @endcan
+
                 {{-- Store Group (for Storekeeper) --}}
                 @canany(['stock_requests.review', 'stock_requests.fulfill'])
                 <div class="nav-group">
@@ -542,6 +589,36 @@
                             {{ __('My Tasks') }}
                         </a>
                     </div>
+
+                    @can('installments.view')
+                    <div class="nav-group">
+                        <h3 class="px-3 mb-2 text-[0.65rem] font-semibold uppercase tracking-wider text-white/35">{{ __('Installments') }}</h3>
+                        <a href="{{ route('installments.dashboard') }}" wire:navigate @click="sidebarOpen = false"
+                           class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('installments.dashboard') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
+                            <i class="fa-duotone fa-money-check-dollar-pen size-5"></i>
+                            {{ __('Dashboard') }}
+                        </a>
+                        <a href="{{ route('installments.plans.index') }}" wire:navigate @click="sidebarOpen = false"
+                           class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('installments.plans.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
+                            <i class="fa-duotone fa-file-invoice-dollar size-5"></i>
+                            {{ __('Plans') }}
+                        </a>
+                        @can('installments.packages.manage')
+                        <a href="{{ route('installments.packages.index') }}" wire:navigate @click="sidebarOpen = false"
+                           class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('installments.packages.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
+                            <i class="fa-duotone fa-box-open-full size-5"></i>
+                            {{ __('Packages') }}
+                        </a>
+                        @endcan
+                        @can('installments.analytics.view')
+                        <a href="{{ route('installments.analytics') }}" wire:navigate @click="sidebarOpen = false"
+                           class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('installments.analytics') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
+                            <i class="fa-duotone fa-chart-line-up size-5"></i>
+                            {{ __('Analytics') }}
+                        </a>
+                        @endcan
+                    </div>
+                    @endcan
                 </nav>
             </aside>
         </div>

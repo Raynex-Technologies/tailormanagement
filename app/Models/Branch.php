@@ -80,6 +80,21 @@ class Branch extends Model
         return $this->hasMany(InventoryItem::class);
     }
 
+    public function packages(): HasMany
+    {
+        return $this->hasMany(Package::class);
+    }
+
+    public function installmentPlans(): HasMany
+    {
+        return $this->hasMany(InstallmentPlan::class);
+    }
+
+    public function installmentPayments(): HasMany
+    {
+        return $this->hasMany(InstallmentPayment::class);
+    }
+
     public function purchaseRequests(): HasMany
     {
         return $this->hasMany(PurchaseRequest::class);
