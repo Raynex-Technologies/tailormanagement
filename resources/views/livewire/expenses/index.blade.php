@@ -72,7 +72,7 @@
 
     {{-- Filters --}}
     <flux:card>
-        <div class="flex flex-col gap-4 lg:flex-row lg:items-end">
+        <div class="flex flex-col gap-4 lg:flex-row lg:flex-wrap lg:items-end">
             {{-- Search --}}
             <div class="w-full lg:w-1/4">
                 <flux:label for="search">{{ __('Search') }}</flux:label>
@@ -86,6 +86,17 @@
                     <flux:select.option value="">{{ __('All Categories') }}</flux:select.option>
                     @foreach ($categories as $category)
                         <flux:select.option value="{{ $category->id }}">{{ $category->name }}</flux:select.option>
+                    @endforeach
+                </flux:select>
+            </div>
+
+            {{-- Subcategory --}}
+            <div class="w-full lg:w-1/5">
+                <flux:label for="subcategoryFilter">{{ __('Subcategory') }}</flux:label>
+                <flux:select id="subcategoryFilter" wire:model.live="subcategoryFilter" :disabled="$categoryFilter === 'order_expenses'">
+                    <flux:select.option value="">{{ __('All Subcategories') }}</flux:select.option>
+                    @foreach ($subcategories as $subcategory)
+                        <flux:select.option value="{{ $subcategory->id }}">{{ $subcategory->name }}</flux:select.option>
                     @endforeach
                 </flux:select>
             </div>
@@ -135,6 +146,7 @@
                 <flux:table.columns>
                     <flux:table.column>{{ __('Date') }}</flux:table.column>
                     <flux:table.column>{{ __('Category') }}</flux:table.column>
+                    <flux:table.column>{{ __('Subcategory') }}</flux:table.column>
                     <flux:table.column>{{ __('Vendor') }}</flux:table.column>
                     <flux:table.column>{{ __('Amount') }}</flux:table.column>
                     <flux:table.column>{{ __('Capital') }}</flux:table.column>
@@ -144,16 +156,19 @@
 
                 <flux:table.rows>
                     @foreach ($expenses as $expense)
-                        <flux:table.row wire:key="exp-{{ $expense->id }}">
+                        <flux:table.row wire:key="exp-{{ $expense->source_type }}-{{ $expense->source_id }}">
                             <flux:table.cell class="font-medium">
-                                {{ $expense->expense_date->format('M d, Y') }}
+                                {{ \Carbon\Carbon::parse($expense->expense_date)->format('M d, Y') }}
                             </flux:table.cell>
                             <flux:table.cell>
-                                @if ($expense->category)
-                                    <flux:badge color="zinc" size="sm">{{ $expense->category->name }}</flux:badge>
+                                @if ($expense->category_name)
+                                    <flux:badge color="zinc" size="sm">{{ $expense->category_name }}</flux:badge>
                                 @else
                                     <span class="text-zinc-400">{{ __('Uncategorized') }}</span>
                                 @endif
+                            </flux:table.cell>
+                            <flux:table.cell>
+                                {{ $expense->subcategory_name ?? '-' }}
                             </flux:table.cell>
                             <flux:table.cell>
                                 {{ $expense->vendor ?? '-' }}
@@ -162,10 +177,10 @@
                                 {{ money_tzs($expense->amount) }}
                             </flux:table.cell>
                             <flux:table.cell>
-                                @if ($expense->capitalAllocation)
-                                    <a href="{{ route('capital.show', $expense->capitalAllocation) }}" class="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400" wire:navigate>
+                                @if ($expense->allocation_no && $expense->capital_allocation_id)
+                                    <a href="{{ route('capital.show', $expense->capital_allocation_id) }}" class="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400" wire:navigate>
                                         <flux:badge color="green" size="sm">
-                                            {{ $expense->capitalAllocation->allocation_no }}
+                                            {{ $expense->allocation_no }}
                                         </flux:badge>
                                     </a>
                                 @else
@@ -173,18 +188,24 @@
                                 @endif
                             </flux:table.cell>
                             <flux:table.cell class="text-sm text-zinc-500">
-                                {{ $expense->creator?->name ?? 'N/A' }}
+                                {{ $expense->created_by_name ?? 'N/A' }}
                             </flux:table.cell>
                             <flux:table.cell>
                                 <div class="flex items-center gap-1">
-                                    <flux:button size="xs" variant="ghost" :href="route('expenses.show', $expense)" wire:navigate>
-                                        <x-icon name="visibility" class="size-4" />
-                                    </flux:button>
-                                    @can('update', $expense)
-                                        <flux:button size="xs" variant="ghost" :href="route('expenses.edit', $expense)" wire:navigate>
-                                            <x-icon name="edit" class="size-4" />
+                                    @if ($expense->source_type === 'expense' && $expense->expense_id)
+                                        <flux:button size="xs" variant="ghost" :href="route('expenses.show', $expense->expense_id)" wire:navigate>
+                                            <x-icon name="visibility" class="size-4" />
                                         </flux:button>
-                                    @endcan
+                                        @can('expenses.manage')
+                                            <flux:button size="xs" variant="ghost" :href="route('expenses.edit', $expense->expense_id)" wire:navigate>
+                                                <x-icon name="edit" class="size-4" />
+                                            </flux:button>
+                                        @endcan
+                                    @elseif ($expense->source_type === 'order_expense' && $expense->order_id)
+                                        <flux:button size="xs" variant="ghost" :href="route('orders.show', $expense->order_id)" wire:navigate title="{{ __('View order') }}">
+                                            <x-icon name="visibility" class="size-4" />
+                                        </flux:button>
+                                    @endif
                                 </div>
                             </flux:table.cell>
                         </flux:table.row>

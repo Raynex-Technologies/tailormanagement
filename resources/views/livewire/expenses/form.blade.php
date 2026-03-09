@@ -77,25 +77,30 @@
                     @enderror
                 </div>
 
-                {{-- Subcategory (only when selected category has subcategories) --}}
-                @if ($expenseCategoryId && $subcategories->isNotEmpty())
-                    <div>
-                        <flux:label for="expenseSubcategoryId">{{ __('Subcategory') }}</flux:label>
-                        <flux:select
-                            id="expenseSubcategoryId"
-                            wire:model.live="expenseSubcategoryId"
-                            wire:key="expense-subcategory-select-{{ $expenseCategoryId }}"
-                        >
+                {{-- Subcategory --}}
+                <div>
+                    <flux:label for="expenseSubcategoryId">{{ __('Subcategory') }}</flux:label>
+                    <flux:select
+                        id="expenseSubcategoryId"
+                        wire:model.live="expenseSubcategoryId"
+                        wire:key="expense-subcategory-select-{{ $expenseCategoryId ?: 'none' }}"
+                        :disabled="!$expenseCategoryId"
+                    >
+                        @if (!$expenseCategoryId)
+                            <flux:select.option value="">{{ __('-- Select Category First --') }}</flux:select.option>
+                        @elseif ($subcategories->isEmpty())
+                            <flux:select.option value="">{{ __('-- No Subcategories Available --') }}</flux:select.option>
+                        @else
                             <flux:select.option value="">{{ __('-- No Subcategory --') }}</flux:select.option>
                             @foreach ($subcategories as $subcategory)
                                 <flux:select.option value="{{ $subcategory->id }}">{{ $subcategory->name }}</flux:select.option>
                             @endforeach
-                        </flux:select>
-                        @error('expenseSubcategoryId')
-                            <flux:text class="mt-1 text-sm text-red-500">{{ $message }}</flux:text>
-                        @enderror
-                    </div>
-                @endif
+                        @endif
+                    </flux:select>
+                    @error('expenseSubcategoryId')
+                        <flux:text class="mt-1 text-sm text-red-500">{{ $message }}</flux:text>
+                    @enderror
+                </div>
 
                 {{-- Vendor --}}
                 <div>

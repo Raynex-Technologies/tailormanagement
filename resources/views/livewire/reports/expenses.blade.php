@@ -29,25 +29,31 @@
 
     {{-- Filters --}}
     <div class="rounded-2xl bg-white dark:bg-zinc-800/50 p-5 shadow-sm border border-zinc-200/50 dark:border-zinc-700/50">
-        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
-            <flux:input wire:model.blur="dateFrom" type="date" label="{{ __('From Date') }}" />
-            <flux:input wire:model.blur="dateTo" type="date" label="{{ __('To Date') }}" />
-            <flux:select wire:model.blur="categoryId" label="{{ __('Category') }}">
+        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-7">
+            <flux:input wire:model.live="dateFrom" type="date" label="{{ __('From Date') }}" />
+            <flux:input wire:model.live="dateTo" type="date" label="{{ __('To Date') }}" />
+            <flux:select wire:model.live="categoryId" label="{{ __('Category') }}">
                 <option value="">{{ __('All Categories') }}</option>
                 @foreach($this->categories as $cat)
                     <option value="{{ $cat->id }}">{{ $cat->name }}</option>
                 @endforeach
             </flux:select>
-            <flux:select wire:model.blur="linkedToCapital" label="{{ __('Capital Linked') }}">
+            <flux:select wire:model.live="subcategoryId" label="{{ __('Subcategory') }}" :disabled="$categoryId === 'order_expenses'">
+                <option value="">{{ __('All Subcategories') }}</option>
+                @foreach($this->subcategories as $subcat)
+                    <option value="{{ $subcat->id }}">{{ $subcat->name }}</option>
+                @endforeach
+            </flux:select>
+            <flux:select wire:model.live="linkedToCapital" label="{{ __('Capital Linked') }}">
                 <option value="">{{ __('All') }}</option>
                 <option value="1">{{ __('Yes - Linked') }}</option>
                 <option value="0">{{ __('No - Not Linked') }}</option>
             </flux:select>
-            <flux:input wire:model.blur="search" placeholder="{{ __('Search vendor, reference, or notes...') }}" label="{{ __('Search') }}" icon="magnifying-glass" />
+            <flux:input wire:model.live.debounce.300ms="search" placeholder="{{ __('Search vendor, reference, or notes...') }}" label="{{ __('Search') }}" icon="magnifying-glass" />
             <div class="flex items-end">
                 <flux:button wire:click="resetFilters" variant="ghost" size="sm">
                     <i class="fa-duotone fa-xmark mr-1 size-4"></i>
-                    {{ __('Reset') }}
+                    {{ __('Clear') }}
                 </flux:button>
             </div>
         </div>
@@ -142,6 +148,7 @@
                     <tr class="text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                         <th class="px-4 py-3">{{ __('Date') }}</th>
                         <th class="px-4 py-3">{{ __('Category') }}</th>
+                        <th class="px-4 py-3">{{ __('Subcategory') }}</th>
                         <th class="px-4 py-3">{{ __('Vendor') }}</th>
                         <th class="px-4 py-3 text-right">{{ __('Amount') }}</th>
                         <th class="px-4 py-3">{{ __('Capital Allocation') }}</th>
@@ -160,6 +167,7 @@
                                     {{ $row->category_name ?? __('Uncategorized') }}
                                 </span>
                             </td>
+                            <td class="px-4 py-3 text-zinc-600 dark:text-zinc-300">{{ $row->subcategory_name ?? '-' }}</td>
                             <td class="px-4 py-3">{{ $row->vendor ?? '-' }}</td>
                             <td class="px-4 py-3 text-right font-medium text-red-600 dark:text-red-400">
                                 {{ money_tzs($row->amount) }}
@@ -178,7 +186,7 @@
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="7" class="px-4 py-16 text-center">
+                            <td colspan="8" class="px-4 py-16 text-center">
                                 <div class="flex items-center justify-center size-14 rounded-2xl mx-auto mb-3 bg-zinc-100 dark:bg-zinc-800">
                                     <i class="fa-duotone fa-receipt size-7 text-zinc-400 dark:text-zinc-500"></i>
                                 </div>

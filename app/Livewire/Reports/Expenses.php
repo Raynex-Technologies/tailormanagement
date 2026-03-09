@@ -3,8 +3,8 @@
 namespace App\Livewire\Reports;
 
 use App\Models\ExpenseCategory;
+use App\Models\ExpenseSubcategory;
 use App\Reports\ExpensesReport;
-use App\Support\BranchContext;
 use Carbon\Carbon;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
@@ -28,6 +28,9 @@ class Expenses extends Component
 
     #[Url]
     public string $categoryId = '';
+
+    #[Url]
+    public string $subcategoryId = '';
 
     #[Url]
     public string $linkedToCapital = '';
@@ -58,6 +61,7 @@ class Expenses extends Component
             'date_from' => $this->dateFrom,
             'date_to' => $this->dateTo,
             'category_id' => $this->categoryId !== '' ? $this->categoryId : null,
+            'subcategory_id' => ($this->categoryId !== 'order_expenses' && $this->subcategoryId !== '') ? $this->subcategoryId : null,
             'linked_to_capital' => $this->linkedToCapital !== '' ? $this->linkedToCapital : null,
             'search' => $this->search ?: null,
         ]);
@@ -92,11 +96,59 @@ class Expenses extends Component
             ]);
     }
 
+    #[Computed]
+    public function subcategories()
+    {
+        if ($this->categoryId === 'order_expenses') {
+            return collect();
+        }
+
+        $query = ExpenseSubcategory::query()->orderBy('name');
+
+        if ($this->categoryId !== '' && is_numeric($this->categoryId)) {
+            $query->where('expense_category_id', (int) $this->categoryId);
+        }
+
+        return $query->get(['id', 'name']);
+    }
+
+    public function updatedDateFrom(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedDateTo(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedCategoryId(): void
+    {
+        $this->subcategoryId = '';
+        $this->resetPage();
+    }
+
+    public function updatedSubcategoryId(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedLinkedToCapital(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatedSearch(): void
+    {
+        $this->resetPage();
+    }
+
     public function resetFilters(): void
     {
         $this->dateFrom = Carbon::now()->startOfMonth()->toDateString();
         $this->dateTo = Carbon::now()->endOfMonth()->toDateString();
         $this->categoryId = '';
+        $this->subcategoryId = '';
         $this->linkedToCapital = '';
         $this->search = '';
         $this->resetPage();

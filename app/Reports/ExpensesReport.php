@@ -17,6 +17,8 @@ class ExpensesReport
 
     protected ?int $categoryId = null;
 
+    protected ?int $subcategoryId = null;
+
     protected bool $orderExpensesOnly = false;
 
     protected ?bool $linkedToCapital;
@@ -28,6 +30,7 @@ class ExpensesReport
         $this->dateFrom = $filters['date_from'] ?? Carbon::now()->startOfMonth()->toDateString();
         $this->dateTo = $filters['date_to'] ?? Carbon::now()->endOfMonth()->toDateString();
         $this->setCategoryFilter($filters['category_id'] ?? null);
+        $this->setSubcategoryFilter($filters['subcategory_id'] ?? null);
         $this->linkedToCapital = isset($filters['linked_to_capital'])
             ? filter_var($filters['linked_to_capital'], FILTER_VALIDATE_BOOLEAN)
             : null;
@@ -110,12 +113,13 @@ class ExpensesReport
             ->get();
 
         $data = [];
-        $data[] = ['Date', 'Category', 'Vendor', 'Amount', 'Capital Allocation', 'Created By', 'Reference'];
+        $data[] = ['Date', 'Category', 'Subcategory', 'Vendor', 'Amount', 'Capital Allocation', 'Created By', 'Reference'];
 
         foreach ($rows as $row) {
             $data[] = [
                 Carbon::parse($row->expense_date)->format('Y-m-d'),
                 $row->category_name ?? 'Uncategorized',
+                $row->subcategory_name ?? '',
                 $row->vendor ?? '',
                 number_format($row->amount, 2),
                 $row->allocation_no ?? '',
@@ -153,6 +157,10 @@ class ExpensesReport
             $query->where('category_id', $this->categoryId);
         }
 
+        if (! $this->orderExpensesOnly && $this->subcategoryId) {
+            $query->where('subcategory_id', $this->subcategoryId);
+        }
+
         // Linked to capital filter
         if ($this->linkedToCapital === true) {
             $query->whereNotNull('capital_allocation_id');
@@ -169,7 +177,8 @@ class ExpensesReport
                     ->orWhere('reference', 'like', $search)
                     ->orWhere('note', 'like', $search)
                     ->orWhere('created_by_name', 'like', $search)
-                    ->orWhere('category_name', 'like', $search);
+                    ->orWhere('category_name', 'like', $search)
+                    ->orWhere('subcategory_name', 'like', $search);
             });
         }
 
@@ -196,6 +205,18 @@ class ExpensesReport
     }
 
     /**
+     * Resolve subcategory filter into integer id.
+     */
+    protected function setSubcategoryFilter($subcategoryFilter): void
+    {
+        $this->subcategoryId = null;
+
+        if (is_numeric($subcategoryFilter) && (int) $subcategoryFilter > 0) {
+            $this->subcategoryId = (int) $subcategoryFilter;
+        }
+    }
+
+    /**
      * Base projection for regular expenses.
      */
     protected function regularExpensesQuery()
@@ -208,7 +229,9 @@ class ExpensesReport
                 'expenses.expense_date as sort_at',
                 'expenses.amount as amount',
                 'expenses.expense_category_id as category_id',
+                'expenses.expense_subcategory_id as subcategory_id',
                 DB::raw('COALESCE(expense_categories.name, "Uncategorized") as category_name'),
+                'expense_subcategories.name as subcategory_name',
                 'expenses.vendor as vendor',
                 'expenses.capital_allocation_id as capital_allocation_id',
                 'capital_allocations.allocation_no as allocation_no',
@@ -217,6 +240,7 @@ class ExpensesReport
                 'expenses.note as note',
             ])
             ->leftJoin('expense_categories', 'expenses.expense_category_id', '=', 'expense_categories.id')
+            ->leftJoin('expense_subcategories', 'expenses.expense_subcategory_id', '=', 'expense_subcategories.id')
             ->leftJoin('capital_allocations', 'expenses.capital_allocation_id', '=', 'capital_allocations.id')
             ->leftJoin('users', 'expenses.created_by', '=', 'users.id');
     }
@@ -234,7 +258,9 @@ class ExpensesReport
                 'order_expenses.created_at as sort_at',
                 'order_expenses.amount as amount',
                 DB::raw('NULL as category_id'),
+                DB::raw('NULL as subcategory_id'),
                 DB::raw("'Order Expenses' as category_name"),
+                DB::raw('NULL as subcategory_name'),
                 'tailors.name as vendor',
                 DB::raw('NULL as capital_allocation_id'),
                 DB::raw('NULL as allocation_no'),
