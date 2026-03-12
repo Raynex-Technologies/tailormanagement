@@ -138,10 +138,11 @@
                 </div>
 
                 {{-- Orders Group (Permission-based) --}}
-                @can('orders.view')
+                @canany(['orders.view', 'users.view'])
                 <div class="nav-group">
                     <h3 class="px-3 mb-2 text-[0.65rem] font-semibold uppercase tracking-wider text-white/35">{{ __('Orders') }}</h3>
-                    
+
+                    @can('orders.view')
                     <a 
                         href="{{ route('orders.board') }}" 
                         wire:navigate
@@ -181,8 +182,20 @@
                         {{ __('Payments') }}
                     </a>
                     @endcan
+                    @endcan
+
+                    @can('users.view')
+                    <a
+                        href="{{ route('customers.index') }}"
+                        wire:navigate
+                        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('customers.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}"
+                    >
+                        <i class="fa-duotone fa-user size-5"></i>
+                        {{ __('Customers') }}
+                    </a>
+                    @endcan
                 </div>
-                @endcan
+                @endcanany
 
                 {{-- Inventory Group (Permission-based) --}}
                 @can('inventory.view')
@@ -205,6 +218,15 @@
                     >
                         <i class="fa-duotone fa-boxes-stacked size-5"></i>
                         {{ __('Items') }}
+                    </a>
+
+                    <a
+                        href="{{ route('inventory.suppliers.index') }}"
+                        wire:navigate
+                        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('inventory.suppliers.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}"
+                    >
+                        <i class="fa-duotone fa-truck size-5"></i>
+                        {{ __('Suppliers') }}
                     </a>
 
                     <a 
@@ -400,15 +422,6 @@
                         <i class="fa-duotone fa-users size-5"></i>
                         {{ __('Users') }}
                     </a>
-
-                    <a
-                        href="{{ route('customers.index') }}"
-                        wire:navigate
-                        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('customers.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}"
-                    >
-                        <i class="fa-duotone fa-user size-5"></i>
-                        {{ __('Customers') }}
-                    </a>
                     @endcan
 
                     @can('roles.manage')
@@ -589,6 +602,84 @@
                             {{ __('My Tasks') }}
                         </a>
                     </div>
+
+                    @canany(['orders.view', 'users.view'])
+                    <div class="nav-group">
+                        <h3 class="px-3 mb-2 text-[0.65rem] font-semibold uppercase tracking-wider text-white/35">{{ __('Orders') }}</h3>
+
+                        @can('orders.view')
+                        <a href="{{ route('orders.board') }}" wire:navigate @click="sidebarOpen = false"
+                           class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('orders.board') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
+                            <i class="fa-duotone fa-chart-kanban size-5"></i>
+                            {{ __('Order Board') }}
+                        </a>
+                        @canany(['orders.create', 'orders.update'])
+                        <a href="{{ route('orders.index') }}" wire:navigate @click="sidebarOpen = false"
+                           class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ (request()->routeIs('orders.index') || request()->routeIs('orders.show') || request()->routeIs('orders.create') || request()->routeIs('orders.edit')) ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
+                            <i class="fa-duotone fa-box-dollar size-5"></i>
+                            {{ __('Orders Management') }}
+                        </a>
+                        @endcanany
+                        <a href="{{ route('invoices.index') }}" wire:navigate @click="sidebarOpen = false"
+                           class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('invoices.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
+                            <i class="fa-duotone fa-file-invoice size-5"></i>
+                            {{ __('Invoices') }}
+                        </a>
+                        @can('payments.view')
+                        <a href="{{ route('payments.index') }}" wire:navigate @click="sidebarOpen = false"
+                           class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('payments.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
+                            <i class="fa-duotone fa-credit-card size-5"></i>
+                            {{ __('Payments') }}
+                        </a>
+                        @endcan
+                        @endcan
+
+                        @can('users.view')
+                        <a href="{{ route('customers.index') }}" wire:navigate @click="sidebarOpen = false"
+                           class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('customers.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
+                            <i class="fa-duotone fa-user size-5"></i>
+                            {{ __('Customers') }}
+                        </a>
+                        @endcan
+                    </div>
+                    @endcanany
+
+                    @can('inventory.view')
+                    <div class="nav-group">
+                        <h3 class="px-3 mb-2 text-[0.65rem] font-semibold uppercase tracking-wider text-white/35">{{ __('Inventory') }}</h3>
+
+                        <a href="{{ route('inventory.stock') }}" wire:navigate @click="sidebarOpen = false"
+                           class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('inventory.stock') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
+                            <i class="fa-duotone fa-shelves size-5"></i>
+                            {{ __('Stock Overview') }}
+                        </a>
+                        <a href="{{ route('inventory.items.index') }}" wire:navigate @click="sidebarOpen = false"
+                           class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('inventory.items.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
+                            <i class="fa-duotone fa-boxes-stacked size-5"></i>
+                            {{ __('Items') }}
+                        </a>
+                        <a href="{{ route('inventory.suppliers.index') }}" wire:navigate @click="sidebarOpen = false"
+                           class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('inventory.suppliers.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
+                            <i class="fa-duotone fa-truck size-5"></i>
+                            {{ __('Suppliers') }}
+                        </a>
+                        <a href="{{ route('inventory.categories.index') }}" wire:navigate @click="sidebarOpen = false"
+                           class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('inventory.categories.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
+                            <i class="fa-duotone fa-layer-group size-5"></i>
+                            {{ __('Categories') }}
+                        </a>
+                        <a href="{{ route('inventory.units.index') }}" wire:navigate @click="sidebarOpen = false"
+                           class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('inventory.units.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
+                            <i class="fa-duotone fa-ruler size-5"></i>
+                            {{ __('Units') }}
+                        </a>
+                        <a href="{{ route('inventory.transactions.index') }}" wire:navigate @click="sidebarOpen = false"
+                           class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('inventory.transactions.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
+                            <i class="fa-duotone fa-cart-flatbed-boxes size-5"></i>
+                            {{ __('Transactions') }}
+                        </a>
+                    </div>
+                    @endcan
 
                     @can('installments.view')
                     <div class="nav-group">

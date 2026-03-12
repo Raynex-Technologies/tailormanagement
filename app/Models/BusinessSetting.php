@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Facades\Storage;
 
 class BusinessSetting extends Model
@@ -18,6 +19,7 @@ class BusinessSetting extends Model
         'tin_number',
         'address',
         'logo_path',
+        'invoice_template_id',
         'email_from_name',
         'email_from_address',
         'email_reply_to',
@@ -32,6 +34,11 @@ class BusinessSetting extends Model
             'tax_enabled' => 'boolean',
             'tax_rate' => 'decimal:2',
         ];
+    }
+
+    public function invoiceTemplate(): BelongsTo
+    {
+        return $this->belongsTo(InvoiceTemplate::class);
     }
 
     /**

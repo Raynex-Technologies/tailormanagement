@@ -5,6 +5,7 @@ namespace App\Services\Orders;
 use App\Models\Order;
 use App\Models\User;
 use App\Services\Inventory\StockMovementService;
+use DomainException;
 use Illuminate\Support\Facades\DB;
 
 class OrderDeletionService
@@ -19,6 +20,10 @@ class OrderDeletionService
      */
     public function delete(Order $order, User $actor): void
     {
+        if (! $actor->hasRole('superadmin')) {
+            throw new DomainException('Only superadmins can delete orders.');
+        }
+
         DB::transaction(function () use ($order, $actor) {
             $order = Order::withoutBranchScope()
                 ->with([

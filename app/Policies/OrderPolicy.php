@@ -238,18 +238,8 @@ class OrderPolicy
      */
     public function delete(User $user, Order $order): bool
     {
-        // Only global admins and branch managers can delete
-        if (! $user->hasBranchAdminPowers()) {
-            return false;
-        }
-
-        // Global admins can delete any
-        if ($user->isGlobalAdmin()) {
-            return true;
-        }
-
-        // Branch managers can only delete in their branch
-        return $user->canAccessBranch($order->branch_id);
+        // Delete is restricted to superadmin only.
+        return $user->hasRole('superadmin');
     }
 
     /**

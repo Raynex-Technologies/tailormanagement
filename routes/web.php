@@ -5,6 +5,7 @@ use App\Livewire\Branches\Index as BranchesIndex;
 use App\Livewire\DeliveryNotes\Show as DeliveryNoteShow;
 use App\Livewire\Inventory\Categories\Index as CategoriesIndex;
 use App\Livewire\Inventory\Items\Index as ItemsIndex;
+use App\Livewire\Inventory\Suppliers\Index as InventorySuppliersIndex;
 use App\Livewire\Inventory\Stock\Index as StockIndex;
 use App\Livewire\Inventory\Transactions\Index as TransactionsIndex;
 use App\Livewire\Inventory\Units\Index as UnitsIndex;
@@ -29,6 +30,7 @@ use App\Models\Branch;
 use App\Models\Invoice;
 use App\Models\PaymentMethod;
 use App\Support\InvoicePdfRenderer;
+use App\Support\InvoiceTemplateResolver;
 use App\Support\BranchContext;
 use Illuminate\Support\Facades\Route;
 
@@ -129,9 +131,12 @@ Route::middleware(['auth', 'verified', 'branch.context'])->group(function () {
     */
     Route::prefix('invoices')->middleware('can:orders.view')->group(function () {
         $invoiceDocumentData = function (Invoice $invoice): array {
+            $settings = BusinessSetting::instance();
+
             return [
                 'invoice' => $invoice->load(['order.customer', 'order.branch', 'lines', 'branch']),
-                'settings' => BusinessSetting::instance(),
+                'settings' => $settings,
+                'template' => app(InvoiceTemplateResolver::class)->resolve($settings),
                 'paymentMethods' => PaymentMethod::forInvoiceDocument(),
             ];
         };
@@ -147,17 +152,17 @@ Route::middleware(['auth', 'verified', 'branch.context'])->group(function () {
             return view('invoices.print', $invoiceDocumentData($invoice));
         })->name('invoices.print');
 
-        Route::get('/{invoice}/download', function (Invoice $invoice, InvoicePdfRenderer $pdfRenderer) use ($invoiceDocumentData) {
+        Route::get('/{invoice}/download', function (Invoice $invoice) use ($invoiceDocumentData) {
             if (! auth()->user()->can('view', $invoice)) {
                 abort(403);
             }
 
-            $documentData = $invoiceDocumentData($invoice);
-            $pdf = $pdfRenderer->render(
-                $documentData['invoice'],
-                $documentData['settings'],
-                $documentData['paymentMethods']
-            );
+            $data = $invoiceDocumentData($invoice);
+            $data['downloadMode'] = true;
+
+            $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('invoices.print', $data)
+                ->setPaper('a4')
+                ->output();
 
             return response()->streamDownload(
                 fn () => print($pdf),
@@ -229,6 +234,9 @@ Route::middleware(['auth', 'verified', 'branch.context'])->group(function () {
 
         // Items Management
         Route::get('items', ItemsIndex::class)->name('inventory.items.index');
+
+        // Suppliers Management
+        Route::get('suppliers', InventorySuppliersIndex::class)->name('inventory.suppliers.index');
 
         // Categories Management
         Route::get('categories', CategoriesIndex::class)->name('inventory.categories.index');

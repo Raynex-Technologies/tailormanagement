@@ -3,7 +3,9 @@
 namespace App\Livewire\Administration;
 
 use App\Models\BusinessSetting;
+use App\Models\InvoiceTemplate;
 use App\Models\PaymentMethod;
+use App\Support\InvoiceTemplateResolver;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
@@ -31,6 +33,7 @@ class BusinessSettings extends Component
     public string $email_from_name = '';
     public string $email_from_address = '';
     public string $email_reply_to = '';
+    public ?int $invoice_template_id = null;
 
     public bool $tax_enabled = false;
     public string $tax_name = 'VAT';
@@ -64,6 +67,8 @@ class BusinessSettings extends Component
         $this->email_from_name = $settings->email_from_name ?? '';
         $this->email_from_address = $settings->email_from_address ?? '';
         $this->email_reply_to = $settings->email_reply_to ?? '';
+        $this->invoice_template_id = $settings->invoice_template_id
+            ?: app(InvoiceTemplateResolver::class)->resolve($settings)->id;
 
         $this->tax_enabled = (bool) $settings->tax_enabled;
         $this->tax_name = $settings->tax_name ?? 'VAT';
@@ -148,6 +153,29 @@ class BusinessSettings extends Component
         session()->flash('success', 'Email settings updated successfully.');
     }
 
+    public function saveInvoiceTemplateSettings(): void
+    {
+        $this->authorize('roles.manage');
+
+        $this->validate([
+            'invoice_template_id' => [
+                'required',
+                'integer',
+                Rule::exists('invoice_templates', 'id')->where(fn ($query) => $query->where('is_active', true)),
+            ],
+        ]);
+
+        $settings = BusinessSetting::instance();
+        $settings->update([
+            'invoice_template_id' => $this->invoice_template_id,
+        ]);
+
+        $this->settings = $settings->fresh();
+        $this->fillFromModel($this->settings);
+
+        session()->flash('success', 'Invoice template updated successfully.');
+    }
+
     public function savePaymentMethod(): void
     {
         $this->authorize('roles.manage');
@@ -229,12 +257,20 @@ class BusinessSettings extends Component
 
     public function render()
     {
+        $settings = BusinessSetting::instance();
+
         return view('livewire.administration.business-settings', [
-            'settings' => BusinessSetting::instance(),
+            'settings' => $settings,
             'paymentMethods' => PaymentMethod::query()
                 ->orderByRaw('CASE WHEN id = 1 THEN 0 ELSE 1 END')
                 ->orderBy('name')
                 ->get(),
+            'invoiceTemplates' => InvoiceTemplate::query()
+                ->where('is_active', true)
+                ->orderBy('sort_order')
+                ->orderBy('name')
+                ->get(),
+            'activeInvoiceTemplate' => app(InvoiceTemplateResolver::class)->resolve($settings),
         ]);
     }
 }

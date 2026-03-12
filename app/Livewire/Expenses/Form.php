@@ -8,6 +8,7 @@ use App\Models\CapitalAllocation;
 use App\Models\Expense;
 use App\Models\ExpenseCategory;
 use App\Models\ExpenseSubcategory;
+use App\Models\Supplier;
 use App\Services\Capital\CapitalAllocationService;
 use App\Services\Expenses\ExpenseService;
 use App\Support\BranchContext;
@@ -34,6 +35,10 @@ class Form extends Component
     public ?int $expenseCategoryId = null;
     public ?int $expenseSubcategoryId = null;
     public ?string $vendor = null;
+    public ?int $supplierId = null;
+    public string $supplierSearch = '';
+    public bool $showSupplierDropdown = false;
+    public bool $preserveExistingVendor = false;
     public ?float $amount = null;
     public ?string $reference = null;
     public ?int $capitalAllocationId = null;
@@ -65,10 +70,16 @@ class Form extends Component
                 }
             });
 
+        $supplierExistsRule = Rule::exists('suppliers', 'id');
+        if ($effectiveBranchId) {
+            $supplierExistsRule = $supplierExistsRule->where(fn ($query) => $query->where('branch_id', $effectiveBranchId));
+        }
+
         $rules = [
             'expenseDate' => ['required', 'date'],
             'expenseCategoryId' => ['nullable', 'integer', $categoryExistsRule],
             'expenseSubcategoryId' => ['nullable', 'integer', $subcategoryExistsRule],
+            'supplierId' => ['nullable', 'integer', $supplierExistsRule],
             'vendor' => ['nullable', 'string', 'max:255'],
             'reference' => ['nullable', 'string', 'max:255'],
             'capitalAllocationId' => ['nullable', 'exists:capital_allocations,id'],
@@ -102,6 +113,7 @@ class Form extends Component
             $this->expenseCategoryId = $expense->expense_category_id;
             $this->expenseSubcategoryId = $expense->expense_subcategory_id;
             $this->vendor = $expense->vendor;
+            $this->syncSupplierSelectionFromVendor();
             $this->amount = (float) $expense->amount;
             $this->reference = $expense->reference;
             $this->capitalAllocationId = $expense->capital_allocation_id;
@@ -149,10 +161,72 @@ class Form extends Component
         if (! $this->isEdit) {
             $this->expenseCategoryId = null;
             $this->expenseSubcategoryId = null;
+            $this->supplierId = null;
+            $this->supplierSearch = '';
+            $this->showSupplierDropdown = false;
+            $this->preserveExistingVendor = false;
+            $this->vendor = null;
             $this->capitalAllocationId = null;
             $this->availableBalance = null;
-            $this->resetErrorBag(['expenseCategoryId', 'expenseSubcategoryId', 'capitalAllocationId']);
+            $this->resetErrorBag(['expenseCategoryId', 'expenseSubcategoryId', 'supplierId', 'capitalAllocationId']);
         }
+    }
+
+    public function updatedSupplierSearch(): void
+    {
+        $this->showSupplierDropdown = filled(trim($this->supplierSearch));
+
+        if ($this->supplierId !== null) {
+            $this->supplierId = null;
+            $this->vendor = null;
+        }
+
+        if ($this->preserveExistingVendor) {
+            $this->preserveExistingVendor = false;
+            $this->vendor = null;
+        }
+
+        $this->resetErrorBag('supplierId');
+    }
+
+    public function openSupplierDropdown(): void
+    {
+        if (filled(trim($this->supplierSearch))) {
+            $this->showSupplierDropdown = true;
+        }
+    }
+
+    public function closeSupplierDropdown(): void
+    {
+        $this->showSupplierDropdown = false;
+    }
+
+    public function selectSupplier(int $supplierId): void
+    {
+        $supplier = $this->supplierBaseQuery()
+            ->whereKey($supplierId)
+            ->first(['id', 'name']);
+
+        if (! $supplier) {
+            return;
+        }
+
+        $this->supplierId = $supplier->id;
+        $this->supplierSearch = $supplier->name;
+        $this->vendor = $supplier->name;
+        $this->preserveExistingVendor = false;
+        $this->showSupplierDropdown = false;
+        $this->resetErrorBag('supplierId');
+    }
+
+    public function clearSupplierSelection(): void
+    {
+        $this->supplierId = null;
+        $this->supplierSearch = '';
+        $this->vendor = null;
+        $this->preserveExistingVendor = false;
+        $this->showSupplierDropdown = false;
+        $this->resetErrorBag('supplierId');
     }
 
     protected function updateAvailableBalance(): void
@@ -176,11 +250,21 @@ class Form extends Component
         $user = auth()->user();
 
         try {
+            $resolvedVendor = null;
+
+            if ($this->supplierId) {
+                $resolvedVendor = $this->supplierBaseQuery()
+                    ->whereKey($this->supplierId)
+                    ->value('name');
+            } elseif ($this->isEdit && $this->preserveExistingVendor) {
+                $resolvedVendor = $this->vendor;
+            }
+
             $data = [
                 'expense_date' => $this->expenseDate,
                 'expense_category_id' => $this->expenseCategoryId,
                 'expense_subcategory_id' => $this->expenseSubcategoryId,
-                'vendor' => $this->vendor,
+                'vendor' => $resolvedVendor,
                 'reference' => $this->reference,
                 'note' => $this->note,
             ];
@@ -271,11 +355,25 @@ class Form extends Component
             ? Branch::active()->orderBy('name')->get(['id', 'name'])
             : collect();
 
+        $supplierResults = collect();
+        $canSearchSuppliers = ! ($this->showBranchSelector && ! $this->isEdit && ! $effectiveBranchId);
+        $supplierSearchTerm = trim($this->supplierSearch);
+
+        if ($canSearchSuppliers && filled($supplierSearchTerm)) {
+            $supplierResults = $this->supplierBaseQuery()
+                ->where('name', 'like', '%'.$supplierSearchTerm.'%')
+                ->orderBy('name')
+                ->limit(10)
+                ->get(['id', 'name', 'phone']);
+        }
+
         return view('livewire.expenses.form', [
             'categories' => $categories,
             'subcategories' => $subcategories,
             'allocations' => $allocations,
             'branches' => $branches,
+            'supplierResults' => $supplierResults,
+            'canSearchSuppliers' => $canSearchSuppliers,
         ])->title($this->isEdit ? __('Edit Expense') : __('New Expense'));
     }
 
@@ -295,5 +393,46 @@ class Form extends Component
         }
 
         return $user->branch_id;
+    }
+
+    protected function syncSupplierSelectionFromVendor(): void
+    {
+        $this->supplierId = null;
+        $this->supplierSearch = '';
+        $this->showSupplierDropdown = false;
+        $this->preserveExistingVendor = false;
+
+        if (blank($this->vendor)) {
+            return;
+        }
+
+        $supplier = $this->supplierBaseQuery()
+            ->where('name', $this->vendor)
+            ->first(['id', 'name']);
+
+        if ($supplier) {
+            $this->supplierId = $supplier->id;
+            $this->supplierSearch = $supplier->name;
+
+            return;
+        }
+
+        $this->preserveExistingVendor = true;
+    }
+
+    protected function supplierBaseQuery()
+    {
+        $query = Supplier::query();
+        $effectiveBranchId = $this->getFormBranchId();
+
+        if (auth()->user()?->isGlobalAdmin()) {
+            $query->withoutBranchScope();
+        }
+
+        if ($effectiveBranchId) {
+            $query->where('branch_id', $effectiveBranchId);
+        }
+
+        return $query;
     }
 }

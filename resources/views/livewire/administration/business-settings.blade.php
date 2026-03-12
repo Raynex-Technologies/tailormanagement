@@ -48,6 +48,13 @@
             >
                 {{ __('Tax Settings') }}
             </button>
+            <button
+                type="button"
+                wire:click="$set('tab', 'invoice_templates')"
+                class="rounded-t-lg px-4 py-2.5 text-sm font-medium transition {{ $tab === 'invoice_templates' ? 'border-b-2 border-lime-500 bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-white' : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800' }}"
+            >
+                {{ __('Invoice Templates') }}
+            </button>
         </div>
 
         @if ($tab === 'business')
@@ -211,6 +218,124 @@
                 <flux:text class="mt-2 text-zinc-500 dark:text-zinc-400">
                     {{ __('Coming soon. Tax rules will be configurable here (tax name, rate, and invoice behavior).') }}
                 </flux:text>
+            </flux:card>
+        @endif
+
+        @if ($tab === 'invoice_templates')
+            <flux:card class="mt-6 space-y-6">
+                <div class="flex flex-col gap-2">
+                    <flux:heading size="lg">{{ __('Invoice Templates') }}</flux:heading>
+                    <flux:text class="text-zinc-500 dark:text-zinc-400">
+                        {{ __('Choose the layout used for invoice print, email attachment, and PDF download.') }}
+                    </flux:text>
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400">
+                        {{ __('Current active template:') }}
+                        <span class="font-semibold text-zinc-900 dark:text-zinc-100">{{ $activeInvoiceTemplate->name }}</span>
+                    </p>
+                </div>
+
+                @error('invoice_template_id')
+                    <p class="text-sm text-red-500">{{ $message }}</p>
+                @enderror
+
+                @php
+                    $previewInvoice = (object) [
+                        'invoice_no' => 'INV-2026-003979',
+                        'issue_date' => now(),
+                        'due_date' => now()->addDays(10),
+                        'subtotal' => 3460,
+                        'discount' => 0,
+                        'tax_amount' => 519,
+                        'total' => 3979,
+                        'notes' => __('Sample terms and conditions for template preview.'),
+                        'order' => (object) [
+                            'order_no' => 'ORD-2026-001245',
+                            'customer' => (object) [
+                                'name' => 'Decines Smith',
+                                'phone' => '+039 123 456 7890',
+                                'email' => 'decinesmith0123@gmail.com',
+                                'address' => '456 Quincy Street, New York, US',
+                            ],
+                        ],
+                        'branch' => (object) [
+                            'name' => 'Main Branch',
+                        ],
+                        'lines' => collect([
+                            (object) ['item_name' => 'Invoice Design', 'qty' => 1, 'unit_price' => 230, 'line_total' => 230, 'notes' => null],
+                            (object) ['item_name' => 'UI/UX Design', 'qty' => 3, 'unit_price' => 180, 'line_total' => 540, 'notes' => null],
+                            (object) ['item_name' => 'Logo Design', 'qty' => 5, 'unit_price' => 130, 'line_total' => 650, 'notes' => null],
+                            (object) ['item_name' => 'Web Design', 'qty' => 2, 'unit_price' => 340, 'line_total' => 680, 'notes' => null],
+                            (object) ['item_name' => 'Brochure Design', 'qty' => 3, 'unit_price' => 240, 'line_total' => 720, 'notes' => null],
+                            (object) ['item_name' => 'Namecard Design', 'qty' => 4, 'unit_price' => 160, 'line_total' => 640, 'notes' => null],
+                        ]),
+                    ];
+
+                    $previewPaymentMethods = collect([
+                        (object) [
+                            'name' => 'Bank Transfer',
+                            'account_number' => '012 345 678 900',
+                            'account_holder_name' => 'Nova Musimas',
+                        ],
+                    ]);
+                @endphp
+
+                <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                    @foreach ($invoiceTemplates as $template)
+                        @php($isSelected = (int) $invoice_template_id === (int) $template->id)
+
+                        <button
+                            type="button"
+                            wire:click="$set('invoice_template_id', {{ $template->id }})"
+                            class="rounded-xl border p-4 text-left transition focus:outline-none focus:ring-2 focus:ring-lime-500 {{ $isSelected ? 'border-lime-500 bg-lime-50/60 dark:border-lime-500 dark:bg-lime-900/20' : 'border-zinc-200 bg-white hover:border-lime-300 dark:border-zinc-700 dark:bg-zinc-900/40 dark:hover:border-zinc-500' }}"
+                        >
+                            <input type="radio" class="sr-only" name="invoice_template_id" value="{{ $template->id }}" @checked($isSelected)>
+
+                            <div class="relative mb-4 h-40 overflow-hidden rounded-lg border border-zinc-200 bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900/60">
+                                <div style="transform: scale(0.23); transform-origin: top left; width: 435%; pointer-events: none;">
+                                    @includeFirst(
+                                        [$template->blade_view, 'invoices.templates.classic'],
+                                        [
+                                            'invoice' => $previewInvoice,
+                                            'settings' => $settings,
+                                            'paymentMethods' => $previewPaymentMethods,
+                                            'template' => $template,
+                                        ]
+                                    )
+                                </div>
+                            </div>
+
+                            <div class="flex items-start justify-between gap-2">
+                                <h3 class="text-base font-semibold text-zinc-900 dark:text-zinc-100">{{ $template->name }}</h3>
+                                <div class="flex items-center gap-1.5">
+                                    @if ($template->is_default)
+                                        <span class="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+                                            {{ __('Default') }}
+                                        </span>
+                                    @endif
+                                    @if ($isSelected)
+                                        <span class="rounded-full bg-lime-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-lime-700 dark:bg-lime-900/40 dark:text-lime-300">
+                                            {{ __('Selected') }}
+                                        </span>
+                                    @endif
+                                </div>
+                            </div>
+
+                            <p class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+                                {{ $template->description ?: __('Invoice layout option.') }}
+                            </p>
+                            <p class="mt-1 text-[11px] font-mono text-zinc-400 dark:text-zinc-500">
+                                {{ $template->blade_view }}
+                            </p>
+                        </button>
+                    @endforeach
+                </div>
+
+                <div class="flex justify-end">
+                    <flux:button type="button" variant="primary" wire:click="saveInvoiceTemplateSettings">
+                        <x-icon name="check" class="mr-1 size-4" />
+                        {{ __('Save Invoice Template') }}
+                    </flux:button>
+                </div>
             </flux:card>
         @endif
     </flux:main>

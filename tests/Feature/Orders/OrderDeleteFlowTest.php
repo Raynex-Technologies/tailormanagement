@@ -5,6 +5,7 @@ namespace Tests\Feature\Orders;
 use App\Enums\InventoryTransactionType;
 use App\Enums\OrderStatus;
 use App\Enums\PaymentStatus;
+use App\Enums\Priority;
 use App\Enums\StockRequestStatus;
 use App\Livewire\Orders\Show as OrdersShow;
 use App\Models\Customer;
@@ -28,9 +29,9 @@ use Tests\TestCase;
 
 class OrderDeleteFlowTest extends TestCase
 {
-    public function test_order_delete_soft_deletes_order_and_related_records(): void
+    public function test_superadmin_can_delete_order_and_soft_delete_related_records(): void
     {
-        $manager = $this->actingAsRole('branch_manager', $this->branch);
+        $superadmin = $this->actingAsRole('superadmin', $this->branch);
         $tailor = $this->createUserWithRole('tailor', $this->branch);
         $watcherUser = $this->createUserWithRole('sales', $this->branch);
         $customer = Customer::factory()->create(['branch_id' => $this->branch->id]);
@@ -42,11 +43,12 @@ class OrderDeleteFlowTest extends TestCase
             'status' => OrderStatus::InProgress,
             'order_date' => now()->toDateString(),
             'due_date' => now()->addDays(5)->toDateString(),
+            'priority' => Priority::Normal,
             'subtotal' => 0,
             'discount' => 0,
             'total' => 0,
             'payment_status' => PaymentStatus::Partial,
-            'created_by' => $manager->id,
+            'created_by' => $superadmin->id,
         ]);
 
         $line = OrderLine::create([
@@ -67,13 +69,13 @@ class OrderDeleteFlowTest extends TestCase
             'order_id' => $order->id,
             'amount' => 50000,
             'paid_at' => now(),
-            'received_by' => $manager->id,
+            'received_by' => $superadmin->id,
             'payment_method_id' => null,
         ]);
 
         $comment = OrderComment::create([
             'order_id' => $order->id,
-            'user_id' => $manager->id,
+            'user_id' => $superadmin->id,
             'comment' => 'Customer requested pickup on Friday.',
         ]);
 
@@ -93,7 +95,7 @@ class OrderDeleteFlowTest extends TestCase
 
         $stockRequest = OrderStockRequest::create([
             'order_id' => $order->id,
-            'requested_by' => $manager->id,
+            'requested_by' => $superadmin->id,
             'status' => StockRequestStatus::Requested,
             'note' => 'Fabric and lining',
         ]);
@@ -117,14 +119,14 @@ class OrderDeleteFlowTest extends TestCase
             'order_id' => $order->id,
             'delivery_note_no' => 'DN-DELETE-001',
             'delivered_at' => now(),
-            'delivered_by' => $manager->id,
+            'delivered_by' => $superadmin->id,
         ]);
 
         $order->recalculateTotals();
         $invoice = $order->invoice()->with('lines')->firstOrFail();
         $invoiceLine = $invoice->lines->firstOrFail();
 
-        Livewire::actingAs($manager)
+        Livewire::actingAs($superadmin)
             ->test(OrdersShow::class, ['order' => $order])
             ->call('deleteOrder')
             ->assertRedirect(route('orders.index'));
@@ -143,9 +145,9 @@ class OrderDeleteFlowTest extends TestCase
         $this->assertSoftDeleted('invoice_lines', ['id' => $invoiceLine->id]);
     }
 
-    public function test_order_delete_reinstates_issued_inventory(): void
+    public function test_superadmin_order_delete_reinstates_issued_inventory(): void
     {
-        $manager = $this->actingAsRole('branch_manager', $this->branch);
+        $superadmin = $this->actingAsRole('superadmin', $this->branch);
         $customer = Customer::factory()->create(['branch_id' => $this->branch->id]);
         $category = InventoryCategory::factory()->create(['branch_id' => $this->branch->id]);
         $inventoryItem = InventoryItem::factory()->create([
@@ -160,11 +162,12 @@ class OrderDeleteFlowTest extends TestCase
             'status' => OrderStatus::InProgress,
             'order_date' => now()->toDateString(),
             'due_date' => now()->addDays(3)->toDateString(),
+            'priority' => Priority::Normal,
             'subtotal' => 0,
             'discount' => 0,
             'total' => 0,
             'payment_status' => PaymentStatus::Unpaid,
-            'created_by' => $manager->id,
+            'created_by' => $superadmin->id,
         ]);
 
         OrderLine::create([
@@ -178,7 +181,7 @@ class OrderDeleteFlowTest extends TestCase
 
         $stockRequest = OrderStockRequest::create([
             'order_id' => $order->id,
-            'requested_by' => $manager->id,
+            'requested_by' => $superadmin->id,
             'status' => StockRequestStatus::Fulfilled,
             'note' => 'Issued for production',
         ]);
@@ -195,14 +198,14 @@ class OrderDeleteFlowTest extends TestCase
             item: $inventoryItem,
             qty: 5,
             note: 'Issue for order production',
-            actor: $manager,
+            actor: $superadmin,
             reference: $stockRequest
         );
 
         $inventoryItem->stock->refresh();
         $this->assertEquals(25, (float) $inventoryItem->stock->qty_on_hand);
 
-        app(OrderDeletionService::class)->delete($order, $manager);
+        app(OrderDeletionService::class)->delete($order, $superadmin);
 
         $inventoryItem->stock->refresh();
         $this->assertEquals(30, (float) $inventoryItem->stock->qty_on_hand);
@@ -219,5 +222,30 @@ class OrderDeleteFlowTest extends TestCase
         $this->assertEquals(5.0, (float) $returnTransaction->qty);
         $this->assertSoftDeleted('order_stock_request_items', ['id' => $requestItem->id]);
         $this->assertSoftDeleted('orders', ['id' => $order->id]);
+    }
+
+    public function test_branch_manager_cannot_delete_order(): void
+    {
+        $manager = $this->actingAsRole('branch_manager', $this->branch);
+        $customer = Customer::factory()->create(['branch_id' => $this->branch->id]);
+
+        $order = Order::create([
+            'branch_id' => $this->branch->id,
+            'customer_id' => $customer->id,
+            'status' => OrderStatus::InProgress,
+            'order_date' => now()->toDateString(),
+            'due_date' => now()->addDays(2)->toDateString(),
+            'priority' => Priority::Normal,
+            'subtotal' => 0,
+            'discount' => 0,
+            'total' => 0,
+            'payment_status' => PaymentStatus::Unpaid,
+            'created_by' => $manager->id,
+        ]);
+
+        Livewire::actingAs($manager)
+            ->test(OrdersShow::class, ['order' => $order])
+            ->call('deleteOrder')
+            ->assertForbidden();
     }
 }

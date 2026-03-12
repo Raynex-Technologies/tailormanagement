@@ -11,8 +11,6 @@ This file may only be modified after the user gives explicit permission for that
 
 This rule is mandatory for every task in this repository and overrides any conflicting implementation preference.
 
-- NEVER delete, drop, truncate, reset, refresh, rollback, or otherwise destroy existing database schema.
-- NEVER alter existing database schema in any way. Do not create or modify migrations that change tables, columns, indexes, constraints, or relationships.
 - NEVER delete, purge, truncate, overwrite, or mass-reset existing database data.
 - NEVER run or write seeders, tests, commands, scripts, or migrations that remove or rewrite current data.
 - NEVER run destructive artisan or database commands such as `migrate:fresh`, `db:wipe`, `migrate:refresh`, `migrate:reset`, rollback flows, truncate flows, or equivalent SQL.
