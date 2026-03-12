@@ -183,12 +183,6 @@ class PurchaseRequestService
             $pr->branch_id
         );
 
-        if (! $allocation) {
-            throw ValidationException::withMessages([
-                'allocation' => 'No active capital allocation found for your account. Please contact an administrator.',
-            ]);
-        }
-
         return DB::transaction(function () use ($pr, $actor, $validatedReviewedItems, $note, $allocation) {
             // Update items with reviewed quantities/prices
             $approvedTotal = 0;
@@ -211,29 +205,30 @@ class PurchaseRequestService
                 }
             }
 
-            // Check available balance
-            $availableBalance = $this->capitalService->availableBalance($allocation);
-            if ($approvedTotal > $availableBalance) {
-                throw ValidationException::withMessages([
-                    'amount' => "Insufficient capital balance. Available: " . money_tzs($availableBalance) . ", Required: " . money_tzs($approvedTotal),
-                ]);
-            }
+            // Capital allocation linkage is optional when approving a PR.
+            // If active allocation has enough balance, we post the debit and link it.
+            $linkedAllocationId = null;
+            if ($allocation && $approvedTotal > 0) {
+                $availableBalance = $this->capitalService->availableBalance($allocation);
+                if ($approvedTotal <= $availableBalance) {
+                    $this->capitalService->createDebit(
+                        $allocation,
+                        $approvedTotal,
+                        $actor,
+                        $pr,
+                        "Approved PR: {$pr->request_no}"
+                    );
 
-            // Create debit transaction
-            $this->capitalService->createDebit(
-                $allocation,
-                $approvedTotal,
-                $actor,
-                $pr,
-                "Approved PR: {$pr->request_no}"
-            );
+                    $linkedAllocationId = $allocation->id;
+                }
+            }
 
             // Update PR
             $pr->update([
                 'status' => PurchaseRequestStatus::Approved,
                 'reviewed_by' => $actor->id,
                 'estimated_total' => $approvedTotal,
-                'capital_allocation_id' => $allocation->id,
+                'capital_allocation_id' => $linkedAllocationId,
             ]);
 
             // Notify requester

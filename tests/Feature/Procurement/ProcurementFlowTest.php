@@ -33,7 +33,7 @@ class ProcurementFlowTest extends TestCase
         $this->receivingService = app(ReceivingService::class);
     }
 
-    public function test_approving_purchase_request_requires_active_allocation(): void
+    public function test_approving_purchase_request_without_active_allocation_is_allowed(): void
     {
         $accountant = $this->actingAsRole('accountant', $this->branch);
 
@@ -54,10 +54,16 @@ class ProcurementFlowTest extends TestCase
             'line_total_est' => 50000,
         ]);
 
-        $this->expectException(ValidationException::class);
+        $initialTransactionCount = CapitalTransaction::count();
 
-        // Try to approve without any active allocation
+        // Approve without any active allocation
         $this->prService->approve($pr, $accountant, []);
+
+        $pr->refresh();
+
+        $this->assertEquals(PurchaseRequestStatus::Approved, $pr->status);
+        $this->assertNull($pr->capital_allocation_id);
+        $this->assertEquals($initialTransactionCount, CapitalTransaction::count());
     }
 
     public function test_approving_purchase_request_deducts_via_capital_transactions(): void
@@ -118,7 +124,7 @@ class ProcurementFlowTest extends TestCase
         $this->assertEquals(50000, $allocation->spent_amount);
     }
 
-    public function test_approving_purchase_request_blocks_if_insufficient_allocation_balance(): void
+    public function test_approving_purchase_request_with_insufficient_allocation_balance_still_approves_without_capital_deduction(): void
     {
         $accountant = $this->actingAsRole('accountant', $this->branch);
 
@@ -152,12 +158,20 @@ class ProcurementFlowTest extends TestCase
             'line_total_est' => 50000, // More than 30000 allocation
         ]);
 
-        $this->expectException(ValidationException::class);
+        $initialTransactionCount = CapitalTransaction::count();
 
-        // Try to approve - should fail due to insufficient balance
+        // Approve - should proceed, but skip capital deduction due to low balance
         $this->prService->approve($pr, $accountant, [
             ['id' => $prItem->id, 'qty' => 10, 'unit_price_est' => 5000],
         ]);
+
+        $pr->refresh();
+        $allocation->refresh();
+
+        $this->assertEquals(PurchaseRequestStatus::Approved, $pr->status);
+        $this->assertNull($pr->capital_allocation_id);
+        $this->assertEquals(0, (float) $allocation->spent_amount);
+        $this->assertEquals($initialTransactionCount, CapitalTransaction::count());
     }
 
     public function test_approving_purchase_request_rejects_non_positive_review_quantities(): void

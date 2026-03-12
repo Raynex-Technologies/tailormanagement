@@ -179,7 +179,9 @@
                                 {{ money_tzs($reviewedTotal) }}
                             </flux:heading>
                             @if ($availableBalance !== null && $reviewedTotal > $availableBalance)
-                                <flux:text class="text-sm text-red-500">{{ __('Exceeds available balance!') }}</flux:text>
+                                <flux:text class="text-sm text-amber-600 dark:text-amber-400">
+                                    {{ __('Approved total exceeds available capital; this approval will proceed without a capital deduction.') }}
+                                </flux:text>
                             @endif
                         </div>
                     </div>
