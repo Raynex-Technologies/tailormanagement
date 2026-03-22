@@ -20,7 +20,7 @@ class Board extends Component
 
     public int $newOffset = 0;
     public int $inProgressOffset = 0;
-    public int $completedOffset = 0;
+    public int $readyOffset = 0;
 
     public function updatedSearch(): void
     {
@@ -31,7 +31,7 @@ class Board extends Component
     {
         $this->newOffset = 0;
         $this->inProgressOffset = 0;
-        $this->completedOffset = 0;
+        $this->readyOffset = 0;
     }
 
     public function loadMoreNew(): void
@@ -44,9 +44,9 @@ class Board extends Component
         $this->inProgressOffset += $this->perColumn;
     }
 
-    public function loadMoreCompleted(): void
+    public function loadMoreReady(): void
     {
-        $this->completedOffset += $this->perColumn;
+        $this->readyOffset += $this->perColumn;
     }
 
     public function markCompleted(int $orderId): void
@@ -98,15 +98,15 @@ class Board extends Component
         $newCount = $newOrdersQuery->count();
         $newOrders = $newOrdersQuery->latest()->limit($this->perColumn + $this->newOffset)->get();
 
-        // In Progress Orders (includes in_progress and ready)
+        // In Progress Orders
         $inProgressQuery = (clone $baseQuery)->inProgressGroup();
         $inProgressCount = $inProgressQuery->count();
         $inProgressOrders = $inProgressQuery->latest()->limit($this->perColumn + $this->inProgressOffset)->get();
 
-        // Completed Orders (includes delivered and completed)
-        $completedQuery = (clone $baseQuery)->completedGroup();
-        $completedCount = $completedQuery->count();
-        $completedOrders = $completedQuery->latest()->limit($this->perColumn + $this->completedOffset)->get();
+        // Ready Orders
+        $readyQuery = (clone $baseQuery)->readyGroup();
+        $readyCount = $readyQuery->count();
+        $readyOrders = $readyQuery->latest()->limit($this->perColumn + $this->readyOffset)->get();
 
         // Check if user can mark orders as completed
         $canMarkCompleted = $user->can('orders.mark_completed');
@@ -118,9 +118,9 @@ class Board extends Component
             'inProgressOrders' => $inProgressOrders,
             'inProgressCount' => $inProgressCount,
             'inProgressHasMore' => $inProgressCount > count($inProgressOrders),
-            'completedOrders' => $completedOrders,
-            'completedCount' => $completedCount,
-            'completedHasMore' => $completedCount > count($completedOrders),
+            'readyOrders' => $readyOrders,
+            'readyCount' => $readyCount,
+            'readyHasMore' => $readyCount > count($readyOrders),
             'canMarkCompleted' => $canMarkCompleted,
         ]);
     }

@@ -284,14 +284,20 @@ class Order extends Model
 
     /**
      * Scope for "In Progress" group on Order Board.
-     * Includes: in_progress, ready
+     * Includes: in_progress
      */
     public function scopeInProgressGroup(Builder $query): Builder
     {
-        return $query->whereIn('status', [
-            OrderStatus::InProgress,
-            OrderStatus::Ready,
-        ]);
+        return $query->where('status', OrderStatus::InProgress);
+    }
+
+    /**
+     * Scope for "Ready" group on Order Board.
+     * Includes: ready
+     */
+    public function scopeReadyGroup(Builder $query): Builder
+    {
+        return $query->where('status', OrderStatus::Ready);
     }
 
     /**

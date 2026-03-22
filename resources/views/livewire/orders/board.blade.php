@@ -105,28 +105,28 @@
                 </div>
             </div>
 
-            {{-- Completed Column --}}
+            {{-- Ready Column --}}
             <div class="flex flex-col">
                 <div class="mb-4 flex items-center justify-between">
                     <div class="flex items-center gap-2">
-                        <div class="h-3 w-3 rounded-full bg-green-500"></div>
-                        <flux:heading size="lg">Completed</flux:heading>
-                        <flux:badge color="green" size="sm">{{ $completedCount }}</flux:badge>
+                        <div class="h-3 w-3 rounded-full bg-emerald-500"></div>
+                        <flux:heading size="lg">Ready</flux:heading>
+                        <flux:badge color="emerald" size="sm">{{ $readyCount }}</flux:badge>
                     </div>
                 </div>
 
                 <div class="flex-1 space-y-3 rounded-2xl border border-zinc-200 bg-zinc-50/50 p-4 dark:border-zinc-700 dark:bg-zinc-800/50">
-                    @forelse ($completedOrders as $order)
+                    @forelse ($readyOrders as $order)
                         @include('livewire.orders.partials.board-card', ['order' => $order, 'hideCompleteButton' => true])
                     @empty
                         <div class="flex flex-col items-center justify-center py-8 text-center">
                             <x-icon name="inbox" class="size-10 text-zinc-300 dark:text-zinc-600" />
-                            <flux:text class="mt-2 text-zinc-500">No completed orders</flux:text>
+                            <flux:text class="mt-2 text-zinc-500">No ready orders</flux:text>
                         </div>
                     @endforelse
 
-                    @if ($completedHasMore)
-                        <flux:button variant="ghost" class="w-full" wire:click="loadMoreCompleted">
+                    @if ($readyHasMore)
+                        <flux:button variant="ghost" class="w-full" wire:click="loadMoreReady">
                             Load More
                         </flux:button>
                     @endif

@@ -122,4 +122,38 @@ class OrderSmsTemplatesTest extends TestCase
             $message
         );
     }
+
+    public function test_ready_status_uses_order_ready_template(): void
+    {
+        $customer = Customer::factory()->create([
+            'branch_id' => $this->branch->id,
+            'name' => 'Neema',
+        ]);
+
+        $order = Order::create([
+            'branch_id' => $this->branch->id,
+            'order_no' => 'ORD-TEST-003',
+            'customer_id' => $customer->id,
+            'status' => OrderStatus::InProgress,
+            'order_date' => now()->toDateString(),
+            'due_date' => now()->addDays(4)->toDateString(),
+            'subtotal' => 75000,
+            'discount' => 0,
+            'total' => 75000,
+            'payment_status' => PaymentStatus::Unpaid,
+            'created_by' => null,
+        ]);
+
+        SmsTemplate::instance()->update([
+            'templates' => array_replace(SmsTemplate::defaultTemplates(), [
+                'order_ready' => 'READY TEMPLATE {order_number}',
+                'order_status_change' => 'STATUS TEMPLATE {order_number} {status}',
+            ]),
+        ]);
+
+        $message = OrderSmsTemplates::statusChanged($order->fresh(), OrderStatus::Ready->value);
+
+        $this->assertSame('READY TEMPLATE ORD-TEST-003', $message);
+        $this->assertStringNotContainsString('STATUS TEMPLATE', $message);
+    }
 }

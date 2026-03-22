@@ -29,78 +29,37 @@
         @endif
 
         <flux:card class="overflow-hidden">
-            <div class="flex flex-col gap-6 xl:flex-row xl:items-start xl:justify-between">
-                <div class="min-w-0 flex-1">
-                    <div class="flex flex-col gap-4 sm:flex-row sm:items-start">
-                        <div class="flex size-14 items-center justify-center rounded-2xl bg-lime-100 text-lime-700 shadow-sm dark:bg-lime-500/15 dark:text-lime-300">
-                            <i class="fa-duotone fa-file-invoice text-xl" aria-hidden="true"></i>
-                        </div>
-                        <div class="min-w-0">
-                            <div class="flex flex-wrap items-center gap-2">
-                                <flux:heading size="xl">{{ $invoice->invoice_no }}</flux:heading>
-                                @if ($paymentStatus)
-                                    <flux:badge color="{{ $paymentStatus->color() }}" size="sm">
-                                        {{ $paymentStatus->label() }}
-                                    </flux:badge>
-                                @endif
-                                @if ($invoice->sent_at)
-                                    <flux:badge color="green" size="sm">{{ __('Sent') }}</flux:badge>
-                                @endif
-                                @if ($isOverdue)
-                                    <flux:badge color="red" size="sm">{{ __('Overdue') }}</flux:badge>
-                                @endif
-                            </div>
-                            <flux:text class="mt-1 text-zinc-500 dark:text-zinc-400">
-                                {{ __('Order') }}: {{ $invoice->order?->order_no ?? 'N/A' }}
-                                @if ($invoice->order?->customer?->name)
-                                    <span class="mx-2 text-zinc-300 dark:text-zinc-600">&bull;</span>
-                                    {{ $invoice->order->customer->name }}
-                                @endif
-                            </flux:text>
-                        </div>
+            <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div class="flex flex-col gap-4 sm:flex-row sm:items-start">
+                    <div class="flex size-14 items-center justify-center rounded-2xl bg-lime-100 text-lime-700 shadow-sm dark:bg-lime-500/15 dark:text-lime-300">
+                        <i class="fa-duotone fa-file-invoice text-xl" aria-hidden="true"></i>
                     </div>
-
-                    <div class="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-                        <div class="rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-zinc-700 dark:bg-zinc-800/60">
-                            <div class="flex items-center gap-3">
-                                <i class="fa-duotone fa-calendar text-zinc-400" aria-hidden="true"></i>
-                                <div>
-                                    <p class="text-xs font-medium uppercase tracking-[0.18em] text-zinc-500">{{ __('Issue Date') }}</p>
-                                    <p class="text-sm font-semibold text-zinc-900 dark:text-white">{{ optional($invoice->issue_date)->format('M d, Y') }}</p>
-                                </div>
-                            </div>
+                    <div class="min-w-0">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <flux:heading size="xl">{{ $invoice->invoice_no }}</flux:heading>
+                            @if ($paymentStatus)
+                                <flux:badge color="{{ $paymentStatus->color() }}" size="sm">
+                                    {{ $paymentStatus->label() }}
+                                </flux:badge>
+                            @endif
+                            @if ($invoice->sent_at)
+                                <flux:badge color="green" size="sm">{{ __('Sent') }}</flux:badge>
+                            @endif
+                            @if ($isOverdue)
+                                <flux:badge color="red" size="sm">{{ __('Overdue') }}</flux:badge>
+                            @endif
                         </div>
-                        <div class="rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-zinc-700 dark:bg-zinc-800/60">
-                            <div class="flex items-center gap-3">
-                                <i class="fa-duotone fa-calendar-clock text-zinc-400" aria-hidden="true"></i>
-                                <div>
-                                    <p class="text-xs font-medium uppercase tracking-[0.18em] text-zinc-500">{{ __('Due Date') }}</p>
-                                    <p class="text-sm font-semibold text-zinc-900 dark:text-white">{{ optional($invoice->due_date)->format('M d, Y') ?: 'N/A' }}</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-zinc-700 dark:bg-zinc-800/60">
-                            <div class="flex items-center gap-3">
-                                <i class="fa-duotone fa-wallet text-zinc-400" aria-hidden="true"></i>
-                                <div>
-                                    <p class="text-xs font-medium uppercase tracking-[0.18em] text-zinc-500">{{ __('Invoice Total') }}</p>
-                                    <p class="text-sm font-semibold text-zinc-900 dark:text-white">{{ money_tzs($invoice->total) }}</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-zinc-700 dark:bg-zinc-800/60">
-                            <div class="flex items-center gap-3">
-                                <i class="fa-duotone fa-scale-balanced text-zinc-400" aria-hidden="true"></i>
-                                <div>
-                                    <p class="text-xs font-medium uppercase tracking-[0.18em] text-zinc-500">{{ __('Balance Due') }}</p>
-                                    <p class="text-sm font-semibold text-zinc-900 dark:text-white">{{ money_tzs($balanceDue) }}</p>
-                                </div>
-                            </div>
-                        </div>
+                        <flux:text class="mt-1 text-zinc-500 dark:text-zinc-400">
+                            {{ __('Order') }}: {{ $invoice->order?->order_no ?? 'N/A' }}
+                            @if ($invoice->order?->customer?->name)
+                                <span class="mx-2 text-zinc-300 dark:text-zinc-600">&bull;</span>
+                                {{ $invoice->order->customer->name }}
+                            @endif
+                        </flux:text>
                     </div>
                 </div>
 
-                <div class="flex flex-wrap gap-2 xl:justify-end">
+                <div class="flex flex-wrap gap-2 sm:justify-end">
                     <flux:button size="sm" variant="subtle" :href="route('invoices.print', $invoice)" target="_blank">
                         <i class="fa-duotone fa-print mr-1.5" aria-hidden="true"></i>
                         {{ __('Print') }}
@@ -117,6 +76,45 @@
                             </flux:button>
                         @endcan
                     @endif
+                </div>
+            </div>
+
+            <div class="mt-5 grid grid-cols-2 gap-3 xl:grid-cols-4">
+                <div class="rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-zinc-700 dark:bg-zinc-800/60">
+                    <div class="flex items-center gap-3">
+                        <i class="fa-duotone fa-calendar text-zinc-400" aria-hidden="true"></i>
+                        <div>
+                            <p class="text-xs font-medium uppercase tracking-[0.18em] text-zinc-500">{{ __('Issue Date') }}</p>
+                            <p class="text-sm font-semibold text-zinc-900 dark:text-white">{{ optional($invoice->issue_date)->format('M d, Y') }}</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-zinc-700 dark:bg-zinc-800/60">
+                    <div class="flex items-center gap-3">
+                        <i class="fa-duotone fa-calendar-clock text-zinc-400" aria-hidden="true"></i>
+                        <div>
+                            <p class="text-xs font-medium uppercase tracking-[0.18em] text-zinc-500">{{ __('Due Date') }}</p>
+                            <p class="text-sm font-semibold text-zinc-900 dark:text-white">{{ optional($invoice->due_date)->format('M d, Y') ?: 'N/A' }}</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-zinc-700 dark:bg-zinc-800/60">
+                    <div class="flex items-center gap-3">
+                        <i class="fa-duotone fa-wallet text-zinc-400" aria-hidden="true"></i>
+                        <div>
+                            <p class="text-xs font-medium uppercase tracking-[0.18em] text-zinc-500">{{ __('Invoice Total') }}</p>
+                            <p class="text-sm font-semibold text-zinc-900 dark:text-white">{{ money_tzs($invoice->total) }}</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-zinc-700 dark:bg-zinc-800/60">
+                    <div class="flex items-center gap-3">
+                        <i class="fa-duotone fa-scale-balanced text-zinc-400" aria-hidden="true"></i>
+                        <div>
+                            <p class="text-xs font-medium uppercase tracking-[0.18em] text-zinc-500">{{ __('Balance Due') }}</p>
+                            <p class="text-sm font-semibold text-zinc-900 dark:text-white">{{ money_tzs($balanceDue) }}</p>
+                        </div>
+                    </div>
                 </div>
             </div>
         </flux:card>

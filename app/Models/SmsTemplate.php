@@ -19,6 +19,7 @@ class SmsTemplate extends Model
     public const CATEGORIES = [
         'order_created',
         'order_status_change',
+        'order_ready',
         'order_delivered',
         'order_delivery_date_change',
         'order_cancelled',
@@ -35,6 +36,7 @@ class SmsTemplate extends Model
         return [
             'order_created' => __('Order Created'),
             'order_status_change' => __('Order Status Change'),
+            'order_ready' => __('Order Ready'),
             'order_delivered' => __('Order Delivered'),
             'order_delivery_date_change' => __('Order Due Date Changed'),
             'order_cancelled' => __('Order Cancelled'),
@@ -51,6 +53,7 @@ class SmsTemplate extends Model
         return [
             'order_created' => 'Hello {customer_name}, your order #{order_number} for {garments} was created on {order_date}. Total: {total_amount}. Due date: {due_date}.',
             'order_status_change' => 'Hello {customer_name}, your order #{order_number} for {garments} is now {status}. Due date: {due_date}.',
+            'order_ready' => 'Hello {customer_name}, good news. Your order #{order_number} for {garments} is ready for pickup. Balance due: {balance_due}.',
             'order_delivered' => 'Hello {customer_name}, your order #{order_number} for {garments} has been delivered. Thank you!',
             'order_delivery_date_change' => 'Hello {customer_name}, your order #{order_number} due date has been updated from {old_due_date} to {new_due_date}.',
             'order_cancelled' => 'Hello {customer_name}, your order #{order_number} for {garments} has been cancelled.',

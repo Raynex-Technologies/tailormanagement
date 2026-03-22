@@ -43,6 +43,7 @@ class OrderSmsTemplates
         return match ($category) {
             'order_created' => "[{$appName}] Order {$orderNo} for " . ($replacements['garments'] ?? 'your items') . ' created on ' . ($replacements['order_date'] ?? '') . '. Due: ' . ($replacements['due_date'] ?? '') . '.',
             'order_status_change' => "[{$appName}] Order {$orderNo} status: " . ($replacements['status'] ?? '') . '. Due: ' . ($replacements['due_date'] ?? '') . '.',
+            'order_ready' => "[{$appName}] Good news {$customerName}, order {$orderNo} for " . ($replacements['garments'] ?? 'your items') . ' is READY for pickup. Balance: ' . ($replacements['balance_due'] ?? '') . '.',
             'order_delivered' => "[{$appName}] Order {$orderNo} for " . ($replacements['garments'] ?? 'your items') . ' has been DELIVERED. Thank you!',
             'order_delivery_date_change' => "[{$appName}] Order {$orderNo} due date updated from " . ($replacements['old_due_date'] ?? '') . ' to ' . ($replacements['new_due_date'] ?? $replacements['due_date'] ?? '') . '.',
             'order_cancelled' => "[{$appName}] Order {$orderNo} has been cancelled.",
@@ -111,6 +112,7 @@ class OrderSmsTemplates
         $replacements['status'] = self::getStatusLabel($newStatus);
 
         $category = match ($newStatus) {
+            OrderStatus::Ready->value => 'order_ready',
             OrderStatus::Delivered->value => 'order_delivered',
             OrderStatus::Cancelled->value => 'order_cancelled',
             default => 'order_status_change',

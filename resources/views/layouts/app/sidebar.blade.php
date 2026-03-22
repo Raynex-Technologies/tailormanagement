@@ -77,6 +77,11 @@
                     padding-right: 0;
                     font-size: 0;
                 }
+
+                .desktop-sidebar .nav-group.nav-group-active > h3 {
+                    color: rgba(190, 242, 100, 0.92);
+                    text-shadow: 0 0 12px rgba(190, 242, 100, 0.25);
+                }
             }
         </style>
 
@@ -397,6 +402,67 @@
                 </div>
                 @endcan
 
+                {{-- Reports Group --}}
+                @can('reports.view')
+                <div class="nav-group">
+                    <h3 class="px-3 mb-2 text-[0.65rem] font-semibold uppercase tracking-wider text-white/35">{{ __('Reports') }}</h3>
+                    
+                    <a 
+                        href="{{ route('reports.index') }}" 
+                        wire:navigate
+                        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('reports.index') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}"
+                    >
+                        <i class="fa-duotone fa-chart-column size-5"></i>
+                        {{ __('Dashboard') }}
+                    </a>
+
+                    <a 
+                        href="{{ route('reports.sales') }}" 
+                        wire:navigate
+                        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('reports.sales') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}"
+                    >
+                        <i class="fa-duotone fa-money-bills size-5"></i>
+                        {{ __('Sales') }}
+                    </a>
+
+                    <a 
+                        href="{{ route('reports.orders') }}" 
+                        wire:navigate
+                        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('reports.orders') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}"
+                    >
+                        <i class="fa-duotone fa-file-lines size-5"></i>
+                        {{ __('Orders') }}
+                    </a>
+
+                    <a 
+                        href="{{ route('reports.expenses') }}" 
+                        wire:navigate
+                        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('reports.expenses') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}"
+                    >
+                        <i class="fa-duotone fa-receipt size-5"></i>
+                        {{ __('Expenses') }}
+                    </a>
+
+                    <a 
+                        href="{{ route('reports.inventory') }}" 
+                        wire:navigate
+                        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('reports.inventory') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}"
+                    >
+                        <i class="fa-duotone fa-boxes-stacked size-5"></i>
+                        {{ __('Inventory') }}
+                    </a>
+
+                    <a 
+                        href="{{ route('reports.capital') }}" 
+                        wire:navigate
+                        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('reports.capital') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}"
+                    >
+                        <i class="fa-duotone fa-building-columns size-5"></i>
+                        {{ __('Capital Audit') }}
+                    </a>
+                </div>
+                @endcan
+
                 {{-- Administration Group --}}
                 @canany(['branches.view', 'users.view', 'roles.manage', 'sms.logs.view', 'sms.templates.manage'])
                 <div class="nav-group">
@@ -467,67 +533,6 @@
                     @endcan
                 </div>
                 @endcanany
-
-                {{-- Reports Group --}}
-                @can('reports.view')
-                <div class="nav-group">
-                    <h3 class="px-3 mb-2 text-[0.65rem] font-semibold uppercase tracking-wider text-white/35">{{ __('Reports') }}</h3>
-                    
-                    <a 
-                        href="{{ route('reports.index') }}" 
-                        wire:navigate
-                        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('reports.index') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}"
-                    >
-                        <i class="fa-duotone fa-chart-column size-5"></i>
-                        {{ __('Dashboard') }}
-                    </a>
-
-                    <a 
-                        href="{{ route('reports.sales') }}" 
-                        wire:navigate
-                        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('reports.sales') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}"
-                    >
-                        <i class="fa-duotone fa-money-bills size-5"></i>
-                        {{ __('Sales') }}
-                    </a>
-
-                    <a 
-                        href="{{ route('reports.orders') }}" 
-                        wire:navigate
-                        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('reports.orders') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}"
-                    >
-                        <i class="fa-duotone fa-file-lines size-5"></i>
-                        {{ __('Orders') }}
-                    </a>
-
-                    <a 
-                        href="{{ route('reports.expenses') }}" 
-                        wire:navigate
-                        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('reports.expenses') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}"
-                    >
-                        <i class="fa-duotone fa-receipt size-5"></i>
-                        {{ __('Expenses') }}
-                    </a>
-
-                    <a 
-                        href="{{ route('reports.inventory') }}" 
-                        wire:navigate
-                        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('reports.inventory') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}"
-                    >
-                        <i class="fa-duotone fa-boxes-stacked size-5"></i>
-                        {{ __('Inventory') }}
-                    </a>
-
-                    <a 
-                        href="{{ route('reports.capital') }}" 
-                        wire:navigate
-                        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('reports.capital') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}"
-                    >
-                        <i class="fa-duotone fa-building-columns size-5"></i>
-                        {{ __('Capital Audit') }}
-                    </a>
-                </div>
-                @endcan
             </nav>
         </aside>
 
@@ -853,6 +858,42 @@
                 {{ $slot }}
             </div>
         </main>
+
+        <script>
+            (() => {
+                const syncActiveSidebarState = () => {
+                    const nav = document.querySelector('.desktop-sidebar-nav');
+                    if (!nav) {
+                        return;
+                    }
+
+                    const activeLink = nav.querySelector('a[class*="bg-lime-400"]');
+                    if (!activeLink) {
+                        return;
+                    }
+
+                    nav.querySelectorAll('.nav-group.nav-group-active').forEach((group) => {
+                        group.classList.remove('nav-group-active');
+                    });
+
+                    const activeGroup = activeLink.closest('.nav-group');
+                    if (activeGroup) {
+                        activeGroup.classList.add('nav-group-active');
+                    }
+
+                    const navRect = nav.getBoundingClientRect();
+                    const activeRect = activeLink.getBoundingClientRect();
+                    const isVisible = activeRect.top >= navRect.top + 8 && activeRect.bottom <= navRect.bottom - 8;
+
+                    if (!isVisible) {
+                        activeLink.scrollIntoView({ block: 'center', inline: 'nearest', behavior: 'smooth' });
+                    }
+                };
+
+                document.addEventListener('DOMContentLoaded', syncActiveSidebarState);
+                document.addEventListener('livewire:navigated', syncActiveSidebarState);
+            })();
+        </script>
 
         @fluxScripts
     </body>
