@@ -132,14 +132,16 @@
                         <i class="fa-duotone fa-house size-5"></i>
                         {{ __('Dashboard') }}
                     </a>
-                    <a
-                        href="{{ route('tasks.index') }}"
-                        wire:navigate
-                        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('tasks.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}"
-                    >
-                        <i class="fa-duotone fa-list-check size-5"></i>
-                        {{ __('My Tasks') }}
-                    </a>
+                    @can('todos.use')
+                        <a
+                            href="{{ route('tasks.index') }}"
+                            wire:navigate
+                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('tasks.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}"
+                        >
+                            <i class="fa-duotone fa-list-check size-5"></i>
+                            {{ __('My Tasks') }}
+                        </a>
+                    @endcan
                 </div>
 
                 {{-- Orders Group (Permission-based) --}}
@@ -601,11 +603,13 @@
                             <i class="fa-duotone fa-house size-5"></i>
                             {{ __('Dashboard') }}
                         </a>
-                        <a href="{{ route('tasks.index') }}" wire:navigate @click="sidebarOpen = false"
-                           class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('tasks.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
-                            <i class="fa-duotone fa-list-check size-5"></i>
-                            {{ __('My Tasks') }}
-                        </a>
+                        @can('todos.use')
+                            <a href="{{ route('tasks.index') }}" wire:navigate @click="sidebarOpen = false"
+                               class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('tasks.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
+                                <i class="fa-duotone fa-list-check size-5"></i>
+                                {{ __('My Tasks') }}
+                            </a>
+                        @endcan
                     </div>
 
                     @canany(['orders.view', 'users.view'])

@@ -16,6 +16,7 @@ class Todo extends Model
     protected $fillable = [
         'branch_id',
         'user_id',
+        'assigned_by',
         'category_id',
         'title',
         'priority',
@@ -40,6 +41,11 @@ class Todo extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function assignedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'assigned_by');
     }
 
     public function category(): BelongsTo

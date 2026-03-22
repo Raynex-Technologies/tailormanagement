@@ -109,10 +109,17 @@
 
                     {{-- Priority Badge (right side) --}}
                     <div class="shrink-0 flex flex-col items-end gap-2">
-                        <span class="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wide {{ $colors['bg'] }} {{ $colors['text'] }}">
-                            <span class="size-1.5 rounded-full {{ $colors['dot'] }}"></span>
-                            {{ $todo->priority->label() }}
-                        </span>
+                        <div class="inline-flex items-center gap-1.5">
+                            <span class="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wide {{ $colors['bg'] }} {{ $colors['text'] }}">
+                                <span class="size-1.5 rounded-full {{ $colors['dot'] }}"></span>
+                                {{ $todo->priority->label() }}
+                            </span>
+                            @if ($todo->assigned_by)
+                                <span class="inline-flex items-center justify-center size-5 rounded-full bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400" title="{{ __('Assigned task') }}">
+                                    <i class="fa-duotone fa-crown text-[10px]"></i>
+                                </span>
+                            @endif
+                        </div>
 
                         {{-- Actions --}}
                         <div class="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">

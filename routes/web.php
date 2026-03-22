@@ -68,7 +68,9 @@ Route::middleware(['auth', 'verified', 'branch.context'])->group(function () {
         ->name('branches.index');
 
     // My Tasks - personal todo management
-    Route::get('tasks', \App\Livewire\Tasks\Index::class)->name('tasks.index');
+    Route::get('tasks', \App\Livewire\Tasks\Index::class)
+        ->middleware('can:todos.use')
+        ->name('tasks.index');
 
     // Users Management
     Route::prefix('users')->middleware('can:users.view')->group(function () {

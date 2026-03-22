@@ -206,6 +206,7 @@ class RolesAndPermissionsSeeder extends Seeder
 
             // Todos
             'todos.use',
+            'todos.assign',
 
             // SMS
             'sms.send',
@@ -297,6 +298,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 'messages.group.create',
                 // Todos
                 'todos.use',
+                'todos.assign',
                 // SMS - FULL ACCESS
                 'sms.send',
                 'sms.logs.view',
@@ -370,6 +372,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 'messages.group.create',
                 // Todos
                 'todos.use',
+                'todos.assign',
                 // SMS
                 'sms.send',
                 'sms.logs.view',
@@ -587,7 +590,7 @@ class RolesAndPermissionsSeeder extends Seeder
 
         // Verify branch_manager has expected permissions
         $branchManager = Role::findByName('branch_manager');
-        $branchManagerRequired = ['orders.create', 'payments.create', 'capital.assign'];
+        $branchManagerRequired = ['orders.create', 'payments.create', 'capital.assign', 'todos.assign'];
         $branchManagerMissing = [];
         foreach ($branchManagerRequired as $perm) {
             if (! $branchManager->hasPermissionTo($perm)) {

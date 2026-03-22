@@ -97,6 +97,7 @@ class PermissionGroups
         ],
         'Todos' => [
             'todos.use',
+            'todos.assign',
         ],
     ];
 

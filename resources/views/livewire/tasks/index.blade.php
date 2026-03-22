@@ -80,6 +80,57 @@
         </div>
     </div>
 
+    @if ($this->canAssignTasks)
+        <div wire:poll.15s class="rounded-2xl bg-white dark:bg-zinc-800/50 p-4 shadow-sm border border-zinc-200/50 dark:border-zinc-700/50">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <h2 class="text-base font-semibold text-zinc-900 dark:text-white">{{ __('Assigned Tasks Progress') }}</h2>
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400">{{ __('Track progress updates from your staff.') }}</p>
+                </div>
+                <div class="flex items-center gap-2 text-xs">
+                    <span class="inline-flex items-center gap-1 rounded-lg bg-zinc-100 dark:bg-zinc-800 px-2 py-1 text-zinc-600 dark:text-zinc-300">
+                        <i class="fa-duotone fa-list-check"></i>
+                        {{ $this->assignedTaskStats['total'] }} {{ __('Total') }}
+                    </span>
+                    <span class="inline-flex items-center gap-1 rounded-lg bg-blue-50 dark:bg-blue-900/30 px-2 py-1 text-blue-600 dark:text-blue-400">
+                        <i class="fa-duotone fa-clock"></i>
+                        {{ $this->assignedTaskStats['pending'] }} {{ __('In Progress') }}
+                    </span>
+                    <span class="inline-flex items-center gap-1 rounded-lg bg-lime-100 dark:bg-lime-900/30 px-2 py-1 text-lime-700 dark:text-lime-400">
+                        <i class="fa-duotone fa-circle-check"></i>
+                        {{ $this->assignedTaskStats['completed'] }} {{ __('Completed') }}
+                    </span>
+                </div>
+            </div>
+
+            <div class="mt-4 divide-y divide-zinc-100 dark:divide-zinc-700/50">
+                @forelse ($this->trackedAssignments as $trackedTask)
+                    <div class="flex items-center justify-between gap-3 py-3">
+                        <div class="min-w-0">
+                            <p class="truncate text-sm font-medium text-zinc-900 dark:text-white">{{ $trackedTask->title }}</p>
+                            <p class="truncate text-xs text-zinc-500 dark:text-zinc-400">
+                                {{ __('Assignee') }}: {{ $trackedTask->user?->name ?? __('Unknown') }}
+                                •
+                                @if ($trackedTask->is_done && $trackedTask->done_at)
+                                    {{ __('Completed') }} {{ $trackedTask->done_at->diffForHumans() }}
+                                @else
+                                    {{ __('Updated') }} {{ $trackedTask->updated_at->diffForHumans() }}
+                                @endif
+                            </p>
+                        </div>
+                        <span class="inline-flex items-center rounded-lg px-2 py-1 text-xs font-semibold {{ $trackedTask->is_done ? 'bg-lime-100 text-lime-700 dark:bg-lime-900/30 dark:text-lime-400' : 'bg-blue-50 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400' }}">
+                            {{ $trackedTask->is_done ? __('Completed') : __('In Progress') }}
+                        </span>
+                    </div>
+                @empty
+                    <div class="py-3 text-sm text-zinc-500 dark:text-zinc-400">
+                        {{ __('No assigned tasks yet.') }}
+                    </div>
+                @endforelse
+            </div>
+        </div>
+    @endif
+
     {{-- Filters & Search --}}
     <div class="rounded-2xl bg-white dark:bg-zinc-800/50 p-4 shadow-sm border border-zinc-200/50 dark:border-zinc-700/50">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
@@ -187,6 +238,12 @@
                                 <span class="size-1.5 rounded-full {{ $colors['dot'] }}"></span>
                                 {{ $todo->priority->label() }}
                             </span>
+
+                            @if ($todo->assigned_by)
+                                <span class="inline-flex items-center justify-center size-5 rounded-full bg-amber-100 text-amber-600 dark:bg-amber-900/30 dark:text-amber-400" title="{{ __('Assigned task') }}">
+                                    <i class="fa-duotone fa-crown text-[10px]"></i>
+                                </span>
+                            @endif
 
                             {{-- Category Badge --}}
                             @if ($todo->category)
@@ -302,20 +359,48 @@
                     <flux:error name="title" />
                 </flux:field>
 
+                @if ($this->canAssignTasks)
+                    <flux:field>
+                        <flux:label>{{ __('Assign To') }}</flux:label>
+                        <flux:select wire:model="assigneeId">
+                            @foreach ($this->assignees as $assignee)
+                                <flux:select.option value="{{ $assignee->id }}">
+                                    @if ((int) $assignee->id === (int) auth()->id())
+                                        {{ __('Me') }} - {{ $assignee->name }}
+                                    @else
+                                        {{ $assignee->name }}
+                                    @endif
+                                </flux:select.option>
+                            @endforeach
+                        </flux:select>
+                        <flux:error name="assigneeId" />
+                    </flux:field>
+                @endif
+
+                @php
+                    $assignedToAnotherStaff = $this->canAssignTasks && $assigneeId && (int) $assigneeId !== (int) auth()->id();
+                @endphp
+
                 {{-- Category --}}
                 <flux:field>
                     <div class="flex items-center justify-between">
                         <flux:label>{{ __('Category') }}</flux:label>
-                        <button type="button" wire:click="openCategoryModal" class="text-xs font-medium text-lime-600 hover:text-lime-700">
-                            + {{ __('New') }}
-                        </button>
+                        @if (! $assignedToAnotherStaff)
+                            <button type="button" wire:click="openCategoryModal" class="text-xs font-medium text-lime-600 hover:text-lime-700">
+                                + {{ __('New') }}
+                            </button>
+                        @endif
                     </div>
-                    <flux:select wire:model="categoryId">
+                    <flux:select wire:model="categoryId" :disabled="$assignedToAnotherStaff">
                         <flux:select.option value="">{{ __('No category') }}</flux:select.option>
                         @foreach ($this->categories as $category)
                             <flux:select.option value="{{ $category->id }}">{{ $category->name }}</flux:select.option>
                         @endforeach
                     </flux:select>
+                    @if ($assignedToAnotherStaff)
+                        <flux:text class="mt-1 text-xs">{{ __('Categories are only applied to your own tasks.') }}</flux:text>
+                    @endif
+                    <flux:error name="categoryId" />
                 </flux:field>
 
                 {{-- Priority --}}
