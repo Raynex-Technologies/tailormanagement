@@ -386,6 +386,20 @@ class Order extends Model
     }
 
     /**
+     * Scope for urgent orders that are still active on production boards.
+     * Includes only: new, in_progress.
+     */
+    public function scopeUrgentOpen(Builder $query): Builder
+    {
+        return $query
+            ->where('priority', Priority::Urgent)
+            ->whereIn('status', [
+                OrderStatus::New,
+                OrderStatus::InProgress,
+            ]);
+    }
+
+    /**
      * Scope to get only orders assigned to a specific tailor.
      * Used for tailor role filtering.
      */

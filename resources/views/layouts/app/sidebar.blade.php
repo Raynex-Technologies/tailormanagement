@@ -17,12 +17,7 @@
             $authUser = auth()->user();
             if ($authUser && $authUser->can('orders.view')) {
                 $urgentOrdersQuery = \App\Models\Order::query()
-                    ->where('priority', \App\Enums\Priority::Urgent->value)
-                    ->whereNotIn('status', [
-                        \App\Enums\OrderStatus::Ready->value,
-                        \App\Enums\OrderStatus::Completed->value,
-                        \App\Enums\OrderStatus::Cancelled->value,
-                    ]);
+                    ->urgentOpen();
 
                 if ($authUser->hasRole('tailor')) {
                     $urgentOrdersQuery->forTailor($authUser->id);
