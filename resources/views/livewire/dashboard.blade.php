@@ -52,39 +52,65 @@
         @php
             $monthRevenue  = $stats['sales']['payments_month_sum'];
             $monthExpenses = $stats['expenses']['expenses_month_sum'];
+            $storefrontRevenue = $stats['sales']['storefront_payments_month_sum'];
+            $newOrdersThisMonth = (int) ($stats['orders']['new_orders_month_count'] ?? 0);
             $fmt = fn($v) => $v >= 1_000_000
                 ? number_format($v / 1_000_000, 1) . 'M'
                 : ($v >= 1_000 ? number_format($v / 1_000, 0) . 'K' : number_format($v, 0));
+            $formatPct = function (float $value): string {
+                if (abs($value) < 0.05) {
+                    return '0%';
+                }
+
+                $abs = abs($value);
+                $precision = $abs >= 10 ? 0 : 1;
+
+                return ($value > 0 ? '+' : '-') . number_format($abs, $precision) . '%';
+            };
+            $trendMeta = function (float $value) use ($formatPct): array {
+                if ($value > 0.05) {
+                    return [
+                        'icon' => 'fa-arrow-trend-up',
+                        'text' => $formatPct($value),
+                        'text_class' => 'text-emerald-700',
+                    ];
+                }
+
+                if ($value < -0.05) {
+                    return [
+                        'icon' => 'fa-arrow-trend-down',
+                        'text' => $formatPct($value),
+                        'text_class' => 'text-red-700',
+                    ];
+                }
+
+                return [
+                    'icon' => 'fa-minus',
+                    'text' => '0%',
+                    'text_class' => 'text-zinc-700',
+                ];
+            };
+            $newOrdersTrend = $trendMeta((float) ($stats['orders']['new_orders_month_change_pct'] ?? 0));
+            $revenueTrend = $trendMeta((float) ($stats['sales']['payments_month_change_pct'] ?? 0));
+            $expenseTrend = $trendMeta((float) ($stats['expenses']['expenses_month_change_pct'] ?? 0));
+            $storefrontRevenueTrend = $trendMeta((float) ($stats['sales']['storefront_payments_month_change_pct'] ?? 0));
+            $kpiBadgeBaseClass = 'inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-xs font-semibold shadow-sm border border-black/10 whitespace-nowrap';
         @endphp
         <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {{-- Total Orders --}}
-            <div class="rounded-2xl p-5 shadow-sm border border-[#f0bca2]" style="background-color: #f7d4c1;">
-                <div class="flex items-start justify-between">
-                    <div class="flex items-center justify-center size-11 rounded-xl bg-white/55">
-                        <i class="fa-duotone fa-bag-shopping size-5 text-[#7d3f22]"></i>
-                    </div>
-                    @if ($stats['orders']['new_orders_count'] > 0)
-                        <span class="inline-flex items-center rounded-lg bg-white/70 px-2 py-0.5 text-xs font-semibold text-[#6b2f17]">
-                            +{{ $stats['orders']['new_orders_count'] }} {{ __('new') }}
-                        </span>
-                    @endif
-                </div>
-                <div class="mt-3">
-                    <p class="text-3xl font-bold tracking-tight text-[#3d1f11]">{{ number_format($stats['orders']['total_orders_count']) }}</p>
-                    <p class="mt-0.5 text-sm text-[#6b2f17]">{{ __('Total Orders') }}</p>
-                </div>
-            </div>
-
-            {{-- Active Orders --}}
+            {{-- New Orders --}}
             <div class="rounded-2xl p-5 shadow-sm border border-[#0b4b51]" style="background-color: #0f5e65;">
                 <div class="flex items-start justify-between">
                     <div class="flex items-center justify-center size-11 rounded-xl bg-white/20">
-                        <i class="fa-duotone fa-clock size-5 text-white"></i>
+                        <i class="fa-duotone fa-file-circle-plus size-5 text-white"></i>
                     </div>
+                    <span class="{{ $kpiBadgeBaseClass }} {{ $newOrdersTrend['text_class'] }}">
+                        <i class="fa-duotone {{ $newOrdersTrend['icon'] }} text-[10px]"></i>
+                        {{ $newOrdersTrend['text'] }}
+                    </span>
                 </div>
                 <div class="mt-3">
-                    <p class="text-3xl font-bold tracking-tight text-white">{{ number_format($stats['orders']['in_progress_orders_count']) }}</p>
-                    <p class="mt-0.5 text-sm text-white/85">{{ __('Active Orders') }}</p>
+                    <p class="text-3xl font-bold tracking-tight text-white">{{ number_format($newOrdersThisMonth) }}</p>
+                    <p class="mt-0.5 text-sm text-white/85">{{ __('New Orders') }}</p>
                 </div>
             </div>
 
@@ -94,6 +120,10 @@
                     <div class="flex items-center justify-center size-11 rounded-xl bg-white/30">
                         <i class="fa-duotone fa-arrow-trend-up size-5 text-[#5a230c]"></i>
                     </div>
+                    <span class="{{ $kpiBadgeBaseClass }} {{ $revenueTrend['text_class'] }}">
+                        <i class="fa-duotone {{ $revenueTrend['icon'] }} text-[10px]"></i>
+                        {{ $revenueTrend['text'] }}
+                    </span>
                 </div>
                 <div class="mt-3">
                     <p class="text-3xl font-bold tracking-tight text-[#411806]">
@@ -109,12 +139,35 @@
                     <div class="flex items-center justify-center size-11 rounded-xl bg-white/20">
                         <i class="fa-duotone fa-receipt size-5 text-white"></i>
                     </div>
+                    <span class="{{ $kpiBadgeBaseClass }} {{ $expenseTrend['text_class'] }}">
+                        <i class="fa-duotone {{ $expenseTrend['icon'] }} text-[10px]"></i>
+                        {{ $expenseTrend['text'] }}
+                    </span>
                 </div>
                 <div class="mt-3">
                     <p class="text-3xl font-bold tracking-tight text-white">
                         {{ $fmt($monthExpenses) }} <span class="text-sm font-normal text-white/80">TZS</span>
                     </p>
                     <p class="mt-0.5 text-sm text-white/85">{{ __('Expenses This Month') }}</p>
+                </div>
+            </div>
+
+            {{-- Store Front Revenue --}}
+            <div class="rounded-2xl p-5 shadow-sm border border-[#f0bca2]" style="background-color: #f7d4c1;">
+                <div class="flex items-start justify-between">
+                    <div class="flex items-center justify-center size-11 rounded-xl bg-white/55">
+                        <i class="fa-duotone fa-store size-5 text-[#7d3f22]"></i>
+                    </div>
+                    <span class="{{ $kpiBadgeBaseClass }} {{ $storefrontRevenueTrend['text_class'] }}">
+                        <i class="fa-duotone {{ $storefrontRevenueTrend['icon'] }} text-[10px]"></i>
+                        {{ $storefrontRevenueTrend['text'] }}
+                    </span>
+                </div>
+                <div class="mt-3">
+                    <p class="text-3xl font-bold tracking-tight text-[#3d1f11]">
+                        {{ $fmt($storefrontRevenue) }} <span class="text-sm font-normal text-[#6b2f17]">TZS</span>
+                    </p>
+                    <p class="mt-0.5 text-sm text-[#6b2f17]">{{ __('Store Front Revenue') }}</p>
                 </div>
             </div>
         </div>
@@ -124,9 +177,11 @@
         <div class="grid gap-6 lg:grid-cols-3">
             {{-- Left: KPI Stats --}}
             <div class="space-y-6 lg:col-span-2 min-w-0">
-                <livewire:dashboard.order-progress-card />
-
                 <livewire:dashboard.income-expenses-chart-card />
+
+                <livewire:dashboard.calendar-card />
+
+                <livewire:dashboard.order-progress-card />
 
                 {{-- Alerts Row --}}
                 @if ($stats['inventory']['low_stock_count'] > 0 || $stats['procurement']['pending_purchase_requests_count'] > 0)

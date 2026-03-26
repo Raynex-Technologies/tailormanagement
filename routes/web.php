@@ -3,6 +3,7 @@
 use App\Livewire\Administration\BusinessSettings as AdministrationBusinessSettings;
 use App\Livewire\Administration\EmailSetup as AdministrationEmailSetup;
 use App\Livewire\Branches\Index as BranchesIndex;
+use App\Livewire\Calendar\Index as CalendarIndex;
 use App\Livewire\DeliveryNotes\Show as DeliveryNoteShow;
 use App\Livewire\Inventory\Categories\Index as CategoriesIndex;
 use App\Livewire\Inventory\Items\Index as ItemsIndex;
@@ -46,6 +47,7 @@ use App\Models\PaymentMethod;
 use App\Support\InvoicePdfRenderer;
 use App\Support\InvoiceTemplateResolver;
 use App\Support\BranchContext;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -130,6 +132,27 @@ Route::middleware(['auth', 'verified', 'branch.context'])->group(function () {
     // Dashboard - accessible to all authenticated users
     Route::get('dashboard', \App\Livewire\Dashboard::class)
         ->name('dashboard');
+
+    // Calendar module
+    Route::get('calendar', CalendarIndex::class)
+        ->middleware('can:dashboard.view')
+        ->name('calendar.index');
+
+    Route::get('calendar/events', function (Request $request) {
+        /** @var CalendarIndex $component */
+        $component = app(CalendarIndex::class);
+        $component->showOrderDue = $request->boolean('show_order_due', true);
+        $component->showBookings = $request->boolean('show_bookings', true);
+        $component->selectedDate = (string) $request->query('date', now()->toDateString());
+        $component->view = (string) $request->query('view', 'weekly');
+
+        return response()->json(
+            $component->fetchEvents(
+                $request->query('start'),
+                $request->query('end')
+            )
+        );
+    })->middleware('can:dashboard.view')->name('calendar.events');
 
     // Branch Management
     Route::get('administration/branches', BranchesIndex::class)

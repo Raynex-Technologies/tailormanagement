@@ -160,76 +160,78 @@
     </div>
 
     {{-- Add/Edit Task Modal --}}
-    <flux:modal wire:model="showModal" class="max-w-md">
-        <div class="space-y-6">
-            <div>
-                <flux:heading size="lg">{{ $editingTaskId ? __('Edit Task') : __('Add New Task') }}</flux:heading>
-                <flux:text class="mt-1">{{ __('Create a task with priority and due time.') }}</flux:text>
-            </div>
+    <flux:modal wire:model="showModal" class="max-w-md !rounded-2xl overflow-hidden">
+        <div class="max-h-[80vh] overflow-y-auto pr-1 custom-scrollbar-light" style="scrollbar-gutter: stable;">
+            <div class="space-y-6">
+                <div>
+                    <flux:heading size="lg">{{ $editingTaskId ? __('Edit Task') : __('Add New Task') }}</flux:heading>
+                    <flux:text class="mt-1">{{ __('Create a task with priority and due time.') }}</flux:text>
+                </div>
 
-            <form wire:submit="saveTask" class="space-y-4">
-                {{-- Task Title --}}
-                <flux:field>
-                    <flux:label>{{ __('Task Name') }} *</flux:label>
-                    <flux:input wire:model="title" placeholder="{{ __('Enter task name...') }}" maxlength="140" />
-                    <flux:error name="title" />
-                </flux:field>
+                <form wire:submit="saveTask" class="space-y-4">
+                    {{-- Task Title --}}
+                    <flux:field>
+                        <flux:label>{{ __('Task Name') }} *</flux:label>
+                        <flux:input wire:model="title" placeholder="{{ __('Enter task name...') }}" maxlength="140" />
+                        <flux:error name="title" />
+                    </flux:field>
 
-                {{-- Category --}}
-                <flux:field>
-                    <div class="flex items-center justify-between">
-                        <flux:label>{{ __('Category') }}</flux:label>
-                        <button type="button" wire:click="openCategoryModal" class="text-xs font-medium text-lime-600 hover:text-lime-700">
-                            + {{ __('New Category') }}
-                        </button>
+                    {{-- Category --}}
+                    <flux:field>
+                        <div class="flex items-center justify-between">
+                            <flux:label>{{ __('Category') }}</flux:label>
+                            <button type="button" wire:click="openCategoryModal" class="text-xs font-medium text-lime-600 hover:text-lime-700">
+                                + {{ __('New Category') }}
+                            </button>
+                        </div>
+                        <flux:select wire:model="categoryId">
+                            <flux:select.option value="">{{ __('No category') }}</flux:select.option>
+                            @foreach ($this->categories as $category)
+                                <flux:select.option value="{{ $category->id }}">{{ $category->name }}</flux:select.option>
+                            @endforeach
+                        </flux:select>
+                    </flux:field>
+
+                    {{-- Priority --}}
+                    <flux:field>
+                        <flux:label>{{ __('Priority') }}</flux:label>
+                        <flux:select wire:model="priority">
+                            @foreach ($this->priorities as $p)
+                                <flux:select.option value="{{ $p['value'] }}">{{ $p['label'] }}</flux:select.option>
+                            @endforeach
+                        </flux:select>
+                    </flux:field>
+
+                    {{-- Due Date & Time --}}
+                    <div class="grid grid-cols-2 gap-3">
+                        <flux:field>
+                            <flux:label>{{ __('Due Date') }}</flux:label>
+                            <flux:input type="date" wire:model="dueDate" />
+                        </flux:field>
+                        <flux:field>
+                            <flux:label>{{ __('Time') }}</flux:label>
+                            <flux:input type="time" wire:model="dueTime" />
+                        </flux:field>
                     </div>
-                    <flux:select wire:model="categoryId">
-                        <flux:select.option value="">{{ __('No category') }}</flux:select.option>
-                        @foreach ($this->categories as $category)
-                            <flux:select.option value="{{ $category->id }}">{{ $category->name }}</flux:select.option>
-                        @endforeach
-                    </flux:select>
-                </flux:field>
 
-                {{-- Priority --}}
-                <flux:field>
-                    <flux:label>{{ __('Priority') }}</flux:label>
-                    <flux:select wire:model="priority">
-                        @foreach ($this->priorities as $p)
-                            <flux:select.option value="{{ $p['value'] }}">{{ $p['label'] }}</flux:select.option>
-                        @endforeach
-                    </flux:select>
-                </flux:field>
-
-                {{-- Due Date & Time --}}
-                <div class="grid grid-cols-2 gap-3">
+                    {{-- Note --}}
                     <flux:field>
-                        <flux:label>{{ __('Due Date') }}</flux:label>
-                        <flux:input type="date" wire:model="dueDate" />
+                        <flux:label>{{ __('Note') }}</flux:label>
+                        <flux:textarea wire:model="note" placeholder="{{ __('Additional notes...') }}" rows="2" />
+                        <flux:error name="note" />
                     </flux:field>
-                    <flux:field>
-                        <flux:label>{{ __('Time') }}</flux:label>
-                        <flux:input type="time" wire:model="dueTime" />
-                    </flux:field>
-                </div>
 
-                {{-- Note --}}
-                <flux:field>
-                    <flux:label>{{ __('Note') }}</flux:label>
-                    <flux:textarea wire:model="note" placeholder="{{ __('Additional notes...') }}" rows="2" />
-                    <flux:error name="note" />
-                </flux:field>
-
-                {{-- Actions --}}
-                <div class="flex justify-end gap-3 pt-2">
-                    <flux:button type="button" variant="ghost" wire:click="closeModal">
-                        {{ __('Cancel') }}
-                    </flux:button>
-                    <flux:button type="submit" variant="primary">
-                        {{ $editingTaskId ? __('Update Task') : __('Add Task') }}
-                    </flux:button>
-                </div>
-            </form>
+                    {{-- Actions --}}
+                    <div class="flex justify-end gap-3 pt-2">
+                        <flux:button type="button" variant="ghost" wire:click="closeModal">
+                            {{ __('Cancel') }}
+                        </flux:button>
+                        <flux:button type="submit" variant="primary">
+                            {{ $editingTaskId ? __('Update Task') : __('Add Task') }}
+                        </flux:button>
+                    </div>
+                </form>
+            </div>
         </div>
     </flux:modal>
 

@@ -42,9 +42,59 @@
             class="mt-4 min-w-0"
             x-data="{
                 chart: null,
+                resizeObserver: null,
+                resizeDebounce: null,
+                lastContainerWidth: 0,
                 payload: @js($this->chartData),
                 init() {
-                    this.ensureApex(() => this.renderChart());
+                    this.setupResizeHandling();
+                    this.ensureApex(() => this.renderChartAfterLayout());
+                },
+                renderChartAfterLayout() {
+                    this.$nextTick(() => {
+                        requestAnimationFrame(() => {
+                            requestAnimationFrame(() => this.renderChart());
+                        });
+                    });
+                },
+                formatCompact(value) {
+                    const number = Number(value ?? 0);
+
+                    if (!Number.isFinite(number)) {
+                        return '0';
+                    }
+
+                    const abs = Math.abs(number);
+
+                    if (abs >= 1_000_000_000_000) {
+                        return `${this.formatScaled(number, 1_000_000_000_000)}t`;
+                    }
+
+                    if (abs >= 1_000_000_000) {
+                        return `${this.formatScaled(number, 1_000_000_000)}b`;
+                    }
+
+                    if (abs >= 1_000_000) {
+                        return `${this.formatScaled(number, 1_000_000)}m`;
+                    }
+
+                    if (abs >= 1_000) {
+                        return `${this.formatScaled(number, 1_000)}k`;
+                    }
+
+                    return number.toLocaleString(undefined, {
+                        maximumFractionDigits: 0
+                    });
+                },
+                formatScaled(value, divisor) {
+                    const scaled = Number(value) / divisor;
+                    const absScaled = Math.abs(scaled);
+                    const maxFractionDigits = absScaled >= 100 ? 0 : (absScaled >= 10 ? 1 : 2);
+
+                    return scaled.toLocaleString(undefined, {
+                        minimumFractionDigits: 0,
+                        maximumFractionDigits: maxFractionDigits
+                    });
                 },
                 ensureApex(done) {
                     if (window.ApexCharts) {
@@ -64,11 +114,67 @@
                     script.addEventListener('load', done, { once: true });
                     document.head.appendChild(script);
                 },
+                setupResizeHandling() {
+                    if (this.resizeObserver || !window.ResizeObserver) {
+                        return;
+                    }
+
+                    this.resizeObserver = new ResizeObserver((entries) => {
+                        const entry = entries?.[0];
+                        const nextWidth = entry?.contentRect?.width ?? this.$el?.getBoundingClientRect()?.width ?? 0;
+
+                        if (!Number.isFinite(nextWidth) || nextWidth <= 0) {
+                            return;
+                        }
+
+                        if (Math.abs(nextWidth - this.lastContainerWidth) < 8) {
+                            return;
+                        }
+
+                        this.lastContainerWidth = nextWidth;
+                        this.scheduleRender();
+                    });
+
+                    this.resizeObserver.observe(this.$el);
+                },
+                scheduleRender() {
+                    if (this.resizeDebounce) {
+                        clearTimeout(this.resizeDebounce);
+                    }
+
+                    this.resizeDebounce = setTimeout(() => {
+                        if (!window.ApexCharts || !this.$refs.canvas) {
+                            return;
+                        }
+
+                        this.renderChart();
+                    }, 140);
+                },
+                teardownResizeHandling() {
+                    if (this.resizeDebounce) {
+                        clearTimeout(this.resizeDebounce);
+                        this.resizeDebounce = null;
+                    }
+
+                    if (!this.resizeObserver) {
+                        return;
+                    }
+
+                    this.resizeObserver.disconnect();
+                    this.resizeObserver = null;
+                },
                 renderChart() {
                     if (!window.ApexCharts || !this.$refs.canvas) {
                         return;
                     }
 
+                    const containerWidth = this.$el?.getBoundingClientRect()?.width ?? 0;
+                    if (!Number.isFinite(containerWidth) || containerWidth <= 0) {
+                        this.renderChartAfterLayout();
+                        return;
+                    }
+
+                    this.lastContainerWidth = containerWidth;
                     this.destroyChart();
 
                     const isDark = document.documentElement.classList.contains('dark');
@@ -87,6 +193,8 @@
                             height: 320,
                             toolbar: { show: false },
                             zoom: { enabled: false },
+                            redrawOnParentResize: true,
+                            redrawOnWindowResize: true,
                             fontFamily: 'DM Sans, sans-serif',
                             background: 'transparent',
                             parentHeightOffset: 0
@@ -140,7 +248,7 @@
                                     colors: [labelColor],
                                     fontSize: '12px'
                                 },
-                                formatter: (value) => Number(value).toLocaleString()
+                                formatter: (value) => this.formatCompact(value)
                             }
                         },
                         legend: {
@@ -165,9 +273,13 @@
 
                     this.chart.destroy();
                     this.chart = null;
+                },
+                cleanupChart() {
+                    this.destroyChart();
+                    this.teardownResizeHandling();
                 }
             }"
-            x-on:livewire:navigating.window="destroyChart()"
+            x-on:livewire:navigating.window="cleanupChart()"
         >
             <div x-ref="canvas" class="h-80"></div>
         </div>

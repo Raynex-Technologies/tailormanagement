@@ -66,7 +66,7 @@ class Index extends Component
     public function mount(): void
     {
         abort_unless(auth()->user()?->can('todos.use'), 403);
-        $this->assigneeId = auth()->id();
+        $this->assigneeId = null;
     }
 
     protected function rules(): array
@@ -108,6 +108,12 @@ class Index extends Component
 
     public function updatedAssigneeId($value): void
     {
+        if (blank($value)) {
+            $this->assigneeId = null;
+
+            return;
+        }
+
         if ($this->canAssignTasks && (int) $value !== (int) auth()->id()) {
             $this->categoryId = null;
         }
@@ -116,7 +122,7 @@ class Index extends Component
     protected function resetForm(): void
     {
         $this->title = '';
-        $this->assigneeId = auth()->id();
+        $this->assigneeId = null;
         $this->categoryId = null;
         $this->priority = 'normal';
         $this->note = '';

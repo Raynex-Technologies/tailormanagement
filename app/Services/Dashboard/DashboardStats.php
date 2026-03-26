@@ -49,6 +49,19 @@ class DashboardStats
      */
     protected function getOrderStats(): array
     {
+        [$startOfMonth, $endOfMonth] = $this->monthRange(0);
+        [$startOfLastMonth, $endOfLastMonth] = $this->monthRange(-1);
+
+        $newOrdersThisMonth = Order::query()
+            ->where('status', OrderStatus::New)
+            ->dateRange($startOfMonth->toDateString(), $endOfMonth->toDateString())
+            ->count();
+
+        $newOrdersLastMonth = Order::query()
+            ->where('status', OrderStatus::New)
+            ->dateRange($startOfLastMonth->toDateString(), $endOfLastMonth->toDateString())
+            ->count();
+
         return [
             'new_orders_count' => Order::where('status', OrderStatus::New)->count(),
             'in_progress_orders_count' => Order::whereIn('status', [
@@ -60,6 +73,12 @@ class DashboardStats
                 OrderStatus::Completed,
             ])->count(),
             'total_orders_count' => Order::count(),
+            'new_orders_month_count' => $newOrdersThisMonth,
+            'new_orders_previous_month_count' => $newOrdersLastMonth,
+            'new_orders_month_change_pct' => $this->percentageChange(
+                (float) $newOrdersThisMonth,
+                (float) $newOrdersLastMonth
+            ),
         ];
     }
 
@@ -69,12 +88,38 @@ class DashboardStats
     protected function getSalesStats(): array
     {
         $today = Carbon::today();
-        $startOfMonth = Carbon::now()->startOfMonth();
-        $endOfMonth = Carbon::now()->endOfMonth();
+        [$startOfMonth, $endOfMonth] = $this->monthRange(0);
+        [$startOfLastMonth, $endOfLastMonth] = $this->monthRange(-1);
+
+        $paymentsThisMonth = (float) OrderPayment::query()
+            ->whereBetween('paid_at', [$startOfMonth, $endOfMonth])
+            ->sum('amount');
+
+        $paymentsLastMonth = (float) OrderPayment::query()
+            ->whereBetween('paid_at', [$startOfLastMonth, $endOfLastMonth])
+            ->sum('amount');
+
+        $storefrontPaymentsThisMonth = (float) OrderPayment::query()
+            ->whereBetween('paid_at', [$startOfMonth, $endOfMonth])
+            ->whereHas('order', fn ($query) => $query->where('order_type', 'storefront'))
+            ->sum('amount');
+
+        $storefrontPaymentsLastMonth = (float) OrderPayment::query()
+            ->whereBetween('paid_at', [$startOfLastMonth, $endOfLastMonth])
+            ->whereHas('order', fn ($query) => $query->where('order_type', 'storefront'))
+            ->sum('amount');
 
         return [
             'payments_today_sum' => (float) OrderPayment::whereDate('paid_at', $today)->sum('amount'),
-            'payments_month_sum' => (float) OrderPayment::whereBetween('paid_at', [$startOfMonth, $endOfMonth])->sum('amount'),
+            'payments_month_sum' => $paymentsThisMonth,
+            'payments_last_month_sum' => $paymentsLastMonth,
+            'payments_month_change_pct' => $this->percentageChange($paymentsThisMonth, $paymentsLastMonth),
+            'storefront_payments_month_sum' => $storefrontPaymentsThisMonth,
+            'storefront_payments_last_month_sum' => $storefrontPaymentsLastMonth,
+            'storefront_payments_month_change_pct' => $this->percentageChange(
+                $storefrontPaymentsThisMonth,
+                $storefrontPaymentsLastMonth
+            ),
         ];
     }
 
@@ -110,8 +155,8 @@ class DashboardStats
      */
     protected function getExpenseStats(): array
     {
-        $startOfMonth = Carbon::now()->startOfMonth();
-        $endOfMonth = Carbon::now()->endOfMonth();
+        [$startOfMonth, $endOfMonth] = $this->monthRange(0);
+        [$startOfLastMonth, $endOfLastMonth] = $this->monthRange(-1);
 
         $expenseSum = (float) Expense::query()
             ->whereBetween('expense_date', [$startOfMonth->toDateString(), $endOfMonth->toDateString()])
@@ -122,8 +167,22 @@ class DashboardStats
             ->whereBetween('created_at', [$startOfMonth, $endOfMonth])
             ->sum('amount');
 
+        $lastMonthExpenseSum = (float) Expense::query()
+            ->whereBetween('expense_date', [$startOfLastMonth->toDateString(), $endOfLastMonth->toDateString()])
+            ->sum('amount');
+
+        $lastMonthOrderExpenseSum = (float) OrderExpense::query()
+            ->whereHas('order')
+            ->whereBetween('created_at', [$startOfLastMonth, $endOfLastMonth])
+            ->sum('amount');
+
+        $expensesThisMonth = $expenseSum + $orderExpenseSum;
+        $expensesLastMonth = $lastMonthExpenseSum + $lastMonthOrderExpenseSum;
+
         return [
-            'expenses_month_sum' => $expenseSum + $orderExpenseSum,
+            'expenses_month_sum' => $expensesThisMonth,
+            'expenses_last_month_sum' => $expensesLastMonth,
+            'expenses_month_change_pct' => $this->percentageChange($expensesThisMonth, $expensesLastMonth),
         ];
     }
 
@@ -172,10 +231,18 @@ class DashboardStats
                 'in_progress_orders_count' => 0,
                 'completed_orders_count' => 0,
                 'total_orders_count' => 0,
+                'new_orders_month_count' => 0,
+                'new_orders_previous_month_count' => 0,
+                'new_orders_month_change_pct' => 0.0,
             ],
             'sales' => [
                 'payments_today_sum' => 0,
                 'payments_month_sum' => 0,
+                'payments_last_month_sum' => 0,
+                'payments_month_change_pct' => 0.0,
+                'storefront_payments_month_sum' => 0,
+                'storefront_payments_last_month_sum' => 0,
+                'storefront_payments_month_change_pct' => 0.0,
             ],
             'inventory' => [
                 'low_stock_count' => 0,
@@ -186,6 +253,8 @@ class DashboardStats
             ],
             'expenses' => [
                 'expenses_month_sum' => 0,
+                'expenses_last_month_sum' => 0,
+                'expenses_month_change_pct' => 0.0,
             ],
             'capital' => [
                 'open_allocations_count' => 0,
@@ -195,5 +264,32 @@ class DashboardStats
                 'top_by_orders' => collect(),
             ],
         ];
+    }
+
+    /**
+     * Return calendar month range using an offset where 0 is current month, -1 is last month.
+     *
+     * @return array{0: Carbon, 1: Carbon}
+     */
+    protected function monthRange(int $offset): array
+    {
+        $reference = Carbon::now()->startOfMonth()->addMonths($offset);
+
+        return [
+            $reference->copy()->startOfMonth(),
+            $reference->copy()->endOfMonth(),
+        ];
+    }
+
+    /**
+     * Calculate month-over-month percentage change.
+     */
+    protected function percentageChange(float $current, float $previous): float
+    {
+        if ($previous <= 0.0) {
+            return $current > 0.0 ? 100.0 : 0.0;
+        }
+
+        return round((($current - $previous) / $previous) * 100, 1);
     }
 }

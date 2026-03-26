@@ -11,6 +11,9 @@
         @php
             $businessName = $businessName ?? 'Tailex';
             $urgentOpenOrdersCount = (int) ($urgentOpenOrdersCount ?? 0);
+            $calendarNavUrl = \Illuminate\Support\Facades\Route::has('calendar.index')
+                ? route('calendar.index')
+                : url('/calendar');
         @endphp
 
         <style>
@@ -20,6 +23,70 @@
                 height: 1px;
                 margin: 0 0 1.25rem;
                 background: linear-gradient(90deg, rgba(255, 255, 255, 0.02) 0%, rgba(255, 255, 255, 0.12) 18%, rgba(255, 255, 255, 0.12) 82%, rgba(255, 255, 255, 0.02) 100%);
+            }
+
+            .top-frosted-nav {
+                overflow: hidden;
+                border: 1px solid rgba(255, 255, 255, 0.58);
+                background: linear-gradient(135deg, rgba(255, 255, 255, 0.52) 0%, rgba(246, 247, 249, 0.4) 52%, rgba(230, 232, 237, 0.34) 100%);
+                box-shadow: 0 12px 34px rgba(15, 23, 42, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.56);
+                backdrop-filter: blur(24px) saturate(150%);
+                -webkit-backdrop-filter: blur(24px) saturate(150%);
+            }
+
+            .top-frosted-nav::before {
+                content: '';
+                position: absolute;
+                inset: 0;
+                pointer-events: none;
+                background:
+                    radial-gradient(circle at 14% 18%, rgba(255, 255, 255, 0.44) 0%, rgba(255, 255, 255, 0) 38%),
+                    radial-gradient(circle at 84% 28%, rgba(255, 255, 255, 0.34) 0%, rgba(255, 255, 255, 0) 32%);
+            }
+
+            .top-frosted-nav::after {
+                content: '';
+                position: absolute;
+                inset: 0;
+                pointer-events: none;
+                opacity: 0.52;
+                background:
+                    repeating-linear-gradient(
+                        120deg,
+                        rgba(255, 255, 255, 0.11) 0,
+                        rgba(255, 255, 255, 0.11) 1px,
+                        rgba(255, 255, 255, 0) 1px,
+                        rgba(255, 255, 255, 0) 7px
+                    );
+            }
+
+            .top-frosted-nav > * {
+                position: relative;
+                z-index: 1;
+            }
+
+            .dark .top-frosted-nav {
+                border-color: rgba(255, 255, 255, 0.14);
+                background: linear-gradient(135deg, rgba(39, 39, 42, 0.62) 0%, rgba(24, 24, 27, 0.56) 55%, rgba(15, 23, 42, 0.44) 100%);
+                box-shadow: 0 14px 34px rgba(0, 0, 0, 0.42), inset 0 1px 0 rgba(255, 255, 255, 0.14);
+            }
+
+            .dark .top-frosted-nav::before {
+                background:
+                    radial-gradient(circle at 14% 18%, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0) 38%),
+                    radial-gradient(circle at 84% 28%, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 32%);
+            }
+
+            .dark .top-frosted-nav::after {
+                opacity: 0.22;
+                background:
+                    repeating-linear-gradient(
+                        120deg,
+                        rgba(255, 255, 255, 0.14) 0,
+                        rgba(255, 255, 255, 0.14) 1px,
+                        rgba(255, 255, 255, 0) 1px,
+                        rgba(255, 255, 255, 0) 8px
+                    );
             }
 
             @media (min-width: 1024px) {
@@ -57,6 +124,10 @@
                     font-size: 1rem;
                 }
 
+                .desktop-sidebar .orders-indicator-dot {
+                    display: none;
+                }
+
                 .desktop-sidebar.is-collapsed .sidebar-header-link {
                     justify-content: center;
                     padding-right: 0;
@@ -79,6 +150,15 @@
                     padding-left: 0;
                     padding-right: 0;
                     font-size: 0;
+                }
+
+                .desktop-sidebar.is-collapsed .orders-management-label,
+                .desktop-sidebar.is-collapsed .orders-indicator-badge {
+                    display: none;
+                }
+
+                .desktop-sidebar.is-collapsed .orders-indicator-dot {
+                    display: flex;
                 }
 
                 .desktop-sidebar .nav-group.nav-group-active > h3 {
@@ -166,13 +246,17 @@
                     <a 
                         href="{{ route('orders.index') }}" 
                         wire:navigate
-                        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ (request()->routeIs('orders.index') || request()->routeIs('orders.show') || request()->routeIs('orders.create') || request()->routeIs('orders.edit')) ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}"
+                        class="orders-management-link relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ (request()->routeIs('orders.index') || request()->routeIs('orders.show') || request()->routeIs('orders.create') || request()->routeIs('orders.edit')) ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}"
                     >
                         <i class="fa-duotone fa-box-dollar size-5"></i>
-                        <span class="flex-1">{{ __('Orders Management') }}</span>
+                        <span class="orders-management-label flex-1">{{ __('Orders Management') }}</span>
                         @if ($urgentOpenOrdersCount > 0)
-                            <span class="inline-flex min-w-6 items-center justify-center rounded-full bg-red-500 px-2 py-0.5 text-xs font-semibold text-white">
+                            <span class="orders-indicator-badge inline-flex min-w-6 items-center justify-center rounded-full bg-red-500 px-2 py-0.5 text-xs font-semibold text-white">
                                 {{ $urgentOpenOrdersCount }}
+                            </span>
+                            <span class="orders-indicator-dot pointer-events-none absolute right-3 top-2 size-2.5 items-center justify-center" aria-hidden="true">
+                                <span class="absolute inline-flex size-full animate-ping rounded-full bg-orange-400 opacity-90"></span>
+                                <span class="relative inline-flex size-2.5 rounded-full bg-orange-500 ring-1 ring-white/90 dark:ring-zinc-900"></span>
                             </span>
                         @endif
                     </a>
@@ -879,14 +963,11 @@
         </div>
 
         {{-- Mobile Header --}}
-        <header class="lg:hidden fixed top-0 left-0 right-0 z-30 h-16 flex items-center justify-between px-4" style="background: linear-gradient(135deg, #F5F5F7 0%, #EBEBED 50%, #E8E8EC 100%);">
-            <div class="dark:hidden absolute inset-0" style="background: linear-gradient(135deg, #F5F5F7 0%, #EBEBED 50%, #E8E8EC 100%);"></div>
-            <div class="hidden dark:block absolute inset-0" style="background: linear-gradient(135deg, #111113 0%, #18181B 50%, #1C1C1F 100%);"></div>
-            
+        <header class="top-frosted-nav lg:hidden sticky top-4 z-30 h-16 mx-4 mt-4 rounded-2xl flex items-center justify-between px-4">
             <div class="relative flex items-center gap-3">
                 <button 
                     @click="$dispatch('toggle-sidebar')"
-                    class="p-2 rounded-xl bg-white/80 dark:bg-white/10 shadow-sm"
+                    class="p-2 rounded-xl bg-white/65 dark:bg-white/10 border border-white/65 dark:border-white/15 backdrop-blur-xl shadow-sm"
                 >
                     <i class="fa-duotone fa-bars size-5 text-navy-900 dark:text-white"></i>
                 </button>
@@ -894,7 +975,21 @@
             </div>
 
             <div class="relative flex items-center gap-2">
-                <livewire:messages.unread-badge />
+                <a
+                    href="{{ $calendarNavUrl }}"
+                    wire:navigate
+                    class="relative flex items-center justify-center size-9 text-navy-900 dark:text-white transition-colors hover:text-lime-600 dark:hover:text-lime-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime-400/70 rounded-lg"
+                    aria-label="{{ __('Calendar') }}"
+                    title="{{ __('Calendar') }}"
+                >
+                    <i class="fa-duotone fa-calendar-days size-5"></i>
+                    @if ($urgentOpenOrdersCount > 0)
+                        <span class="pointer-events-none absolute -top-0.5 -right-0.5 flex size-2">
+                            <span class="absolute inline-flex size-full animate-ping rounded-full bg-orange-400 opacity-90"></span>
+                            <span class="relative inline-flex size-2 rounded-full bg-orange-500 ring-1 ring-white dark:ring-zinc-900"></span>
+                        </span>
+                    @endif
+                </a>
                 <livewire:notifications.notification-bell />
                 
                 {{-- Mobile Profile Dropdown --}}
@@ -948,12 +1043,26 @@
         </header>
 
         {{-- Main Content Area --}}
-        <main class="pt-16 lg:pt-0 min-h-screen transition-[margin] duration-300 ease-out" :class="desktopSidebarCollapsed ? 'lg:ml-28' : 'lg:ml-72'">
+        <main class="pt-0 min-h-screen transition-[margin] duration-300 ease-out" :class="desktopSidebarCollapsed ? 'lg:ml-28' : 'lg:ml-72'">
             {{-- Desktop Header --}}
-            <header class="hidden lg:flex sticky top-0 z-40 h-16 items-center justify-end gap-x-4 px-6 mx-4 mt-4 rounded-2xl bg-white/90 dark:bg-zinc-900/90 backdrop-blur-xl shadow-sm border border-black/5 dark:border-white/5">
+            <header class="top-frosted-nav hidden lg:flex sticky top-4 z-40 h-16 items-center justify-end gap-x-4 px-6 mx-4 mt-4 rounded-2xl">
                 {{-- Right side actions --}}
                 <div class="flex items-center gap-x-3">
-                    <livewire:messages.unread-badge />
+                    <a
+                        href="{{ $calendarNavUrl }}"
+                        wire:navigate
+                        class="relative flex items-center justify-center size-10 text-zinc-700 dark:text-zinc-200 transition-colors hover:text-lime-600 dark:hover:text-lime-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime-400/70 rounded-lg"
+                        aria-label="{{ __('Calendar') }}"
+                        title="{{ __('Calendar') }}"
+                    >
+                        <i class="fa-duotone fa-calendar-days size-5"></i>
+                        @if ($urgentOpenOrdersCount > 0)
+                            <span class="pointer-events-none absolute top-1.5 right-1.5 flex size-2">
+                                <span class="absolute inline-flex size-full animate-ping rounded-full bg-orange-400 opacity-90"></span>
+                                <span class="relative inline-flex size-2 rounded-full bg-orange-500 ring-1 ring-white dark:ring-zinc-900"></span>
+                            </span>
+                        @endif
+                    </a>
                     <livewire:notifications.notification-bell />
                     
                     {{-- Desktop Profile Dropdown --}}
