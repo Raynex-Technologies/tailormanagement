@@ -74,7 +74,10 @@ Route::prefix('shop')
         });
     });
 
-Route::prefix('storefront/payments/pesapal')->name('storefront.payments.')->group(function () {
+Route::prefix('storefront/payments/pesapal')
+    ->middleware('throttle:storefront-payments')
+    ->name('storefront.payments.')
+    ->group(function () {
     Route::get('/callback', [StorefrontPaymentController::class, 'callback'])->name('callback');
     Route::match(['get', 'post'], '/ipn', [StorefrontPaymentController::class, 'ipn'])->name('ipn');
 });
@@ -105,12 +108,17 @@ Route::middleware(['auth', 'verified'])
 |--------------------------------------------------------------------------
 */
 Route::get('/health', function () {
-    return response()->json([
+    $payload = [
         'status' => 'ok',
         'time' => now()->toIso8601String(),
-        'app' => config('app.name'),
-        'version' => '1.0.0',
-    ]);
+    ];
+
+    if (! app()->isProduction()) {
+        $payload['app'] = config('app.name');
+        $payload['version'] = '1.0.0';
+    }
+
+    return response()->json($payload);
 })->name('health');
 
 /*

@@ -58,63 +58,63 @@
         @endphp
         <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {{-- Total Orders --}}
-            <div class="rounded-2xl bg-white dark:bg-zinc-800/50 p-5 shadow-sm border border-zinc-200/50 dark:border-zinc-700/50">
+            <div class="rounded-2xl p-5 shadow-sm border border-[#f0bca2]" style="background-color: #f7d4c1;">
                 <div class="flex items-start justify-between">
-                    <div class="flex items-center justify-center size-11 rounded-xl bg-indigo-50 dark:bg-indigo-900/30">
-                        <i class="fa-duotone fa-bag-shopping size-5 text-indigo-500"></i>
+                    <div class="flex items-center justify-center size-11 rounded-xl bg-white/55">
+                        <i class="fa-duotone fa-bag-shopping size-5 text-[#7d3f22]"></i>
                     </div>
                     @if ($stats['orders']['new_orders_count'] > 0)
-                        <span class="inline-flex items-center rounded-lg bg-lime-100 dark:bg-lime-900/30 px-2 py-0.5 text-xs font-semibold text-lime-700 dark:text-lime-400">
+                        <span class="inline-flex items-center rounded-lg bg-white/70 px-2 py-0.5 text-xs font-semibold text-[#6b2f17]">
                             +{{ $stats['orders']['new_orders_count'] }} {{ __('new') }}
                         </span>
                     @endif
                 </div>
                 <div class="mt-3">
-                    <p class="text-3xl font-bold tracking-tight text-zinc-900 dark:text-white">{{ number_format($stats['orders']['total_orders_count']) }}</p>
-                    <p class="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">{{ __('Total Orders') }}</p>
+                    <p class="text-3xl font-bold tracking-tight text-[#3d1f11]">{{ number_format($stats['orders']['total_orders_count']) }}</p>
+                    <p class="mt-0.5 text-sm text-[#6b2f17]">{{ __('Total Orders') }}</p>
                 </div>
             </div>
 
             {{-- Active Orders --}}
-            <div class="rounded-2xl bg-white dark:bg-zinc-800/50 p-5 shadow-sm border border-zinc-200/50 dark:border-zinc-700/50">
+            <div class="rounded-2xl p-5 shadow-sm border border-[#0b4b51]" style="background-color: #0f5e65;">
                 <div class="flex items-start justify-between">
-                    <div class="flex items-center justify-center size-11 rounded-xl bg-violet-50 dark:bg-violet-900/30">
-                        <i class="fa-duotone fa-clock size-5 text-violet-500"></i>
+                    <div class="flex items-center justify-center size-11 rounded-xl bg-white/20">
+                        <i class="fa-duotone fa-clock size-5 text-white"></i>
                     </div>
                 </div>
                 <div class="mt-3">
-                    <p class="text-3xl font-bold tracking-tight text-zinc-900 dark:text-white">{{ number_format($stats['orders']['in_progress_orders_count']) }}</p>
-                    <p class="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">{{ __('Active Orders') }}</p>
+                    <p class="text-3xl font-bold tracking-tight text-white">{{ number_format($stats['orders']['in_progress_orders_count']) }}</p>
+                    <p class="mt-0.5 text-sm text-white/85">{{ __('Active Orders') }}</p>
                 </div>
             </div>
 
             {{-- Revenue This Month --}}
-            <div class="rounded-2xl bg-white dark:bg-zinc-800/50 p-5 shadow-sm border border-zinc-200/50 dark:border-zinc-700/50">
+            <div class="rounded-2xl p-5 shadow-sm border border-[#db6222]" style="background-color: #f17735;">
                 <div class="flex items-start justify-between">
-                    <div class="flex items-center justify-center size-11 rounded-xl bg-emerald-50 dark:bg-emerald-900/30">
-                        <i class="fa-duotone fa-arrow-trend-up size-5 text-emerald-500"></i>
+                    <div class="flex items-center justify-center size-11 rounded-xl bg-white/30">
+                        <i class="fa-duotone fa-arrow-trend-up size-5 text-[#5a230c]"></i>
                     </div>
                 </div>
                 <div class="mt-3">
-                    <p class="text-3xl font-bold tracking-tight text-zinc-900 dark:text-white">
-                        {{ $fmt($monthRevenue) }} <span class="text-sm font-normal text-zinc-400 dark:text-zinc-500">TZS</span>
+                    <p class="text-3xl font-bold tracking-tight text-[#411806]">
+                        {{ $fmt($monthRevenue) }} <span class="text-sm font-normal text-[#5a230c]">TZS</span>
                     </p>
-                    <p class="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">{{ __('Revenue This Month') }}</p>
+                    <p class="mt-0.5 text-sm text-[#5a230c]">{{ __('Revenue This Month') }}</p>
                 </div>
             </div>
 
             {{-- Expenses This Month --}}
-            <div class="rounded-2xl bg-white dark:bg-zinc-800/50 p-5 shadow-sm border border-zinc-200/50 dark:border-zinc-700/50">
+            <div class="rounded-2xl p-5 shadow-sm border border-[#8f1f3c]" style="background-color: #ad2749;">
                 <div class="flex items-start justify-between">
-                    <div class="flex items-center justify-center size-11 rounded-xl bg-rose-50 dark:bg-rose-900/30">
-                        <i class="fa-duotone fa-receipt size-5 text-rose-500"></i>
+                    <div class="flex items-center justify-center size-11 rounded-xl bg-white/20">
+                        <i class="fa-duotone fa-receipt size-5 text-white"></i>
                     </div>
                 </div>
                 <div class="mt-3">
-                    <p class="text-3xl font-bold tracking-tight text-zinc-900 dark:text-white">
-                        {{ $fmt($monthExpenses) }} <span class="text-sm font-normal text-zinc-400 dark:text-zinc-500">TZS</span>
+                    <p class="text-3xl font-bold tracking-tight text-white">
+                        {{ $fmt($monthExpenses) }} <span class="text-sm font-normal text-white/80">TZS</span>
                     </p>
-                    <p class="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">{{ __('Expenses This Month') }}</p>
+                    <p class="mt-0.5 text-sm text-white/85">{{ __('Expenses This Month') }}</p>
                 </div>
             </div>
         </div>

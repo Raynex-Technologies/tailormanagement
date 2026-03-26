@@ -5,14 +5,13 @@
 ])
 
 @php
-$classes = Flux::classes('[grid-area:main]')
+$classes = Flux::classes('w-full')
     // Global app layout already provides page padding.
     ->add('p-0')
-    ->add('[[data-flux-container]_&]:px-0')
     ->add($container ? 'mx-auto w-full [:where(&)]:max-w-7xl' : '')
     ;
 @endphp
 
-<div {{ $attributes->class($classes) }} data-flux-main>
+<div {{ $attributes->class($classes) }}>
     {{ $slot }}
 </div>

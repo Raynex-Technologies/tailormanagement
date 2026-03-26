@@ -38,17 +38,21 @@ class CartService
     public function queueGuestTokenCookie(string $token): void
     {
         $minutes = (int) config('storefront.cart.guest_lifetime_minutes', 60 * 24 * 14);
+        $secure = (bool) (config('session.secure') ?? app()->isProduction());
+        $path = (string) config('session.path', '/');
+        $domain = config('session.domain');
+        $sameSite = (string) (config('session.same_site') ?: 'lax');
 
         cookie()->queue(cookie(
             $this->cartCookieName(),
             $token,
             $minutes,
-            null,
-            null,
-            false,
+            $path,
+            $domain,
+            $secure,
             true,
             false,
-            'lax'
+            $sameSite
         ));
     }
 

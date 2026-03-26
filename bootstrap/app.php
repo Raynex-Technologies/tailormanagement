@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Middleware\SetBranchContext;
+use App\Http\Middleware\AddSecurityHeaders;
 use App\Http\Middleware\EnsureStorefrontCheckoutEnabled;
 use App\Http\Middleware\EnsureStorefrontEnabled;
 use App\Http\Middleware\SyncGuestCart;
@@ -29,6 +30,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->web(append: [
             \Illuminate\Routing\Middleware\ThrottleRequests::class.':web',
             SyncGuestCart::class,
+            AddSecurityHeaders::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

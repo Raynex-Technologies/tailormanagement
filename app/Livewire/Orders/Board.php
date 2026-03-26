@@ -3,16 +3,24 @@
 namespace App\Livewire\Orders;
 
 use App\Enums\OrderStatus;
+use App\Events\OrderStatusChanged;
 use App\Models\Order;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
+use Throwable;
 
 #[Layout('layouts.app.sidebar')]
 #[Title('Order Board')]
 class Board extends Component
 {
+    private const BOARD_STATUSES = [
+        OrderStatus::New,
+        OrderStatus::InProgress,
+        OrderStatus::Ready,
+    ];
+
     #[Url]
     public string $search = '';
 
@@ -51,23 +59,51 @@ class Board extends Component
 
     public function markCompleted(int $orderId): void
     {
-        $order = Order::find($orderId);
+        $order = Order::query()->find($orderId);
 
         if (! $order) {
-            session()->flash('error', 'Order not found.');
+            $this->pushToast('danger', 'Order not found.');
             return;
         }
 
-        $this->authorize('markCompleted', $order);
+        try {
+            if (! $this->transitionOrderStatus($order, OrderStatus::Completed, 'markCompleted')) {
+                return;
+            }
 
-        if (! $order->canTransitionTo(OrderStatus::Completed)) {
-            session()->flash('error', 'This order cannot be marked as completed.');
+            $this->pushToast('success', "Order {$order->order_no} marked as completed.");
+        } catch (Throwable $exception) {
+            report($exception);
+            $this->pushToast('danger', 'Unable to mark order as completed.');
+        }
+    }
+
+    public function moveOrder(int $orderId, string $targetStatus): void
+    {
+        $order = Order::query()->find($orderId);
+
+        if (! $order) {
+            $this->pushToast('danger', 'Order not found.');
             return;
         }
 
-        $order->update(['status' => OrderStatus::Completed]);
+        $newStatus = OrderStatus::tryFrom($targetStatus);
 
-        session()->flash('success', "Order {$order->order_no} marked as completed.");
+        if (! $newStatus || ! in_array($newStatus, self::BOARD_STATUSES, true)) {
+            $this->pushToast('danger', 'Invalid destination column.');
+            return;
+        }
+
+        try {
+            if (! $this->transitionOrderStatus($order, $newStatus, 'changeStatus')) {
+                return;
+            }
+
+            $this->pushToast('success', "Order {$order->order_no} moved to {$newStatus->label()}.");
+        } catch (Throwable $exception) {
+            report($exception);
+            $this->pushToast('danger', 'Unable to move this order.');
+        }
     }
 
     protected function getOrdersQuery()
@@ -88,8 +124,6 @@ class Board extends Component
 
     public function render()
     {
-        $user = auth()->user();
-
         // Get counts for each column
         $baseQuery = $this->getOrdersQuery();
 
@@ -108,9 +142,6 @@ class Board extends Component
         $readyCount = $readyQuery->count();
         $readyOrders = $readyQuery->latest()->limit($this->perColumn + $this->readyOffset)->get();
 
-        // Check if user can mark orders as completed
-        $canMarkCompleted = $user->can('orders.mark_completed');
-
         return view('livewire.orders.board', [
             'newOrders' => $newOrders,
             'newCount' => $newCount,
@@ -121,7 +152,37 @@ class Board extends Component
             'readyOrders' => $readyOrders,
             'readyCount' => $readyCount,
             'readyHasMore' => $readyCount > count($readyOrders),
-            'canMarkCompleted' => $canMarkCompleted,
         ]);
+    }
+
+    protected function transitionOrderStatus(Order $order, OrderStatus $newStatus, string $ability): bool
+    {
+        $this->authorize($ability, $order);
+
+        if ($order->status === $newStatus) {
+            $this->pushToast('warning', 'Order is already in that column.');
+
+            return false;
+        }
+
+        if (! $order->canTransitionTo($newStatus)) {
+            $this->pushToast('danger', 'Invalid status transition.');
+
+            return false;
+        }
+
+        $oldStatus = $order->status;
+
+        $order->update(['status' => $newStatus]);
+        $order->refresh();
+
+        event(new OrderStatusChanged($order, $oldStatus, $newStatus, auth()->user()));
+
+        return true;
+    }
+
+    protected function pushToast(string $variant, string $text): void
+    {
+        $this->dispatch('board-toast', variant: $variant, text: $text);
     }
 }

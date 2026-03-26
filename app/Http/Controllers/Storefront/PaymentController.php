@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\PaymentTransaction;
 use App\Services\Storefront\Payments\PaymentTransactionService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 class PaymentController extends Controller
 {
@@ -19,6 +20,12 @@ class PaymentController extends Controller
         $transaction = $this->resolveTransaction($request);
 
         if (! $transaction) {
+            Log::warning('Storefront payment callback could not resolve transaction', [
+                'merchant_reference' => $this->merchantReference($request),
+                'tracking_id' => $this->trackingId($request),
+                'ip' => $request->ip(),
+            ]);
+
             return redirect()->route('storefront.cart.index')->with('error', 'Unable to locate payment transaction from gateway callback.');
         }
 
@@ -51,6 +58,12 @@ class PaymentController extends Controller
         $transaction = $this->resolveTransaction($request);
 
         if (! $transaction) {
+            Log::warning('Storefront payment IPN could not resolve transaction', [
+                'merchant_reference' => $this->merchantReference($request),
+                'tracking_id' => $this->trackingId($request),
+                'ip' => $request->ip(),
+            ]);
+
             return response()->json(['message' => 'transaction_not_found'], 404);
         }
 
@@ -64,24 +77,63 @@ class PaymentController extends Controller
 
     protected function resolveTransaction(Request $request): ?PaymentTransaction
     {
-        $merchantReference = $request->query('OrderMerchantReference')
+        $merchantReference = $this->merchantReference($request);
+        $trackingId = $this->trackingId($request);
+
+        if (! $merchantReference && ! $trackingId) {
+            return null;
+        }
+
+        $transaction = null;
+
+        if ($merchantReference) {
+            $transaction = PaymentTransaction::query()
+                ->where('merchant_reference', $merchantReference)
+                ->first();
+
+            if ($transaction && $trackingId && filled($transaction->gateway_reference) && ! hash_equals((string) $transaction->gateway_reference, (string) $trackingId)) {
+                return null;
+            }
+        }
+
+        if (! $transaction && $trackingId) {
+            $transaction = PaymentTransaction::query()
+                ->where('gateway_reference', $trackingId)
+                ->first();
+
+            if ($transaction && $merchantReference && ! hash_equals((string) $transaction->merchant_reference, (string) $merchantReference)) {
+                return null;
+            }
+        }
+
+        if (! $transaction) {
+            return null;
+        }
+
+        $transaction->loadMissing('paymentMethod');
+
+        $gateway = strtolower(trim((string) ($transaction->paymentMethod?->code ?: $transaction->gateway)));
+
+        return $gateway === 'pesapal' ? $transaction : null;
+    }
+
+    protected function merchantReference(Request $request): ?string
+    {
+        $value = $request->query('OrderMerchantReference')
             ?: $request->query('merchant_reference')
             ?: $request->input('order_merchant_reference')
             ?: $request->input('merchant_reference');
 
-        if ($merchantReference) {
-            return PaymentTransaction::query()->where('merchant_reference', $merchantReference)->first();
-        }
+        return filled($value) ? trim((string) $value) : null;
+    }
 
-        $trackingId = $request->query('OrderTrackingId')
+    protected function trackingId(Request $request): ?string
+    {
+        $value = $request->query('OrderTrackingId')
             ?: $request->query('order_tracking_id')
             ?: $request->input('order_tracking_id')
             ?: $request->input('OrderTrackingId');
 
-        if ($trackingId) {
-            return PaymentTransaction::query()->where('gateway_reference', $trackingId)->first();
-        }
-
-        return null;
+        return filled($value) ? trim((string) $value) : null;
     }
 }

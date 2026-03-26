@@ -9,22 +9,8 @@
         x-init="desktopSidebarCollapsed = JSON.parse(window.localStorage.getItem('desktopSidebarCollapsed') ?? 'false'); $watch('desktopSidebarCollapsed', value => window.localStorage.setItem('desktopSidebarCollapsed', JSON.stringify(value)))"
     >
         @php
-            $businessName = $businessName
-                ?? (\App\Models\BusinessSetting::query()->value('business_name') ?: 'Tailex');
-
-            $urgentOpenOrdersCount = 0;
-
-            $authUser = auth()->user();
-            if ($authUser && $authUser->can('orders.view')) {
-                $urgentOrdersQuery = \App\Models\Order::query()
-                    ->urgentOpen();
-
-                if ($authUser->hasRole('tailor')) {
-                    $urgentOrdersQuery->forTailor($authUser->id);
-                }
-
-                $urgentOpenOrdersCount = $urgentOrdersQuery->count();
-            }
+            $businessName = $businessName ?? 'Tailex';
+            $urgentOpenOrdersCount = (int) ($urgentOpenOrdersCount ?? 0);
         @endphp
 
         <style>

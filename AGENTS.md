@@ -17,3 +17,12 @@ This rule is mandatory for every task in this repository and overrides any confl
 - If a requested task would require schema changes or destructive data changes, stop and tell the user that the task conflicts with this rule.
 
 Treat this as a permanent operating constraint for all future work in this repository.
+
+## Hard Rule: Implementation Priorities
+
+This rule is mandatory for every code implementation in this repository.
+
+- ALWAYS prioritize strong security practices first (authorization, validation, input/output safety, and safe handling of secrets).
+- ALWAYS prioritize user experience (clear behavior, accessible interactions, and no avoidable regressions in usability).
+- ALWAYS prioritize performance (avoid unnecessary queries, N+1 patterns, wasteful rendering, and inefficient logic paths).
+- When tradeoffs are required, do not ship silent compromises: call them out clearly and choose the safest and most maintainable option.

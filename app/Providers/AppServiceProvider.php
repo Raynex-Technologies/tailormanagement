@@ -40,16 +40,19 @@ use App\Policies\PurchaseOrderPolicy;
 use App\Policies\PurchaseRequestPolicy;
 use App\Policies\PackagePolicy;
 use App\Policies\UserPolicy;
+use App\Support\BranchContext;
 use Carbon\CarbonImmutable;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Cache;
 
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
+use Illuminate\Support\Facades\View;
 use Illuminate\Validation\Rules\Password;
 use Livewire\Livewire;
 use Throwable;
@@ -104,6 +107,7 @@ class AppServiceProvider extends ServiceProvider
 
         $this->configureDefaults();
         $this->configureRuntimeMailSettings();
+        $this->configureViewComposers();
         $this->configureGates();
         $this->configureRateLimiting();
         $this->registerPolicies();
@@ -205,6 +209,42 @@ class AppServiceProvider extends ServiceProvider
         }
     }
 
+    protected function configureViewComposers(): void
+    {
+        View::composer('layouts.app.sidebar', function ($view): void {
+            $businessName = Cache::remember('layout:business-name', now()->addMinutes(10), function () {
+                return BusinessSetting::query()->value('business_name') ?: 'Tailex';
+            });
+
+            $urgentOpenOrdersCount = 0;
+            $authUser = auth()->user();
+
+            if ($authUser && $authUser->can('orders.view')) {
+                $branchKey = BranchContext::isInitialized()
+                    ? (string) (BranchContext::id() ?? 'all')
+                    : 'uninitialized';
+                $roleKey = $authUser->hasRole('tailor') ? 'tailor' : 'standard';
+
+                $cacheKey = "layout:urgent-open-orders:{$authUser->id}:{$branchKey}:{$roleKey}";
+
+                $urgentOpenOrdersCount = Cache::remember($cacheKey, now()->addSeconds(30), function () use ($authUser) {
+                    $urgentOrdersQuery = Order::query()->urgentOpen();
+
+                    if ($authUser->hasRole('tailor')) {
+                        $urgentOrdersQuery->forTailor($authUser->id);
+                    }
+
+                    return $urgentOrdersQuery->count();
+                });
+            }
+
+            $view->with([
+                'businessName' => $businessName,
+                'urgentOpenOrdersCount' => $urgentOpenOrdersCount,
+            ]);
+        });
+    }
+
     /**
      * Configure authorization gates.
      * Spatie laravel-permission automatically registers gates for permissions.
@@ -261,6 +301,20 @@ class AppServiceProvider extends ServiceProvider
         // Heavy operations (reports, exports) - 10 per minute
         RateLimiter::for('exports', function (Request $request) {
             return Limit::perMinute(10)->by($request->user()?->id ?: $request->ip());
+        });
+
+        // Storefront payment callbacks/IPNs - stricter source throttling.
+        RateLimiter::for('storefront-payments', function (Request $request) {
+            $merchantReference = (string) ($request->query('OrderMerchantReference')
+                ?: $request->query('merchant_reference')
+                ?: $request->input('order_merchant_reference')
+                ?: $request->input('merchant_reference')
+                ?: 'none');
+
+            return [
+                Limit::perMinute(120)->by($request->ip()),
+                Limit::perMinute(30)->by($request->ip().'|'.$merchantReference),
+            ];
         });
     }
 }
