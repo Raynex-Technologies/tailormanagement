@@ -1,4 +1,4 @@
-<flux:main class="space-y-6 p-6">
+<flux:main class="space-y-6">
     {{-- Breadcrumbs --}}
     <flux:breadcrumbs>
         <flux:breadcrumbs.item href="{{ route('dashboard') }}" icon="home" wire:navigate />
@@ -31,7 +31,7 @@
                 </div>
                 <flux:text class="mt-1">
                     {{ __('Supplier') }}: <span class="font-medium">{{ $purchaseOrder->supplier?->name ?? 'N/A' }}</span>
-                    <span class="text-zinc-400">•</span>
+                    <span class="text-zinc-400">â€¢</span>
                     {{ $purchaseOrder->created_at->format('M d, Y H:i') }}
                 </flux:text>
             </div>

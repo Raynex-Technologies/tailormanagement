@@ -1,4 +1,4 @@
-<flux:main class="space-y-6 p-6">
+<flux:main class="space-y-6">
     {{-- Breadcrumbs --}}
     <flux:breadcrumbs>
         <flux:breadcrumbs.item href="{{ route('dashboard') }}" wire:navigate icon="home" />

@@ -1,4 +1,4 @@
-<flux:main class="space-y-6 p-6">
+<flux:main class="space-y-6">
     {{-- Breadcrumbs --}}
     <flux:breadcrumbs>
         <flux:breadcrumbs.item href="{{ route('dashboard') }}" icon="home" wire:navigate />
@@ -110,7 +110,7 @@
                                 @endforeach
                             </td>
                             <td class="px-4 py-3">
-                                {{ $user->branch?->name ?? '—' }}
+                                {{ $user->branch?->name ?? 'â€”' }}
                             </td>
                             <td class="px-4 py-3 whitespace-nowrap text-zinc-500">
                                 {{ $user->created_at->format('M d, Y') }}

@@ -1,5 +1,5 @@
 <div>
-    <flux:main class="p-6">
+    <flux:main class="p-0">
         {{-- Page Header --}}
         <div class="mb-6">
             <flux:breadcrumbs>
@@ -13,7 +13,7 @@
                 <div>
                     <flux:heading size="xl">Stock Requests</flux:heading>
                     <flux:text class="mt-1 text-zinc-600 dark:text-zinc-400">
-                        Order: {{ $order->order_no }} • Customer: {{ $order->customer?->name }}
+                        Order: {{ $order->order_no }} â€¢ Customer: {{ $order->customer?->name }}
                     </flux:text>
                 </div>
 
@@ -106,7 +106,7 @@
                                             </td>
                                             <td class="py-2 text-center">{{ number_format($item->qty_requested, 0) }}</td>
                                             <td class="py-2 text-center">
-                                                {{ $item->qty_approved !== null ? number_format($item->qty_approved, 0) : '—' }}
+                                                {{ $item->qty_approved !== null ? number_format($item->qty_approved, 0) : 'â€”' }}
                                             </td>
                                             <td class="py-2 text-center">
                                                 @if ($item->qty_issued > 0)
@@ -114,7 +114,7 @@
                                                         {{ number_format($item->qty_issued, 0) }}
                                                     </span>
                                                 @else
-                                                    —
+                                                    â€”
                                                 @endif
                                             </td>
                                         </tr>

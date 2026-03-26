@@ -30,8 +30,9 @@ class InvoiceTemplateSelectionTest extends TestCase
 
     public function test_invoice_templates_are_seeded_by_migration(): void
     {
-        $this->assertSame(5, InvoiceTemplate::query()->count());
-        $this->assertDatabaseHas('invoice_templates', ['slug' => 'classic', 'is_default' => true]);
+        $this->assertSame(6, InvoiceTemplate::query()->count());
+        $this->assertDatabaseHas('invoice_templates', ['slug' => 'tailwind', 'is_default' => true]);
+        $this->assertDatabaseHas('invoice_templates', ['slug' => 'classic']);
         $this->assertDatabaseHas('invoice_templates', ['slug' => 'modern']);
         $this->assertDatabaseHas('invoice_templates', ['slug' => 'minimal']);
         $this->assertDatabaseHas('invoice_templates', ['slug' => 'bold']);
@@ -67,7 +68,7 @@ class InvoiceTemplateSelectionTest extends TestCase
 
         $resolved = app(InvoiceTemplateResolver::class)->resolve($settings->fresh());
 
-        $this->assertSame('classic', $resolved->slug);
+        $this->assertSame('tailwind', $resolved->slug);
     }
 
     public function test_invoice_print_and_download_use_selected_template(): void
@@ -101,7 +102,7 @@ class InvoiceTemplateSelectionTest extends TestCase
 
         $pdfResponse = $this->get(route('invoices.download', $invoice));
         $pdfResponse->assertOk();
-        $this->assertStringContainsString('TEMPLATE: CLASSIC', $pdfResponse->streamedContent());
+        $this->assertStringContainsString('Tailwind Basic', $pdfResponse->streamedContent());
     }
 
     public function test_settings_route_requires_existing_settings_permission(): void

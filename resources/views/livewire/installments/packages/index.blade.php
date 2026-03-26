@@ -1,5 +1,5 @@
 <div>
-    <flux:main class="space-y-6 p-6">
+    <flux:main class="space-y-6">
         <flux:breadcrumbs>
             <flux:breadcrumbs.item :href="route('dashboard')" icon="home" wire:navigate />
             <flux:breadcrumbs.item :href="route('installments.dashboard')" wire:navigate>{{ __('Installments') }}</flux:breadcrumbs.item>

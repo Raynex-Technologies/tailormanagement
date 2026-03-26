@@ -43,6 +43,9 @@ These rules apply to all code and UI in this project. Follow them for new work a
 
 - **Components:** Use **Flux** components (`flux:card`, `flux:button`, `flux:input`, etc.) for consistency.
 - **Layout:** Use `flux:main` for main content area; use existing sidebar layout for app pages.
+- **Form placement rule:** Do not place an inline create/edit form beside an index/list on the same page.
+- **Simple CRUD:** Use a modal-triggered form from the index/list page.
+- **Complex CRUD:** Use dedicated `create` / `edit` pages and keep index pages list-focused.
 - **Feedback:** Show success/error via Livewire flash messages or callouts; use `flux:callout` where appropriate.
 - **Loading states:** Use `wire:loading` and `wire:loading.attr="disabled"` on submit buttons and key actions.
 
@@ -61,6 +64,14 @@ These rules apply to all code and UI in this project. Follow them for new work a
 - **Secrets:** Never commit `.env` or secrets; use `config()` and env vars.
 - **CSRF:** Rely on Laravel’s CSRF protection for forms.
 - **Permissions:** Use Spatie Laravel Permission (roles/permissions) and check permissions in policies and UI.
+
+---
+
+## Content Safety Rules
+
+- **No raw HTML inputs:** Never allow raw HTML input in any form field.
+- **Neutral labels:** Do not use labels like `Body (HTML not allowed)`; use plain labels like `Body`.
+- **Auto-generated metadata:** Page slugs and excerpts must be auto-generated from the page title.
 
 ---
 

@@ -109,6 +109,24 @@ class TaskAssignmentTest extends TestCase
         ]);
     }
 
+    public function test_branch_manager_cannot_assign_tasks_to_customer_accounts(): void
+    {
+        $manager = $this->actingAsRole('branch_manager', $this->branch);
+        $customerUser = $this->createUserWithRole('customer', $this->branch);
+
+        Livewire::test(TasksIndex::class)
+            ->set('title', 'Customer should not be assignable')
+            ->set('assigneeId', $customerUser->id)
+            ->call('saveTask')
+            ->assertHasErrors(['assigneeId']);
+
+        $this->assertDatabaseMissing('todos', [
+            'title' => 'Customer should not be assignable',
+            'user_id' => $customerUser->id,
+            'assigned_by' => $manager->id,
+        ]);
+    }
+
     public function test_assigner_can_track_progress_updates_for_assigned_tasks(): void
     {
         $manager = $this->actingAsRole('branch_manager', $this->branch);

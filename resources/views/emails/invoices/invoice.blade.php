@@ -23,10 +23,14 @@
             @endif
         </p>
 
-        <p style="margin: 0 0 12px;">Dear {{ $invoice->order?->customer?->name ?? 'Customer' }},</p>
-        <p style="margin: 0 0 16px;">
-            Please find your invoice details below. An HTML copy of this invoice is attached for download.
-        </p>
+        @if (filled($emailBody ?? null))
+            <div style="margin: 0 0 16px; white-space: pre-line;">{!! nl2br(e($emailBody)) !!}</div>
+        @else
+            <p style="margin: 0 0 12px;">Dear {{ $invoice->order?->customer?->name ?? 'Customer' }},</p>
+            <p style="margin: 0 0 16px;">
+                Please find your invoice details below. An HTML copy of this invoice is attached for download.
+            </p>
+        @endif
 
         <table style="width: 100%; border-collapse: collapse; margin-bottom: 16px;">
             <tr>

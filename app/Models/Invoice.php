@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\BranchScoped;
+use App\Models\Scopes\BranchScope;
 use App\Support\DocNumber;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -93,8 +94,17 @@ class Invoice extends Model
     {
         $order->load('lines');
 
-        $invoice = self::firstOrNew(['order_id' => $order->id]);
+        // Resolve by order_id without branch scope to make sync idempotent
+        // even when the active branch context differs from the order branch.
+        $invoice = self::query()
+            ->withoutGlobalScope(BranchScope::class)
+            ->withTrashed()
+            ->firstOrNew(['order_id' => $order->id]);
         $isNew = ! $invoice->exists;
+
+        if (! $isNew && $invoice->trashed()) {
+            $invoice->restore();
+        }
 
         if ($isNew) {
             $invoice->branch_id = $order->branch_id;
@@ -136,7 +146,10 @@ class Invoice extends Model
             $invoice->lines()->delete();
         }
 
-        return $invoice->fresh(['lines', 'order.customer', 'branch']);
+        return self::query()
+            ->withoutGlobalScope(BranchScope::class)
+            ->with(['lines', 'order.customer', 'branch'])
+            ->find($invoice->id) ?? $invoice->load(['lines', 'order.customer', 'branch']);
     }
 
     public function scopeSearch($query, ?string $term)

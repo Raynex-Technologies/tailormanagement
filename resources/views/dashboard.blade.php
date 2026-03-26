@@ -1,5 +1,5 @@
 <x-layouts::app :title="__('Dashboard')">
-    <flux:main class="space-y-6 p-4 lg:p-6">
+    <flux:main class="space-y-6">
         {{-- Welcome Header --}}
         <div class="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm dark:border-zinc-700 dark:bg-zinc-800">
             <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">

@@ -14,13 +14,34 @@ class PaymentMethod extends Model
 
     protected $fillable = [
         'name',
+        'code',
         'account_number',
         'account_holder_name',
+        'type',
+        'is_enabled',
+        'is_online',
+        'sort_order',
+        'description',
+        'settings',
     ];
+
+    protected function casts(): array
+    {
+        return [
+            'is_enabled' => 'boolean',
+            'is_online' => 'boolean',
+            'settings' => 'array',
+        ];
+    }
 
     public function orderPayments(): HasMany
     {
         return $this->hasMany(OrderPayment::class);
+    }
+
+    public function transactions(): HasMany
+    {
+        return $this->hasMany(PaymentTransaction::class);
     }
 
     public function scopeForInvoiceDocument(Builder $query): Builder
@@ -56,5 +77,15 @@ class PaymentMethod extends Model
         }
 
         return implode(' - ', $parts);
+    }
+
+    public function scopeEnabled($query): Builder
+    {
+        return $query->where('is_enabled', true);
+    }
+
+    public function scopeOnline($query): Builder
+    {
+        return $query->where('is_online', true)->enabled();
     }
 }

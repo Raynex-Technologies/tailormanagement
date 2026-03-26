@@ -1,5 +1,5 @@
 <div>
-    <flux:main class="p-6">
+    <flux:main class="p-0">
         {{-- Page Header --}}
         <div class="mb-6">
             <flux:breadcrumbs>
@@ -204,7 +204,7 @@
                         <i class="fa-duotone fa-calendar size-5 text-amber-500"></i>
                     </div>
                     <div class="mt-3">
-                        <p class="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">{{ $order->due_date?->format('M d, Y') ?? '—' }}</p>
+                        <p class="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">{{ $order->due_date?->format('M d, Y') ?? 'â€”' }}</p>
                         <p class="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">Due Date</p>
                     </div>
                     @if ($canEdit)
@@ -224,7 +224,7 @@
                         <i class="fa-duotone fa-calendar size-5 text-amber-500"></i>
                     </div>
                     <div class="mt-3">
-                        <p class="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">{{ $order->due_date?->format('M d, Y') ?? '—' }}</p>
+                        <p class="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">{{ $order->due_date?->format('M d, Y') ?? 'â€”' }}</p>
                         <p class="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">Due Date</p>
                     </div>
                 </div>
@@ -341,6 +341,192 @@
                         </div>
                     @endif
                 </div>
+
+                {{-- Storefront Fulfillment / Shipment Manager --}}
+                @if ($canManageStorefrontOperations && $isStorefrontOrder)
+                    <div class="rounded-2xl bg-white dark:bg-zinc-800/50 p-5 shadow-sm border border-zinc-200/50 dark:border-zinc-700/50 space-y-5">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-3">
+                                <div class="flex size-10 items-center justify-center rounded-xl bg-sky-100 dark:bg-sky-900/30">
+                                    <i class="fa-duotone fa-truck-fast text-sky-600 dark:text-sky-400"></i>
+                                </div>
+                                <div>
+                                    <h3 class="text-lg font-semibold text-zinc-900 dark:text-white">Storefront Fulfillment</h3>
+                                    <p class="text-sm text-zinc-500 dark:text-zinc-400">Manage customer-visible order and shipment progress.</p>
+                                </div>
+                            </div>
+                            <flux:badge color="{{ $order->fulfillment_status?->color() ?: 'zinc' }}">
+                                {{ $order->fulfillment_status?->label() ?: 'Pending' }}
+                            </flux:badge>
+                        </div>
+
+                        <form wire:submit="updateStorefrontFulfillmentStatus" class="rounded-xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-800/40">
+                            <div class="grid gap-4 sm:grid-cols-2">
+                                <flux:select wire:model="newFulfillmentStatus" label="Fulfillment Status">
+                                    @foreach ($fulfillmentStatuses as $value => $label)
+                                        <flux:select.option value="{{ $value }}">{{ $label }}</flux:select.option>
+                                    @endforeach
+                                </flux:select>
+                                <flux:input wire:model="fulfillmentNote" label="Customer Note (optional)" />
+                            </div>
+                            @error('newFulfillmentStatus')
+                                <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+                            @error('fulfillmentNote')
+                                <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+                            <div class="mt-4 flex justify-end">
+                                <flux:button type="submit" variant="primary">Update Fulfillment</flux:button>
+                            </div>
+                        </form>
+
+                        <form wire:submit="saveShipmentDetails" class="rounded-xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-800/40">
+                            <h4 class="font-semibold text-zinc-900 dark:text-white">Shipment Details</h4>
+                            <div class="mt-3 grid gap-4 sm:grid-cols-2">
+                                <flux:select wire:model="shipmentStatus" label="Shipment Status">
+                                    <flux:select.option value="pending">Pending</flux:select.option>
+                                    <flux:select.option value="packed">Packed</flux:select.option>
+                                    <flux:select.option value="shipped">Shipped</flux:select.option>
+                                    <flux:select.option value="delivered">Delivered</flux:select.option>
+                                    <flux:select.option value="cancelled">Cancelled</flux:select.option>
+                                </flux:select>
+                                <flux:input wire:model="shipmentCarrierName" label="Carrier Name" />
+                                <flux:input wire:model="shipmentTrackingNumber" label="Tracking Number" />
+                                <flux:input wire:model="shipmentTrackingUrl" label="Tracking URL" />
+                                <flux:input wire:model="shipmentShippedAt" type="datetime-local" label="Shipped At" />
+                                <flux:input wire:model="shipmentDeliveredAt" type="datetime-local" label="Delivered At" />
+                            </div>
+                            <flux:textarea class="mt-4" wire:model="shipmentNotes" label="Shipment Notes" rows="2" />
+
+                            @error('shipmentStatus')
+                                <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+                            @error('shipmentCarrierName')
+                                <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+                            @error('shipmentTrackingNumber')
+                                <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+                            @error('shipmentTrackingUrl')
+                                <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+                            @error('shipmentShippedAt')
+                                <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+                            @error('shipmentDeliveredAt')
+                                <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+
+                            <div class="mt-4 flex justify-end">
+                                <flux:button type="submit" variant="primary">Save Shipment</flux:button>
+                            </div>
+                        </form>
+
+                        @if ($shipments->isNotEmpty())
+                            <div class="rounded-xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-800/40">
+                                <h4 class="font-semibold text-zinc-900 dark:text-white">Shipment Timeline</h4>
+                                <div class="mt-3 space-y-2">
+                                    @foreach ($shipments as $shipment)
+                                        <div class="flex items-center justify-between rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900/40">
+                                            <div>
+                                                <p class="font-medium text-zinc-900 dark:text-white">{{ str($shipment->status)->replace('_', ' ')->title() }}</p>
+                                                <p class="text-xs text-zinc-500 dark:text-zinc-400">
+                                                    {{ $shipment->carrier_name ?: 'Carrier pending' }}
+                                                    @if ($shipment->tracking_number)
+                                                        â€¢ {{ $shipment->tracking_number }}
+                                                    @endif
+                                                </p>
+                                            </div>
+                                            <p class="text-xs text-zinc-500 dark:text-zinc-400">{{ $shipment->updated_at?->format('M d, Y H:i') }}</p>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            </div>
+                        @endif
+                    </div>
+                @endif
+
+                {{-- Custom Tailoring Progress Manager --}}
+                @if ($canManageStorefrontOperations && $isTailoringOrder)
+                    <div class="rounded-2xl bg-white dark:bg-zinc-800/50 p-5 shadow-sm border border-zinc-200/50 dark:border-zinc-700/50 space-y-5">
+                        <div class="flex items-center gap-3">
+                            <div class="flex size-10 items-center justify-center rounded-xl bg-violet-100 dark:bg-violet-900/30">
+                                <i class="fa-duotone fa-scissors text-violet-600 dark:text-violet-400"></i>
+                            </div>
+                            <div>
+                                <h3 class="text-lg font-semibold text-zinc-900 dark:text-white">Custom Progress Updates</h3>
+                                <p class="text-sm text-zinc-500 dark:text-zinc-400">Publish tailoring milestones and optional payment requests to the customer portal.</p>
+                            </div>
+                        </div>
+
+                        <form wire:submit="publishCustomProgressUpdate" class="rounded-xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-800/40">
+                            <div class="grid gap-4 sm:grid-cols-2">
+                                <flux:select wire:model="customStageKey" label="Stage">
+                                    @foreach ($customStageOptions as $stageKey => $stageLabel)
+                                        <flux:select.option value="{{ $stageKey }}">{{ $stageLabel }}</flux:select.option>
+                                    @endforeach
+                                </flux:select>
+                                <flux:input wire:model="customStageLabel" label="Stage Label Override (optional)" />
+                                <flux:input wire:model="customRequestedPaymentAmount" type="number" step="0.01" min="0" label="Requested Payment Amount (optional)" />
+                                <flux:input wire:model="customRequestedPaymentNote" label="Requested Payment Note (optional)" />
+                            </div>
+                            <flux:textarea class="mt-4" wire:model="customProgressNote" label="Progress Note" rows="3" />
+                            <label class="mt-3 flex items-center justify-between rounded-xl border border-zinc-200 px-3 py-2 text-sm dark:border-zinc-700">
+                                <span>Visible to Customer</span>
+                                <input type="checkbox" wire:model="customProgressVisible" class="rounded border-zinc-300 text-lime-600 focus:ring-lime-500" />
+                            </label>
+
+                            @error('customStageKey')
+                                <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+                            @error('customStageLabel')
+                                <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+                            @error('customProgressNote')
+                                <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+                            @error('customRequestedPaymentAmount')
+                                <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+                            @error('customRequestedPaymentNote')
+                                <p class="mt-2 text-sm text-red-600">{{ $message }}</p>
+                            @enderror
+
+                            <div class="mt-4 flex justify-end">
+                                <flux:button type="submit" variant="primary">Publish Progress Update</flux:button>
+                            </div>
+                        </form>
+
+                        @if ($order->customProgressUpdates->isNotEmpty())
+                            <div class="space-y-2">
+                                @foreach ($order->customProgressUpdates->sortByDesc('id') as $progress)
+                                    <div class="rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-zinc-700 dark:bg-zinc-800/40">
+                                        <div class="flex items-start justify-between gap-3">
+                                            <div>
+                                                <p class="font-medium text-zinc-900 dark:text-white">{{ $progress->stage_label }}</p>
+                                                @if ($progress->note)
+                                                    <p class="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{{ $progress->note }}</p>
+                                                @endif
+                                                @if ($progress->requested_payment_amount)
+                                                    <p class="mt-1 text-sm font-medium text-amber-600 dark:text-amber-400">
+                                                        Payment Request: {{ number_format((float) $progress->requested_payment_amount, 2) }}
+                                                        @if ($progress->requested_payment_note)
+                                                            â€¢ {{ $progress->requested_payment_note }}
+                                                        @endif
+                                                    </p>
+                                                @endif
+                                            </div>
+                                            <div class="text-right text-xs text-zinc-500 dark:text-zinc-400">
+                                                <p>{{ $progress->created_at?->format('M d, Y H:i') }}</p>
+                                                <p>{{ $progress->is_customer_visible ? 'Customer Visible' : 'Internal' }}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        @endif
+                    </div>
+                @endif
 
                 {{-- Materials Panel --}}
                 @if ($canViewMaterials)

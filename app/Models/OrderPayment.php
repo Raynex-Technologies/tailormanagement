@@ -17,10 +17,15 @@ class OrderPayment extends Model
         'order_id',
         'amount',
         'payment_method_id',
+        'payment_transaction_id',
+        'gateway',
+        'gateway_reference',
+        'status',
         'reference',
         'paid_at',
         'received_by',
         'note',
+        'raw_payload',
     ];
 
     protected function casts(): array
@@ -28,7 +33,9 @@ class OrderPayment extends Model
         return [
             'amount' => 'decimal:2',
             'payment_method_id' => 'integer',
+            'payment_transaction_id' => 'integer',
             'paid_at' => 'datetime',
+            'raw_payload' => 'array',
         ];
     }
 
@@ -45,5 +52,10 @@ class OrderPayment extends Model
     public function paymentMethod(): BelongsTo
     {
         return $this->belongsTo(PaymentMethod::class);
+    }
+
+    public function transaction(): BelongsTo
+    {
+        return $this->belongsTo(PaymentTransaction::class, 'payment_transaction_id');
     }
 }

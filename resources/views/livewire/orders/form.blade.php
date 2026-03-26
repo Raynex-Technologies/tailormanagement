@@ -1,5 +1,5 @@
 <div>
-    <flux:main class="p-6">
+    <flux:main class="p-0">
         {{-- Page Header --}}
         <div class="mb-6">
             <flux:breadcrumbs>
@@ -45,7 +45,7 @@
             </div>
         @endif
 
-        <form wire:submit="save" class="space-y-6">
+        <form wire:submit.prevent="save" class="space-y-6">
             {{-- Branch Selector for Global Admins (Create only) --}}
             @if ($showBranchSelector && !$isEdit)
                 <flux:card>

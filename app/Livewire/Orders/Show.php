@@ -3,16 +3,25 @@
 namespace App\Livewire\Orders;
 
 use App\Enums\OrderStatus;
+use App\Enums\StorefrontFulfillmentStatus;
 use App\Events\OrderDueDateChanged;
 use App\Events\OrderStatusChanged;
+use App\Models\CustomOrderProgressUpdate;
 use App\Models\DeliveryNote;
 use App\Models\Order;
 use App\Models\OrderStockRequest;
+use App\Models\Shipment;
+use App\Notifications\CustomOrderProgressUpdatedNotification;
+use App\Notifications\StorefrontOrderStatusUpdatedNotification;
+use App\Notifications\StorefrontShipmentUpdatedNotification;
 use App\Models\User;
 use App\Services\Orders\OrderDeletionService;
 use App\Support\DocNumber;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Str;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
+use Illuminate\Notifications\Notification;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
 use Livewire\Component;
@@ -28,6 +37,7 @@ class Show extends Component
     public bool $canManageMaterials = false;
     public bool $canViewPayments = false;
     public bool $canRecordPayments = false;
+    public bool $canManageStorefrontOperations = false;
 
     /**
      * Listen for payment-recorded event to refresh order data.
@@ -37,6 +47,8 @@ class Show extends Component
     {
         $this->order->refresh();
         $this->loadOrderRelations();
+        $this->initializePermissions();
+        $this->initializeStorefrontForms();
     }
 
     /**
@@ -46,6 +58,8 @@ class Show extends Component
     public function refreshMaterialsData(): void
     {
         $this->order->refresh();
+        $this->loadOrderRelations();
+        $this->initializeStorefrontForms();
     }
 
     // Modals
@@ -60,6 +74,21 @@ class Show extends Component
     public string $receivedByName = '';
     public string $receivedByPhone = '';
     public ?string $updatedDueDate = null;
+    public string $newFulfillmentStatus = '';
+    public string $fulfillmentNote = '';
+    public string $shipmentStatus = 'pending';
+    public string $shipmentCarrierName = '';
+    public string $shipmentTrackingNumber = '';
+    public string $shipmentTrackingUrl = '';
+    public string $shipmentNotes = '';
+    public ?string $shipmentShippedAt = null;
+    public ?string $shipmentDeliveredAt = null;
+    public string $customStageKey = '';
+    public string $customStageLabel = '';
+    public string $customProgressNote = '';
+    public bool $customProgressVisible = true;
+    public ?float $customRequestedPaymentAmount = null;
+    public string $customRequestedPaymentNote = '';
 
     public function mount(Order $order): void
     {
@@ -67,6 +96,7 @@ class Show extends Component
         $this->order = $order;
         $this->loadOrderRelations();
         $this->initializePermissions();
+        $this->initializeStorefrontForms();
     }
 
     /**
@@ -83,6 +113,11 @@ class Show extends Component
             'deliveryNote.deliveredBy',
             'invoice',
             'branch',
+            'statusHistory.actor',
+            'customProgressUpdates.actor',
+            'shipments',
+            'currentShipment',
+            'customer.user',
         ];
 
         // Only load payments if user can view them
@@ -106,6 +141,30 @@ class Show extends Component
         $this->canManageMaterials = $user->can('manageMaterials', $this->order);
         $this->canViewPayments = $user->can('viewPayments', $this->order);
         $this->canRecordPayments = ! $orderIsCancelled && $user->can('recordPayments', $this->order);
+        $this->canManageStorefrontOperations = $user->can('storefront.orders.manage');
+    }
+
+    protected function initializeStorefrontForms(): void
+    {
+        $this->newFulfillmentStatus = $this->order->fulfillment_status?->value
+            ?: StorefrontFulfillmentStatus::Pending->value;
+
+        $shipment = $this->order->currentShipment;
+
+        $this->shipmentStatus = (string) ($shipment?->status ?: 'pending');
+        $this->shipmentCarrierName = (string) ($shipment?->carrier_name ?: '');
+        $this->shipmentTrackingNumber = (string) ($shipment?->tracking_number ?: '');
+        $this->shipmentTrackingUrl = (string) ($shipment?->tracking_url ?: '');
+        $this->shipmentNotes = (string) ($shipment?->notes ?: '');
+        $this->shipmentShippedAt = $shipment?->shipped_at?->format('Y-m-d\TH:i');
+        $this->shipmentDeliveredAt = $shipment?->delivered_at?->format('Y-m-d\TH:i');
+
+        $stageOptions = collect(config('storefront.custom_order_stages', []));
+        $defaultStage = (string) ($stageOptions->first()['key'] ?? 'order_received');
+
+        if ($this->customStageKey === '') {
+            $this->customStageKey = $defaultStage;
+        }
     }
 
     public function getTitle(): string
@@ -281,6 +340,218 @@ class Show extends Component
         ]));
     }
 
+    public function updateStorefrontFulfillmentStatus(): void
+    {
+        $this->authorizeStorefrontOperations();
+
+        if (! $this->order->isStorefrontOrder()) {
+            session()->flash('error', 'Fulfillment status updates apply only to storefront orders.');
+
+            return;
+        }
+
+        $validated = $this->validate([
+            'newFulfillmentStatus' => ['required', 'string', Rule::in(array_column(StorefrontFulfillmentStatus::cases(), 'value'))],
+            'fulfillmentNote' => ['nullable', 'string', 'max:2000'],
+        ]);
+
+        $status = StorefrontFulfillmentStatus::from($validated['newFulfillmentStatus']);
+
+        if ($this->order->fulfillment_status === $status) {
+            session()->flash('success', 'Fulfillment status is already set to '.$status->label().'.');
+
+            return;
+        }
+
+        $this->order->update([
+            'fulfillment_status' => $status,
+        ]);
+
+        $this->order->statusHistory()->create([
+            'status' => $status->value,
+            'title' => 'Fulfillment: '.$status->label(),
+            'note' => trim((string) ($validated['fulfillmentNote'] ?? '')) ?: null,
+            'is_customer_visible' => true,
+            'changed_by' => auth()->id(),
+        ]);
+
+        if (in_array($status, [StorefrontFulfillmentStatus::Shipped, StorefrontFulfillmentStatus::Delivered], true)) {
+            $shipment = $this->order->currentShipment ?: new Shipment([
+                'order_id' => $this->order->id,
+                'created_by' => auth()->id(),
+            ]);
+
+            $shipment->status = $status === StorefrontFulfillmentStatus::Delivered ? 'delivered' : 'shipped';
+            $shipment->shipping_method_code = $shipment->shipping_method_code ?: $this->order->shipping_method_code;
+            $shipment->shipping_method_name = $shipment->shipping_method_name ?: $this->order->shipping_method_name;
+            $shipment->updated_by = auth()->id();
+
+            if ($status === StorefrontFulfillmentStatus::Shipped && ! $shipment->shipped_at) {
+                $shipment->shipped_at = now();
+            }
+
+            if ($status === StorefrontFulfillmentStatus::Delivered && ! $shipment->delivered_at) {
+                $shipment->delivered_at = now();
+                $shipment->shipped_at = $shipment->shipped_at ?: now();
+            }
+
+            $shipment->save();
+        }
+
+        $this->notifyCustomer(
+            new StorefrontOrderStatusUpdatedNotification(
+                $this->order->fresh(['currentShipment']),
+                $status,
+                $validated['fulfillmentNote'] ?? null
+            )
+        );
+
+        $this->order->refresh();
+        $this->loadOrderRelations();
+        $this->initializeStorefrontForms();
+
+        session()->flash('success', 'Fulfillment status updated.');
+    }
+
+    public function saveShipmentDetails(): void
+    {
+        $this->authorizeStorefrontOperations();
+
+        if (! $this->order->isStorefrontOrder()) {
+            session()->flash('error', 'Shipment updates apply only to storefront orders.');
+
+            return;
+        }
+
+        $validated = $this->validate([
+            'shipmentStatus' => ['required', Rule::in(['pending', 'packed', 'shipped', 'delivered', 'cancelled'])],
+            'shipmentCarrierName' => ['nullable', 'string', 'max:191'],
+            'shipmentTrackingNumber' => ['nullable', 'string', 'max:191'],
+            'shipmentTrackingUrl' => ['nullable', 'url', 'max:255'],
+            'shipmentNotes' => ['nullable', 'string', 'max:2000'],
+            'shipmentShippedAt' => ['nullable', 'date'],
+            'shipmentDeliveredAt' => ['nullable', 'date', 'after_or_equal:shipmentShippedAt'],
+        ]);
+
+        $shipment = $this->order->currentShipment ?: new Shipment([
+            'order_id' => $this->order->id,
+            'created_by' => auth()->id(),
+        ]);
+
+        $shipment->status = $validated['shipmentStatus'];
+        $shipment->shipping_method_code = $shipment->shipping_method_code ?: $this->order->shipping_method_code;
+        $shipment->shipping_method_name = $shipment->shipping_method_name ?: $this->order->shipping_method_name;
+        $shipment->carrier_name = $validated['shipmentCarrierName'] ?: null;
+        $shipment->tracking_number = $validated['shipmentTrackingNumber'] ?: null;
+        $shipment->tracking_url = $validated['shipmentTrackingUrl'] ?: null;
+        $shipment->notes = $validated['shipmentNotes'] ?: null;
+        $shipment->shipped_at = $validated['shipmentShippedAt'] ? Carbon::parse($validated['shipmentShippedAt']) : null;
+        $shipment->delivered_at = $validated['shipmentDeliveredAt'] ? Carbon::parse($validated['shipmentDeliveredAt']) : null;
+        $shipment->updated_by = auth()->id();
+
+        if ($shipment->status === 'shipped' && ! $shipment->shipped_at) {
+            $shipment->shipped_at = now();
+        }
+
+        if ($shipment->status === 'delivered') {
+            $shipment->shipped_at = $shipment->shipped_at ?: now();
+            $shipment->delivered_at = $shipment->delivered_at ?: now();
+        }
+
+        $shipment->save();
+
+        $mappedFulfillment = match ($shipment->status) {
+            'pending' => StorefrontFulfillmentStatus::Pending,
+            'packed' => StorefrontFulfillmentStatus::ReadyForDispatch,
+            'shipped' => StorefrontFulfillmentStatus::Shipped,
+            'delivered' => StorefrontFulfillmentStatus::Delivered,
+            'cancelled' => StorefrontFulfillmentStatus::Cancelled,
+            default => null,
+        };
+
+        if ($mappedFulfillment && $this->order->fulfillment_status !== $mappedFulfillment) {
+            $this->order->update(['fulfillment_status' => $mappedFulfillment]);
+
+            $this->order->statusHistory()->create([
+                'status' => $mappedFulfillment->value,
+                'title' => 'Shipment: '.Str::headline($shipment->status),
+                'note' => $shipment->notes,
+                'is_customer_visible' => true,
+                'changed_by' => auth()->id(),
+            ]);
+        }
+
+        $this->notifyCustomer(
+            new StorefrontShipmentUpdatedNotification(
+                $this->order->fresh(['currentShipment']),
+                $shipment->status,
+                $shipment->tracking_number
+            )
+        );
+
+        $this->order->refresh();
+        $this->loadOrderRelations();
+        $this->initializeStorefrontForms();
+
+        session()->flash('success', 'Shipment details saved.');
+    }
+
+    public function publishCustomProgressUpdate(): void
+    {
+        $this->authorizeStorefrontOperations();
+
+        if ($this->order->order_type !== 'tailoring') {
+            session()->flash('error', 'Custom progress updates apply only to tailoring orders.');
+
+            return;
+        }
+
+        $stages = collect(config('storefront.custom_order_stages', []));
+        $stageKeys = $stages->pluck('key')->filter()->all();
+
+        $validated = $this->validate([
+            'customStageKey' => ['required', 'string', Rule::in($stageKeys)],
+            'customStageLabel' => ['nullable', 'string', 'max:191'],
+            'customProgressNote' => ['nullable', 'string', 'max:2000'],
+            'customProgressVisible' => ['boolean'],
+            'customRequestedPaymentAmount' => ['nullable', 'numeric', 'min:0'],
+            'customRequestedPaymentNote' => ['nullable', 'string', 'max:191'],
+        ]);
+
+        $configuredLabel = (string) ($stages->firstWhere('key', $validated['customStageKey'])['label'] ?? '');
+        $stageLabel = trim((string) ($validated['customStageLabel'] ?: $configuredLabel ?: Str::headline($validated['customStageKey'])));
+
+        $update = CustomOrderProgressUpdate::query()->create([
+            'order_id' => $this->order->id,
+            'stage_key' => $validated['customStageKey'],
+            'stage_label' => $stageLabel,
+            'note' => trim((string) ($validated['customProgressNote'] ?? '')) ?: null,
+            'is_customer_visible' => (bool) $validated['customProgressVisible'],
+            'requested_payment_amount' => $validated['customRequestedPaymentAmount'] ?: null,
+            'requested_payment_note' => trim((string) ($validated['customRequestedPaymentNote'] ?? '')) ?: null,
+            'updated_by' => auth()->id(),
+        ]);
+
+        $this->notifyCustomer(
+            new CustomOrderProgressUpdatedNotification(
+                $this->order->fresh(),
+                $update
+            )
+        );
+
+        $this->customStageLabel = '';
+        $this->customProgressNote = '';
+        $this->customProgressVisible = true;
+        $this->customRequestedPaymentAmount = null;
+        $this->customRequestedPaymentNote = '';
+
+        $this->order->refresh();
+        $this->loadOrderRelations();
+        $this->initializeStorefrontForms();
+
+        session()->flash('success', 'Custom progress update published.');
+    }
+
     public function openDeliveryNoteModal(): void
     {
         $this->authorize('createDeliveryNote', $this->order);
@@ -397,6 +668,22 @@ class Show extends Component
             ->get();
     }
 
+    protected function authorizeStorefrontOperations(): void
+    {
+        abort_unless(auth()->user()?->can('storefront.orders.manage'), 403);
+    }
+
+    protected function notifyCustomer(Notification $notification): void
+    {
+        $this->order->loadMissing('customer.user');
+
+        $customerUser = $this->order->customer?->user;
+
+        if ($customerUser) {
+            $customerUser->notify($notification);
+        }
+    }
+
     public function render()
     {
         $user = auth()->user();
@@ -425,6 +712,15 @@ class Show extends Component
         $canMarkCompleted = $user->can('markCompleted', $this->order);
         $canCreateDeliveryNote = $user->can('createDeliveryNote', $this->order) && $this->order->canCreateDeliveryNote();
         $canDelete = $user->can('delete', $this->order);
+        $canManageStorefrontOperations = $user->can('storefront.orders.manage');
+        $isStorefrontOrder = $this->order->isStorefrontOrder();
+        $isTailoringOrder = $this->order->order_type === 'tailoring';
+
+        $fulfillmentStatuses = collect(StorefrontFulfillmentStatus::cases())
+            ->mapWithKeys(fn (StorefrontFulfillmentStatus $status) => [$status->value => $status->label()]);
+
+        $customStageOptions = collect(config('storefront.custom_order_stages', []))
+            ->mapWithKeys(fn (array $stage) => [$stage['key'] => $stage['label']]);
 
         return view('livewire.orders.show', [
             'nextStatuses' => $nextStatuses,
@@ -438,12 +734,18 @@ class Show extends Component
             'canCreateDeliveryNote' => $canCreateDeliveryNote,
             'canDelete' => $canDelete,
             'tailorDisplay' => $tailorDisplay,
+            'canManageStorefrontOperations' => $canManageStorefrontOperations,
+            'isStorefrontOrder' => $isStorefrontOrder,
+            'isTailoringOrder' => $isTailoringOrder,
+            'fulfillmentStatuses' => $fulfillmentStatuses,
+            'customStageOptions' => $customStageOptions,
             // Role-based visibility
             'canViewFinancials' => $this->canViewFinancials,
             'canViewMaterials' => $this->canViewMaterials,
             'canManageMaterials' => $this->canManageMaterials,
             'canViewPayments' => $this->canViewPayments,
             'canRecordPayments' => $this->canRecordPayments,
+            'shipments' => $this->order->shipments()->latest('id')->get(),
             // Materials data for storekeeper
             'materials' => $this->materials,
             'stockRequests' => $this->stockRequests,

@@ -24,6 +24,7 @@ class Index extends Component
         'superadmin',
         'admin',
         'branch_manager',
+        'customer',
     ];
 
     // Modal state

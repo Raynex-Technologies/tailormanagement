@@ -5,7 +5,7 @@
 @endphp
 
 <div>
-    <flux:main class="space-y-6 p-6">
+    <flux:main class="space-y-6">
         <flux:breadcrumbs>
             <flux:breadcrumbs.item :href="route('dashboard')" wire:navigate>{{ __('Dashboard') }}</flux:breadcrumbs.item>
             <flux:breadcrumbs.item :href="route('invoices.index')" wire:navigate>{{ __('Invoices') }}</flux:breadcrumbs.item>

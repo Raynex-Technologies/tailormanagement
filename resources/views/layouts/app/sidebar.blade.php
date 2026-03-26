@@ -8,7 +8,29 @@
         x-data="{ desktopSidebarCollapsed: false }"
         x-init="desktopSidebarCollapsed = JSON.parse(window.localStorage.getItem('desktopSidebarCollapsed') ?? 'false'); $watch('desktopSidebarCollapsed', value => window.localStorage.setItem('desktopSidebarCollapsed', JSON.stringify(value)))"
     >
-        @php($businessName = \App\Models\BusinessSetting::query()->value('business_name') ?: 'Tailex')
+        @php
+            $businessName = $businessName
+                ?? (\App\Models\BusinessSetting::query()->value('business_name') ?: 'Tailex');
+
+            $urgentOpenOrdersCount = 0;
+
+            $authUser = auth()->user();
+            if ($authUser && $authUser->can('orders.view')) {
+                $urgentOrdersQuery = \App\Models\Order::query()
+                    ->where('priority', \App\Enums\Priority::Urgent->value)
+                    ->whereNotIn('status', [
+                        \App\Enums\OrderStatus::Ready->value,
+                        \App\Enums\OrderStatus::Completed->value,
+                        \App\Enums\OrderStatus::Cancelled->value,
+                    ]);
+
+                if ($authUser->hasRole('tailor')) {
+                    $urgentOrdersQuery->forTailor($authUser->id);
+                }
+
+                $urgentOpenOrdersCount = $urgentOrdersQuery->count();
+            }
+        @endphp
 
         <style>
             .sidebar-nav-groups .nav-group + .nav-group::before {
@@ -96,7 +118,7 @@
                 <button
                     type="button"
                     @click="desktopSidebarCollapsed = ! desktopSidebarCollapsed"
-                    :title='desktopSidebarCollapsed ? @js(__('Expand sidebar')) : @js(__('Collapse sidebar'))'
+                    :title="desktopSidebarCollapsed ? @js(__('Expand sidebar')) : @js(__('Collapse sidebar'))"
                     class="sidebar-toggle-icon absolute right-4 top-4 flex size-9 items-center justify-center rounded-xl text-white/60 transition-all hover:bg-white/10 hover:text-white"
                 >
                     <i class="fa-duotone text-sm" :class="desktopSidebarCollapsed ? 'fa-angles-right' : 'fa-angles-left'"></i>
@@ -166,7 +188,12 @@
                         class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ (request()->routeIs('orders.index') || request()->routeIs('orders.show') || request()->routeIs('orders.create') || request()->routeIs('orders.edit')) ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}"
                     >
                         <i class="fa-duotone fa-box-dollar size-5"></i>
-                        {{ __('Orders Management') }}
+                        <span class="flex-1">{{ __('Orders Management') }}</span>
+                        @if ($urgentOpenOrdersCount > 0)
+                            <span class="inline-flex min-w-6 items-center justify-center rounded-full bg-red-500 px-2 py-0.5 text-xs font-semibold text-white">
+                                {{ $urgentOpenOrdersCount }}
+                            </span>
+                        @endif
                     </a>
                     @endcanany
 
@@ -199,6 +226,68 @@
                     >
                         <i class="fa-duotone fa-user size-5"></i>
                         {{ __('Customers') }}
+                    </a>
+                    @endcan
+                </div>
+                @endcanany
+
+                {{-- Storefront Group --}}
+                @canany(['storefront.settings.manage', 'storefront.catalog.manage', 'storefront.cms.manage', 'storefront.shipping.manage', 'storefront.orders.manage', 'storefront.payments.manage'])
+                <div class="nav-group">
+                    <h3 class="px-3 mb-2 text-[0.65rem] font-semibold uppercase tracking-wider text-white/35">{{ __('Storefront') }}</h3>
+
+                    @can('storefront.settings.manage')
+                    <a
+                        href="{{ route('administration.storefront.settings') }}"
+                        wire:navigate
+                        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('administration.storefront.settings') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}"
+                    >
+                        <i class="fa-duotone fa-store size-5"></i>
+                        {{ __('Storefront Settings') }}
+                    </a>
+                    @endcan
+
+                    @can('storefront.catalog.manage')
+                    <a
+                        href="{{ route('administration.storefront.products') }}"
+                        wire:navigate
+                        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('administration.storefront.products*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}"
+                    >
+                        <i class="fa-duotone fa-bag-shopping size-5"></i>
+                        {{ __('Products') }}
+                    </a>
+
+                    @if (Route::has('administration.storefront.categories'))
+                    <a
+                        href="{{ route('administration.storefront.categories') }}"
+                        wire:navigate
+                        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('administration.storefront.categories') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}"
+                    >
+                        <i class="fa-duotone fa-layer-group size-5"></i>
+                        {{ __('Product Categories') }}
+                    </a>
+                    @endif
+                    @endcan
+
+                    @can('storefront.cms.manage')
+                    <a
+                        href="{{ route('administration.storefront.cms') }}"
+                        wire:navigate
+                        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('administration.storefront.cms') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}"
+                    >
+                        <i class="fa-duotone fa-file-lines size-5"></i>
+                        {{ __('Storefront CMS') }}
+                    </a>
+                    @endcan
+
+                    @can('storefront.shipping.manage')
+                    <a
+                        href="{{ route('administration.storefront.shipping') }}"
+                        wire:navigate
+                        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('administration.storefront.shipping') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}"
+                    >
+                        <i class="fa-duotone fa-truck size-5"></i>
+                        {{ __('Storefront Shipping') }}
                     </a>
                     @endcan
                 </div>
@@ -532,6 +621,16 @@
                         <i class="fa-duotone fa-sliders size-5"></i>
                         {{ __('Beem Configurations') }}
                     </a>
+                    @can('roles.manage')
+                    <a
+                        href="{{ route('administration.email-setup') }}"
+                        wire:navigate
+                        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('administration.email-setup') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}"
+                    >
+                        <i class="fa-duotone fa-envelope-open-text size-5"></i>
+                        {{ __('Email Setup') }}
+                    </a>
+                    @endcan
                     @endcan
                 </div>
                 @endcanany
@@ -626,7 +725,12 @@
                         <a href="{{ route('orders.index') }}" wire:navigate @click="sidebarOpen = false"
                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ (request()->routeIs('orders.index') || request()->routeIs('orders.show') || request()->routeIs('orders.create') || request()->routeIs('orders.edit')) ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
                             <i class="fa-duotone fa-box-dollar size-5"></i>
-                            {{ __('Orders Management') }}
+                            <span class="flex-1">{{ __('Orders Management') }}</span>
+                            @if ($urgentOpenOrdersCount > 0)
+                                <span class="inline-flex min-w-6 items-center justify-center rounded-full bg-red-500 px-2 py-0.5 text-xs font-semibold text-white">
+                                    {{ $urgentOpenOrdersCount }}
+                                </span>
+                            @endif
                         </a>
                         @endcanany
                         <a href="{{ route('invoices.index') }}" wire:navigate @click="sidebarOpen = false"
@@ -648,6 +752,52 @@
                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('customers.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
                             <i class="fa-duotone fa-user size-5"></i>
                             {{ __('Customers') }}
+                        </a>
+                        @endcan
+                    </div>
+                    @endcanany
+
+                    @canany(['storefront.settings.manage', 'storefront.catalog.manage', 'storefront.cms.manage', 'storefront.shipping.manage', 'storefront.orders.manage', 'storefront.payments.manage'])
+                    <div class="nav-group">
+                        <h3 class="px-3 mb-2 text-[0.65rem] font-semibold uppercase tracking-wider text-white/35">{{ __('Storefront') }}</h3>
+
+                        @can('storefront.settings.manage')
+                        <a href="{{ route('administration.storefront.settings') }}" wire:navigate @click="sidebarOpen = false"
+                           class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('administration.storefront.settings') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
+                            <i class="fa-duotone fa-store size-5"></i>
+                            {{ __('Storefront Settings') }}
+                        </a>
+                        @endcan
+
+                        @can('storefront.catalog.manage')
+                        <a href="{{ route('administration.storefront.products') }}" wire:navigate @click="sidebarOpen = false"
+                           class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('administration.storefront.products*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
+                            <i class="fa-duotone fa-bag-shopping size-5"></i>
+                            {{ __('Products') }}
+                        </a>
+
+                        @if (Route::has('administration.storefront.categories'))
+                        <a href="{{ route('administration.storefront.categories') }}" wire:navigate @click="sidebarOpen = false"
+                           class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('administration.storefront.categories') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
+                            <i class="fa-duotone fa-layer-group size-5"></i>
+                            {{ __('Product Categories') }}
+                        </a>
+                        @endif
+                        @endcan
+
+                        @can('storefront.cms.manage')
+                        <a href="{{ route('administration.storefront.cms') }}" wire:navigate @click="sidebarOpen = false"
+                           class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('administration.storefront.cms') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
+                            <i class="fa-duotone fa-file-lines size-5"></i>
+                            {{ __('Storefront CMS') }}
+                        </a>
+                        @endcan
+
+                        @can('storefront.shipping.manage')
+                        <a href="{{ route('administration.storefront.shipping') }}" wire:navigate @click="sidebarOpen = false"
+                           class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('administration.storefront.shipping') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
+                            <i class="fa-duotone fa-truck size-5"></i>
+                            {{ __('Storefront Shipping') }}
                         </a>
                         @endcan
                     </div>
@@ -715,6 +865,30 @@
                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('installments.analytics') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
                             <i class="fa-duotone fa-chart-line-up size-5"></i>
                             {{ __('Analytics') }}
+                        </a>
+                        @endcan
+                    </div>
+                    @endcan
+
+                    @can('roles.manage')
+                    <div class="nav-group">
+                        <h3 class="px-3 mb-2 text-[0.65rem] font-semibold uppercase tracking-wider text-white/35">{{ __('Administration') }}</h3>
+
+                        <a href="{{ route('administration.settings') }}" wire:navigate @click="sidebarOpen = false"
+                           class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('administration.settings') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
+                            <i class="fa-duotone fa-gear size-5"></i>
+                            {{ __('Settings') }}
+                        </a>
+                        @can('sms.templates.manage')
+                        <a href="{{ route('beem-configurations.index') }}" wire:navigate @click="sidebarOpen = false"
+                           class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('beem-configurations.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
+                            <i class="fa-duotone fa-sliders size-5"></i>
+                            {{ __('Beem Configurations') }}
+                        </a>
+                        <a href="{{ route('administration.email-setup') }}" wire:navigate @click="sidebarOpen = false"
+                           class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('administration.email-setup') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
+                            <i class="fa-duotone fa-envelope-open-text size-5"></i>
+                            {{ __('Email Setup') }}
                         </a>
                         @endcan
                     </div>

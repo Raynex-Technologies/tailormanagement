@@ -17,12 +17,31 @@ class InventoryCategoriesAndItemsSeeder extends Seeder
      */
     public function run(): void
     {
-        if (Branch::query()->count() === 0) {
-            $this->command->warn('No branches found. Running BranchSeeder first...');
+        $canonicalBranchNames = collect(BranchSeeder::sampleBranches())
+            ->pluck('name')
+            ->all();
+
+        $branches = Branch::query()
+            ->whereIn('name', $canonicalBranchNames)
+            ->orderBy('id')
+            ->get();
+
+        if ($branches->count() < 2) {
+            $this->command->warn('Canonical branches are missing. Running BranchSeeder first...');
             $this->call(BranchSeeder::class);
+
+            $branches = Branch::query()
+                ->whereIn('name', $canonicalBranchNames)
+                ->orderBy('id')
+                ->get();
         }
 
-        $branches = Branch::query()->orderBy('id')->get();
+        if ($branches->count() < 2) {
+            $this->command->error('Unable to seed inventory samples because canonical branches were not found.');
+
+            return;
+        }
+
         $catalog = $this->catalog();
 
         $createdCategories = 0;

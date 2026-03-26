@@ -6,6 +6,7 @@ use App\Models\Concerns\BranchScoped;
 use App\Support\DocNumber;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Customer extends Model
@@ -14,6 +15,7 @@ class Customer extends Model
 
     protected $fillable = [
         'branch_id',
+        'user_id',
         'code',
         'name',
         'phone',
@@ -44,8 +46,23 @@ class Customer extends Model
         return $this->hasMany(Order::class);
     }
 
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
     public function installmentPlans(): HasMany
     {
         return $this->hasMany(InstallmentPlan::class);
+    }
+
+    public function addresses(): HasMany
+    {
+        return $this->hasMany(CustomerAddress::class);
+    }
+
+    public function paymentTransactions(): HasMany
+    {
+        return $this->hasMany(PaymentTransaction::class);
     }
 }

@@ -25,11 +25,30 @@ class DemoSeeder extends Seeder
      */
     public function run(): void
     {
-        // Load branches
-        $this->branches = Branch::all()->keyBy('code')->toArray();
+        // Load canonical branches only.
+        $canonicalBranchNames = collect(BranchSeeder::sampleBranches())
+            ->pluck('name')
+            ->all();
+
+        $this->branches = Branch::query()
+            ->whereIn('name', $canonicalBranchNames)
+            ->get()
+            ->keyBy('name')
+            ->toArray();
 
         if (count($this->branches) < 2) {
-            $this->command->error('Please run BranchSeeder first. At least 2 branches are required.');
+            $this->command->warn('Canonical branches are missing. Running BranchSeeder first...');
+            $this->call(BranchSeeder::class);
+
+            $this->branches = Branch::query()
+                ->whereIn('name', $canonicalBranchNames)
+                ->get()
+                ->keyBy('name')
+                ->toArray();
+        }
+
+        if (count($this->branches) < 2) {
+            $this->command->error('Please run BranchSeeder first. Two canonical branches are required.');
 
             return;
         }
@@ -38,7 +57,7 @@ class DemoSeeder extends Seeder
         $this->createDemoUsers();
 
         // Create data for each branch
-        foreach ($this->branches as $branchCode => $branch) {
+        foreach ($this->branches as $branchName => $branch) {
             $this->command->info("Creating demo data for branch: {$branch['name']}...");
 
             // Set branch context for auto-filling branch_id
@@ -63,8 +82,8 @@ class DemoSeeder extends Seeder
      */
     protected function createDemoUsers(): void
     {
-        $branch1 = Branch::where('code', 'BR-DSM-01')->first();
-        $branch2 = Branch::where('code', 'BR-ARU-01')->first();
+        $branch1 = Branch::query()->where('name', BranchSeeder::MAIN_BRANCH_NAME)->first();
+        $branch2 = Branch::query()->where('name', BranchSeeder::OTHER_BRANCH_NAME)->first();
 
         // Global users (admin level)
         $globalUsers = [
@@ -73,24 +92,24 @@ class DemoSeeder extends Seeder
 
         // Branch managers - one per branch
         $branchManagers = [
-            ['name' => 'Manager DSM', 'email' => 'manager.dsm@demo.test', 'role' => 'branch_manager', 'branch_id' => $branch1?->id],
-            ['name' => 'Manager Arusha', 'email' => 'manager.aru@demo.test', 'role' => 'branch_manager', 'branch_id' => $branch2?->id],
+            ['name' => 'Manager Main', 'email' => 'manager.main@demo.test', 'role' => 'branch_manager', 'branch_id' => $branch1?->id],
+            ['name' => 'Manager Other', 'email' => 'manager.other@demo.test', 'role' => 'branch_manager', 'branch_id' => $branch2?->id],
         ];
 
         // Branch staff - distributed across branches
         $branchStaff = [
-            // DSM Branch staff
-            ['name' => 'Accountant DSM', 'email' => 'accountant.dsm@demo.test', 'role' => 'accountant', 'branch_id' => $branch1?->id],
-            ['name' => 'Storekeeper DSM', 'email' => 'storekeeper.dsm@demo.test', 'role' => 'storekeeper', 'branch_id' => $branch1?->id],
-            ['name' => 'Tailor One DSM', 'email' => 'tailor1.dsm@demo.test', 'role' => 'tailor', 'branch_id' => $branch1?->id],
-            ['name' => 'Tailor Two DSM', 'email' => 'tailor2.dsm@demo.test', 'role' => 'tailor', 'branch_id' => $branch1?->id],
-            ['name' => 'Sales DSM', 'email' => 'sales.dsm@demo.test', 'role' => 'sales', 'branch_id' => $branch1?->id],
+            // Main Branch staff
+            ['name' => 'Accountant Main', 'email' => 'accountant.main@demo.test', 'role' => 'accountant', 'branch_id' => $branch1?->id],
+            ['name' => 'Storekeeper Main', 'email' => 'storekeeper.main@demo.test', 'role' => 'storekeeper', 'branch_id' => $branch1?->id],
+            ['name' => 'Tailor One Main', 'email' => 'tailor1.main@demo.test', 'role' => 'tailor', 'branch_id' => $branch1?->id],
+            ['name' => 'Tailor Two Main', 'email' => 'tailor2.main@demo.test', 'role' => 'tailor', 'branch_id' => $branch1?->id],
+            ['name' => 'Sales Main', 'email' => 'sales.main@demo.test', 'role' => 'sales', 'branch_id' => $branch1?->id],
 
-            // Arusha Branch staff
-            ['name' => 'Accountant Arusha', 'email' => 'accountant.aru@demo.test', 'role' => 'accountant', 'branch_id' => $branch2?->id],
-            ['name' => 'Storekeeper Arusha', 'email' => 'storekeeper.aru@demo.test', 'role' => 'storekeeper', 'branch_id' => $branch2?->id],
-            ['name' => 'Tailor One Arusha', 'email' => 'tailor1.aru@demo.test', 'role' => 'tailor', 'branch_id' => $branch2?->id],
-            ['name' => 'Sales Arusha', 'email' => 'sales.aru@demo.test', 'role' => 'sales', 'branch_id' => $branch2?->id],
+            // Other Branch staff
+            ['name' => 'Accountant Other', 'email' => 'accountant.other@demo.test', 'role' => 'accountant', 'branch_id' => $branch2?->id],
+            ['name' => 'Storekeeper Other', 'email' => 'storekeeper.other@demo.test', 'role' => 'storekeeper', 'branch_id' => $branch2?->id],
+            ['name' => 'Tailor One Other', 'email' => 'tailor1.other@demo.test', 'role' => 'tailor', 'branch_id' => $branch2?->id],
+            ['name' => 'Sales Other', 'email' => 'sales.other@demo.test', 'role' => 'sales', 'branch_id' => $branch2?->id],
         ];
 
         $allUsers = array_merge($globalUsers, $branchManagers, $branchStaff);

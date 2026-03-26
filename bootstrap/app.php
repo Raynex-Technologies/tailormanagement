@@ -1,6 +1,9 @@
 <?php
 
 use App\Http\Middleware\SetBranchContext;
+use App\Http\Middleware\EnsureStorefrontCheckoutEnabled;
+use App\Http\Middleware\EnsureStorefrontEnabled;
+use App\Http\Middleware\SyncGuestCart;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -17,11 +20,15 @@ return Application::configure(basePath: dirname(__DIR__))
         // Register middleware alias
         $middleware->alias([
             'branch.context' => SetBranchContext::class,
+            'storefront.enabled' => EnsureStorefrontEnabled::class,
+            'storefront.checkout' => EnsureStorefrontCheckoutEnabled::class,
+            'storefront.cart.sync' => SyncGuestCart::class,
         ]);
 
         // Apply throttling to web routes
         $middleware->web(append: [
             \Illuminate\Routing\Middleware\ThrottleRequests::class.':web',
+            SyncGuestCart::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

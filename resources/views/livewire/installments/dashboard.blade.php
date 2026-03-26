@@ -1,4 +1,4 @@
-<flux:main class="space-y-6 p-6">
+<flux:main class="space-y-6">
     <flux:breadcrumbs>
         <flux:breadcrumbs.item :href="route('dashboard')" icon="home" wire:navigate />
         <flux:breadcrumbs.item>{{ __('Installments') }}</flux:breadcrumbs.item>
@@ -157,7 +157,7 @@
                             <div class="flex items-center justify-between gap-4">
                                 <div>
                                     <p class="font-medium text-zinc-900 dark:text-white">{{ $package->name }}</p>
-                                    <p class="text-sm text-zinc-500 dark:text-zinc-400">{{ money_tzs($package->price) }} · {{ $package->durationLabel() }}</p>
+                                    <p class="text-sm text-zinc-500 dark:text-zinc-400">{{ money_tzs($package->price) }} Â· {{ $package->durationLabel() }}</p>
                                 </div>
                                 <div class="text-right">
                                     <p class="text-lg font-semibold text-zinc-900 dark:text-white">{{ number_format($package->installment_plans_count) }}</p>

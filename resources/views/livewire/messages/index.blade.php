@@ -1,4 +1,4 @@
-<flux:main class="p-6">
+<flux:main class="p-0">
     {{-- Breadcrumbs --}}
     <div class="mb-6">
         <flux:breadcrumbs>

@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\OrderStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\Priority;
+use App\Enums\StorefrontFulfillmentStatus;
 use App\Models\Concerns\BranchScoped;
 use App\Support\DocNumber;
 use Illuminate\Database\Eloquent\Builder;
@@ -50,9 +51,12 @@ class Order extends Model
     protected $fillable = [
         'branch_id',
         'order_no',
+        'order_type',
+        'order_source',
         'customer_id',
         'assigned_tailor_id',
         'status',
+        'fulfillment_status',
         'order_date',
         'due_date',
         'completed_at',
@@ -61,6 +65,26 @@ class Order extends Model
         'subtotal',
         'discount',
         'total',
+        'currency',
+        'tax_total',
+        'shipping_total',
+        'discount_total',
+        'storefront_coupon_id',
+        'coupon_code',
+        'coupon_name',
+        'coupon_discount_type',
+        'coupon_discount_value',
+        'grand_total',
+        'shipping_method_code',
+        'shipping_method_name',
+        'shipping_address',
+        'billing_address',
+        'checkout_email',
+        'checkout_phone',
+        'customer_note',
+        'placed_at',
+        'payment_due_at',
+        'paid_at',
         'payment_status',
         'created_by',
     ];
@@ -69,14 +93,25 @@ class Order extends Model
     {
         return [
             'status' => OrderStatus::class,
+            'fulfillment_status' => StorefrontFulfillmentStatus::class,
             'payment_status' => PaymentStatus::class,
             'priority' => Priority::class,
             'order_date' => 'date',
             'due_date' => 'date',
             'completed_at' => 'datetime',
+            'placed_at' => 'datetime',
+            'payment_due_at' => 'datetime',
+            'paid_at' => 'datetime',
             'subtotal' => 'decimal:2',
             'discount' => 'decimal:2',
             'total' => 'decimal:2',
+            'tax_total' => 'decimal:2',
+            'shipping_total' => 'decimal:2',
+            'discount_total' => 'decimal:2',
+            'coupon_discount_value' => 'decimal:2',
+            'grand_total' => 'decimal:2',
+            'shipping_address' => 'array',
+            'billing_address' => 'array',
         ];
     }
 
@@ -109,6 +144,11 @@ class Order extends Model
         return $this->hasMany(OrderPayment::class);
     }
 
+    public function paymentTransactions(): HasMany
+    {
+        return $this->hasMany(PaymentTransaction::class);
+    }
+
     public function comments(): HasMany
     {
         return $this->hasMany(OrderComment::class);
@@ -139,6 +179,31 @@ class Order extends Model
         return $this->hasMany(OrderExpense::class);
     }
 
+    public function statusHistory(): HasMany
+    {
+        return $this->hasMany(OrderStatusHistory::class);
+    }
+
+    public function customProgressUpdates(): HasMany
+    {
+        return $this->hasMany(CustomOrderProgressUpdate::class);
+    }
+
+    public function shipments(): HasMany
+    {
+        return $this->hasMany(Shipment::class);
+    }
+
+    public function storefrontCoupon(): BelongsTo
+    {
+        return $this->belongsTo(StorefrontCoupon::class, 'storefront_coupon_id');
+    }
+
+    public function currentShipment(): HasOne
+    {
+        return $this->hasOne(Shipment::class)->latestOfMany();
+    }
+
     // ============================================
     // Accessors
     // ============================================
@@ -164,7 +229,7 @@ class Order extends Model
      */
     public function getBalanceDueAttribute(): float
     {
-        return max(0, (float) $this->total - $this->paid_amount);
+        return max(0, $this->payableTotal() - $this->paid_amount);
     }
 
     /**
@@ -181,7 +246,7 @@ class Order extends Model
     public function getComputedPaymentStatusAttribute(): PaymentStatus
     {
         $paidAmount = $this->paid_amount;
-        $total = (float) $this->total;
+        $total = $this->payableTotal();
 
         if ($paidAmount <= 0) {
             return PaymentStatus::Unpaid;
@@ -501,6 +566,22 @@ class Order extends Model
         $subtotal = $this->lines()->sum('line_total');
         $this->subtotal = $subtotal;
         $this->total = $subtotal - ($this->discount ?? 0);
+        $storefrontDiscount = $this->isStorefrontOrder() ? ($this->discount_total ?? 0) : 0;
+        $this->grand_total = $this->total + ($this->shipping_total ?? 0) + ($this->tax_total ?? 0) - $storefrontDiscount;
         $this->save();
+    }
+
+    public function isStorefrontOrder(): bool
+    {
+        return $this->order_type === 'storefront';
+    }
+
+    public function payableTotal(): float
+    {
+        if ($this->isStorefrontOrder()) {
+            return (float) ($this->grand_total ?? $this->total);
+        }
+
+        return (float) $this->total;
     }
 }

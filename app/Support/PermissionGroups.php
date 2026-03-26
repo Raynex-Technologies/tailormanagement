@@ -99,6 +99,15 @@ class PermissionGroups
             'todos.use',
             'todos.assign',
         ],
+        'Storefront' => [
+            'storefront.view',
+            'storefront.settings.manage',
+            'storefront.catalog.manage',
+            'storefront.cms.manage',
+            'storefront.shipping.manage',
+            'storefront.orders.manage',
+            'storefront.payments.manage',
+        ],
     ];
 
     /**

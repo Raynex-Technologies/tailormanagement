@@ -18,6 +18,18 @@ class InvoiceTemplateSeeder extends Seeder
         DB::table('invoice_templates')->upsert(
             [
                 [
+                    'slug' => 'tailwind',
+                    'name' => 'Tailwind Basic',
+                    'description' => 'Clean Tailwind-inspired invoice layout with simple sections and neutral styling.',
+                    'blade_view' => 'invoices.templates.tailwind',
+                    'thumbnail_path' => null,
+                    'is_active' => true,
+                    'sort_order' => 5,
+                    'is_default' => true,
+                    'created_at' => $now,
+                    'updated_at' => $now,
+                ],
+                [
                     'slug' => 'classic',
                     'name' => 'Classic',
                     'description' => 'Traditional invoice with structured sections and clear totals.',
@@ -25,7 +37,7 @@ class InvoiceTemplateSeeder extends Seeder
                     'thumbnail_path' => null,
                     'is_active' => true,
                     'sort_order' => 10,
-                    'is_default' => true,
+                    'is_default' => false,
                     'created_at' => $now,
                     'updated_at' => $now,
                 ],
@@ -83,4 +95,3 @@ class InvoiceTemplateSeeder extends Seeder
         );
     }
 }
-

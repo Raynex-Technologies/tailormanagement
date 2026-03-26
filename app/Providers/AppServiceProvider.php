@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Http\Middleware\SetBranchContext;
 use App\Models\Branch;
+use App\Models\BusinessSetting;
 use App\Models\CapitalAllocation;
 use App\Models\Conversation;
 use App\Models\DeliveryNote;
@@ -51,6 +52,7 @@ use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 use Livewire\Livewire;
+use Throwable;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -101,6 +103,7 @@ class AppServiceProvider extends ServiceProvider
         ]);
 
         $this->configureDefaults();
+        $this->configureRuntimeMailSettings();
         $this->configureGates();
         $this->configureRateLimiting();
         $this->registerPolicies();
@@ -142,6 +145,64 @@ class AppServiceProvider extends ServiceProvider
                 ->uncompromised()
             : null
         );
+    }
+
+    protected function configureRuntimeMailSettings(): void
+    {
+        try {
+            if (! Schema::hasTable('business_settings')) {
+                return;
+            }
+
+            $settings = BusinessSetting::query()->first();
+            if (! $settings) {
+                return;
+            }
+
+            if (filled($settings->mail_mailer)) {
+                config()->set('mail.default', $settings->mail_mailer);
+            }
+
+            if (filled($settings->mail_host)) {
+                config()->set('mail.mailers.smtp.host', $settings->mail_host);
+            }
+
+            if (filled($settings->mail_port)) {
+                config()->set('mail.mailers.smtp.port', (int) $settings->mail_port);
+            }
+
+            if (filled($settings->mail_username)) {
+                config()->set('mail.mailers.smtp.username', $settings->mail_username);
+            }
+
+            if (filled($settings->mail_password)) {
+                config()->set('mail.mailers.smtp.password', $settings->mail_password);
+            }
+
+            if (filled($settings->mail_timeout)) {
+                config()->set('mail.mailers.smtp.timeout', (int) $settings->mail_timeout);
+            }
+
+            $scheme = $settings->mail_encryption;
+            if ($scheme === 'none') {
+                $scheme = null;
+            }
+
+            if ($settings->mail_encryption !== null) {
+                config()->set('mail.mailers.smtp.scheme', $scheme);
+                config()->set('mail.mailers.smtp.encryption', $scheme);
+            }
+
+            if (filled($settings->email_from_address)) {
+                config()->set('mail.from.address', $settings->email_from_address);
+            }
+
+            if (filled($settings->email_from_name)) {
+                config()->set('mail.from.name', $settings->email_from_name);
+            }
+        } catch (Throwable $exception) {
+            report($exception);
+        }
     }
 
     /**

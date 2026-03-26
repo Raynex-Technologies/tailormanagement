@@ -22,6 +22,20 @@ if (! function_exists('money_tzs')) {
     }
 }
 
+if (! function_exists('money_currency')) {
+    /**
+     * Format amount with any currency code.
+     *
+     * @param  float|int|string|null  $amount
+     */
+    function money_currency(float|int|string|null $amount, string $currency = 'TZS'): string
+    {
+        $amount = (float) ($amount ?? 0);
+
+        return strtoupper($currency).' '.number_format($amount, 2);
+    }
+}
+
 if (! function_exists('phone_e164')) {
     /**
      * Convert phone number to E.164 format for Tanzania.

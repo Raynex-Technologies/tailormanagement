@@ -65,6 +65,41 @@ class InvoiceGenerationTest extends TestCase
         $this->assertSame($line->item_name, $invoice->lines()->first()->item_name);
     }
 
+    public function test_sync_from_order_reuses_existing_invoice_when_context_branch_differs(): void
+    {
+        $user = $this->actingAsRole('admin', $this->branch);
+
+        $customer = Customer::factory()->create([
+            'branch_id' => $this->otherBranch->id,
+        ]);
+
+        $order = Order::create([
+            'branch_id' => $this->otherBranch->id,
+            'customer_id' => $customer->id,
+            'status' => OrderStatus::New,
+            'priority' => Priority::Normal,
+            'subtotal' => 150000,
+            'discount' => 0,
+            'total' => 150000,
+            'payment_status' => PaymentStatus::Unpaid,
+            'created_by' => $user->id,
+        ]);
+
+        $order->lines()->create([
+            'item_name' => 'Bridal Dress',
+            'qty' => 1,
+            'unit_price' => 150000,
+            'line_total' => 150000,
+        ]);
+
+        $invoice = Invoice::syncFromOrder($order->fresh(['lines']), $user->id);
+
+        $this->assertSame(1, Invoice::withoutGlobalScopes()->where('order_id', $order->id)->count());
+        $this->assertSame($order->id, $invoice->order_id);
+        $this->assertSame($this->otherBranch->id, $invoice->branch_id);
+        $this->assertSame(1, $invoice->lines()->count());
+    }
+
     public function test_invoice_numbers_use_incremental_sequence_with_prefix_and_year(): void
     {
         CarbonImmutable::setTestNow(CarbonImmutable::create(2026, 3, 1, 10, 0, 0));

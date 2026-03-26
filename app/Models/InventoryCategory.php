@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\BranchScoped;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Str;
 
@@ -14,8 +15,15 @@ class InventoryCategory extends Model
 
     protected $fillable = [
         'branch_id',
+        'parent_id',
         'name',
         'slug',
+        'description',
+        'storefront_is_visible',
+        'storefront_featured',
+        'storefront_image_path',
+        'seo_title',
+        'seo_description',
     ];
 
     protected static function booted(): void
@@ -36,6 +44,14 @@ class InventoryCategory extends Model
                 $category->getKey()
             );
         });
+    }
+
+    protected function casts(): array
+    {
+        return [
+            'storefront_is_visible' => 'boolean',
+            'storefront_featured' => 'boolean',
+        ];
     }
 
     protected static function resolveSlug(?string $slug, string $name, ?int $branchId, ?int $ignoreId = null): string
@@ -75,5 +91,15 @@ class InventoryCategory extends Model
     public function items(): HasMany
     {
         return $this->hasMany(InventoryItem::class);
+    }
+
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'parent_id');
+    }
+
+    public function children(): HasMany
+    {
+        return $this->hasMany(self::class, 'parent_id');
     }
 }

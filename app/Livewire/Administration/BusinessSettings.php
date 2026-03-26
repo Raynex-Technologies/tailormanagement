@@ -41,8 +41,17 @@ class BusinessSettings extends Component
 
     public ?int $editingPaymentMethodId = null;
     public string $paymentMethodName = '';
+    public string $paymentMethodCode = '';
     public string $paymentMethodAccountNumber = '';
     public string $paymentMethodAccountHolderName = '';
+    public string $paymentMethodType = 'offline';
+    public bool $paymentMethodEnabled = true;
+    public bool $paymentMethodOnline = false;
+    public int $paymentMethodSortOrder = 0;
+    public string $paymentMethodDescription = '';
+    public string $paymentMethodConsumerKey = '';
+    public string $paymentMethodConsumerSecret = '';
+    public bool $showPaymentMethodModal = false;
 
     protected BusinessSetting $settings;
 
@@ -73,6 +82,7 @@ class BusinessSettings extends Component
         $this->tax_enabled = (bool) $settings->tax_enabled;
         $this->tax_name = $settings->tax_name ?? 'VAT';
         $this->tax_rate = $settings->tax_rate !== null ? (float) $settings->tax_rate : 0;
+
     }
 
     public function saveBusinessSettings(): void
@@ -180,6 +190,9 @@ class BusinessSettings extends Component
     {
         $this->authorize('roles.manage');
 
+        $isOnlineGateway = $this->isOnlineGatewayForm();
+        $isPesapalGateway = $isOnlineGateway && $this->isPesapalGatewayCode();
+
         $validated = $this->validate([
             'paymentMethodName' => [
                 'required',
@@ -187,21 +200,66 @@ class BusinessSettings extends Component
                 'max:100',
                 Rule::unique('payment_methods', 'name')->ignore($this->editingPaymentMethodId),
             ],
+            'paymentMethodCode' => [
+                'required',
+                'string',
+                'max:100',
+                Rule::unique('payment_methods', 'code')->ignore($this->editingPaymentMethodId),
+            ],
             'paymentMethodAccountNumber' => ['nullable', 'string', 'max:100'],
             'paymentMethodAccountHolderName' => ['nullable', 'string', 'max:191'],
+            'paymentMethodType' => ['required', Rule::in(['online', 'offline'])],
+            'paymentMethodEnabled' => ['boolean'],
+            'paymentMethodOnline' => ['boolean'],
+            'paymentMethodSortOrder' => ['nullable', 'integer', 'min:0', 'max:9999'],
+            'paymentMethodDescription' => ['nullable', 'string', 'max:2000'],
+            'paymentMethodConsumerKey' => $isPesapalGateway
+                ? ['required', 'string', 'max:191']
+                : ['nullable', 'string', 'max:191'],
+            'paymentMethodConsumerSecret' => $isPesapalGateway
+                ? ['required', 'string', 'max:191']
+                : ['nullable', 'string', 'max:191'],
         ]);
+
+        $existingMethod = $this->editingPaymentMethodId
+            ? PaymentMethod::find($this->editingPaymentMethodId)
+            : null;
+
+        $settings = (array) ($existingMethod?->settings ?? []);
+        if ($isPesapalGateway) {
+            $settings['consumer_key'] = trim((string) $validated['paymentMethodConsumerKey']);
+            $settings['consumer_secret'] = trim((string) $validated['paymentMethodConsumerSecret']);
+        } else {
+            unset($settings['consumer_key'], $settings['consumer_secret']);
+        }
 
         PaymentMethod::updateOrCreate(
             ['id' => $this->editingPaymentMethodId],
             [
                 'name' => $validated['paymentMethodName'],
+                'code' => strtolower($validated['paymentMethodCode']),
                 'account_number' => $validated['paymentMethodAccountNumber'] ?: null,
                 'account_holder_name' => $validated['paymentMethodAccountHolderName'] ?: null,
+                'type' => $isOnlineGateway ? 'online' : 'offline',
+                'is_enabled' => (bool) $validated['paymentMethodEnabled'],
+                'is_online' => $isOnlineGateway,
+                'sort_order' => (int) ($validated['paymentMethodSortOrder'] ?? 0),
+                'description' => $validated['paymentMethodDescription'] ?: null,
+                'settings' => empty($settings) ? null : $settings,
             ]
         );
 
         $this->resetPaymentMethodForm();
+        $this->showPaymentMethodModal = false;
         session()->flash('success', 'Payment method saved.');
+    }
+
+    public function openCreatePaymentMethodModal(): void
+    {
+        $this->authorize('roles.manage');
+
+        $this->resetPaymentMethodForm();
+        $this->showPaymentMethodModal = true;
     }
 
     public function editPaymentMethod(int $paymentMethodId): void
@@ -211,8 +269,24 @@ class BusinessSettings extends Component
         $paymentMethod = PaymentMethod::findOrFail($paymentMethodId);
         $this->editingPaymentMethodId = $paymentMethod->id;
         $this->paymentMethodName = $paymentMethod->name;
+        $this->paymentMethodCode = $paymentMethod->code ?? '';
         $this->paymentMethodAccountNumber = $paymentMethod->account_number ?? '';
         $this->paymentMethodAccountHolderName = $paymentMethod->account_holder_name ?? '';
+        $this->paymentMethodType = $paymentMethod->type ?? ($paymentMethod->is_online ? 'online' : 'offline');
+        $this->paymentMethodEnabled = (bool) $paymentMethod->is_enabled;
+        $this->paymentMethodOnline = (bool) $paymentMethod->is_online;
+        $this->paymentMethodSortOrder = (int) ($paymentMethod->sort_order ?? 0);
+        $this->paymentMethodDescription = $paymentMethod->description ?? '';
+        $settings = (array) ($paymentMethod->settings ?? []);
+        $this->paymentMethodConsumerKey = (string) ($settings['consumer_key'] ?? '');
+        $this->paymentMethodConsumerSecret = (string) ($settings['consumer_secret'] ?? '');
+        $this->showPaymentMethodModal = true;
+    }
+
+    public function closePaymentMethodModal(): void
+    {
+        $this->showPaymentMethodModal = false;
+        $this->resetPaymentMethodForm();
     }
 
     public function deletePaymentMethod(int $paymentMethodId): void
@@ -246,13 +320,37 @@ class BusinessSettings extends Component
     {
         $this->editingPaymentMethodId = null;
         $this->paymentMethodName = '';
+        $this->paymentMethodCode = '';
         $this->paymentMethodAccountNumber = '';
         $this->paymentMethodAccountHolderName = '';
+        $this->paymentMethodType = 'offline';
+        $this->paymentMethodEnabled = true;
+        $this->paymentMethodOnline = false;
+        $this->paymentMethodSortOrder = 0;
+        $this->paymentMethodDescription = '';
+        $this->paymentMethodConsumerKey = '';
+        $this->paymentMethodConsumerSecret = '';
         $this->resetErrorBag([
             'paymentMethodName',
+            'paymentMethodCode',
             'paymentMethodAccountNumber',
             'paymentMethodAccountHolderName',
+            'paymentMethodType',
+            'paymentMethodSortOrder',
+            'paymentMethodDescription',
+            'paymentMethodConsumerKey',
+            'paymentMethodConsumerSecret',
         ]);
+    }
+
+    public function isOnlineGatewayForm(): bool
+    {
+        return $this->paymentMethodType === 'online' || $this->paymentMethodOnline;
+    }
+
+    protected function isPesapalGatewayCode(): bool
+    {
+        return strtolower(trim($this->paymentMethodCode)) === 'pesapal';
     }
 
     public function render()
@@ -262,7 +360,7 @@ class BusinessSettings extends Component
         return view('livewire.administration.business-settings', [
             'settings' => $settings,
             'paymentMethods' => PaymentMethod::query()
-                ->orderByRaw('CASE WHEN id = 1 THEN 0 ELSE 1 END')
+                ->orderBy('sort_order')
                 ->orderBy('name')
                 ->get(),
             'invoiceTemplates' => InvoiceTemplate::query()

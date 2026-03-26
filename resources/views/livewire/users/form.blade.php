@@ -1,4 +1,4 @@
-<flux:main class="space-y-6 p-6">
+<flux:main class="space-y-6">
     {{-- Breadcrumbs --}}
     <flux:breadcrumbs>
         <flux:breadcrumbs.item href="{{ route('dashboard') }}" icon="home" wire:navigate />
@@ -96,7 +96,7 @@
                     <div class="grid gap-6 sm:grid-cols-2">
                         <div>
                             <flux:label for="password">{{ __('Password') }} *</flux:label>
-                            <flux:input type="password" id="password" wire:model="password" placeholder="••••••••" />
+                            <flux:input type="password" id="password" wire:model="password" placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢" />
                             <flux:text class="mt-1 text-xs text-zinc-500">
                                 {{ __('Min 8 characters, mixed case, and numbers.') }}
                             </flux:text>
@@ -107,7 +107,7 @@
 
                         <div>
                             <flux:label for="password_confirmation">{{ __('Confirm Password') }} *</flux:label>
-                            <flux:input type="password" id="password_confirmation" wire:model="password_confirmation" placeholder="••••••••" />
+                            <flux:input type="password" id="password_confirmation" wire:model="password_confirmation" placeholder="â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢" />
                             @error('password_confirmation')
                                 <flux:text class="mt-1 text-sm text-red-500">{{ $message }}</flux:text>
                             @enderror

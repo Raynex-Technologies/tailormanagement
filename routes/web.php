@@ -1,6 +1,7 @@
 <?php
 
 use App\Livewire\Administration\BusinessSettings as AdministrationBusinessSettings;
+use App\Livewire\Administration\EmailSetup as AdministrationEmailSetup;
 use App\Livewire\Branches\Index as BranchesIndex;
 use App\Livewire\DeliveryNotes\Show as DeliveryNoteShow;
 use App\Livewire\Inventory\Categories\Index as CategoriesIndex;
@@ -23,6 +24,19 @@ use App\Livewire\Orders\Index as OrdersIndex;
 use App\Livewire\Orders\Show as OrdersShow;
 use App\Livewire\Orders\StockRequests\Index as OrderStockRequestsIndex;
 use App\Livewire\Payments\Index as PaymentsIndex;
+use App\Livewire\Storefront\Admin\CmsManager as StorefrontCmsManager;
+use App\Livewire\Storefront\Admin\CategoryManager as StorefrontCategoryManager;
+use App\Livewire\Storefront\Admin\ProductForm as StorefrontProductForm;
+use App\Livewire\Storefront\Admin\ProductManager as StorefrontProductManager;
+use App\Livewire\Storefront\Admin\Settings as StorefrontSettingsManager;
+use App\Livewire\Storefront\Admin\ShippingManager as StorefrontShippingManager;
+use App\Http\Controllers\Storefront\AccountController as StorefrontAccountController;
+use App\Http\Controllers\Storefront\CartController as StorefrontCartController;
+use App\Http\Controllers\Storefront\CatalogController as StorefrontCatalogController;
+use App\Http\Controllers\Storefront\CheckoutController as StorefrontCheckoutController;
+use App\Http\Controllers\Storefront\CmsPageController as StorefrontCmsPageController;
+use App\Http\Controllers\Storefront\HomeController as StorefrontHomeController;
+use App\Http\Controllers\Storefront\PaymentController as StorefrontPaymentController;
 use App\Models\BusinessSetting;
 use App\Livewire\Store\StockRequests\Index as StoreStockRequestsIndex;
 use App\Livewire\Store\StockRequests\Show as StoreStockRequestShow;
@@ -35,8 +49,55 @@ use App\Support\BranchContext;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    return view('welcome');
+    return redirect()->route('storefront.home');
 })->name('home');
+
+Route::prefix('shop')
+    ->middleware('storefront.enabled')
+    ->name('storefront.')
+    ->group(function () {
+        Route::get('/', StorefrontHomeController::class)->name('home');
+        Route::get('/products', [StorefrontCatalogController::class, 'index'])->name('catalog.index');
+        Route::get('/products/{slug}', [StorefrontCatalogController::class, 'show'])->name('catalog.show');
+        Route::get('/combos/{slug}', [StorefrontCatalogController::class, 'showCombo'])->name('catalog.combos.show');
+        Route::get('/pages/{slug}', [StorefrontCmsPageController::class, 'show'])->name('page');
+
+        Route::get('/cart', [StorefrontCartController::class, 'index'])->name('cart.index');
+        Route::post('/cart/items', [StorefrontCartController::class, 'add'])->name('cart.add');
+        Route::patch('/cart/items/{cartItem}', [StorefrontCartController::class, 'update'])->name('cart.update');
+        Route::delete('/cart/items/{cartItem}', [StorefrontCartController::class, 'remove'])->name('cart.remove');
+
+        Route::middleware('storefront.checkout')->group(function () {
+            Route::get('/checkout', [StorefrontCheckoutController::class, 'show'])->name('checkout.index');
+            Route::post('/checkout', [StorefrontCheckoutController::class, 'place'])->name('checkout.place');
+            Route::get('/checkout/confirmation/{order}', [StorefrontCheckoutController::class, 'confirmation'])->name('checkout.confirmation');
+        });
+    });
+
+Route::prefix('storefront/payments/pesapal')->name('storefront.payments.')->group(function () {
+    Route::get('/callback', [StorefrontPaymentController::class, 'callback'])->name('callback');
+    Route::match(['get', 'post'], '/ipn', [StorefrontPaymentController::class, 'ipn'])->name('ipn');
+});
+
+Route::middleware(['auth', 'verified'])
+    ->prefix('account')
+    ->name('storefront.account.')
+    ->group(function () {
+        Route::get('/', [StorefrontAccountController::class, 'dashboard'])->name('dashboard');
+
+        Route::get('/orders', [StorefrontAccountController::class, 'orders'])->name('orders.index');
+        Route::get('/orders/{order}', [StorefrontAccountController::class, 'showOrder'])->name('orders.show');
+        Route::post('/orders/{order}/retry-payment', [StorefrontAccountController::class, 'retryOrderPayment'])->name('orders.retry-payment');
+
+        Route::get('/custom-orders', [StorefrontAccountController::class, 'customOrders'])->name('custom-orders.index');
+        Route::get('/custom-orders/{order}', [StorefrontAccountController::class, 'showCustomOrder'])->name('custom-orders.show');
+        Route::post('/custom-orders/{order}/pay', [StorefrontAccountController::class, 'retryOrderPayment'])->name('custom-orders.pay');
+
+        Route::get('/addresses', [StorefrontAccountController::class, 'addresses'])->name('addresses.index');
+        Route::post('/addresses', [StorefrontAccountController::class, 'storeAddress'])->name('addresses.store');
+        Route::patch('/addresses/{address}', [StorefrontAccountController::class, 'updateAddress'])->name('addresses.update');
+        Route::delete('/addresses/{address}', [StorefrontAccountController::class, 'deleteAddress'])->name('addresses.delete');
+    });
 
 /*
 |--------------------------------------------------------------------------
@@ -374,6 +435,40 @@ Route::middleware(['auth', 'verified', 'branch.context'])->group(function () {
     Route::get('administration/settings', AdministrationBusinessSettings::class)
         ->middleware('can:roles.manage')
         ->name('administration.settings');
+
+    Route::get('administration/email-setup', AdministrationEmailSetup::class)
+        ->middleware('can:roles.manage')
+        ->name('administration.email-setup');
+
+    Route::prefix('administration/storefront')->group(function () {
+        Route::get('/settings', StorefrontSettingsManager::class)
+            ->middleware('can:storefront.settings.manage')
+            ->name('administration.storefront.settings');
+
+        Route::get('/products', StorefrontProductManager::class)
+            ->middleware('can:storefront.catalog.manage')
+            ->name('administration.storefront.products');
+
+        Route::get('/products/create', StorefrontProductForm::class)
+            ->middleware('can:storefront.catalog.manage')
+            ->name('administration.storefront.products.create');
+
+        Route::get('/products/{product}/edit', StorefrontProductForm::class)
+            ->middleware('can:storefront.catalog.manage')
+            ->name('administration.storefront.products.edit');
+
+        Route::get('/categories', StorefrontCategoryManager::class)
+            ->middleware('can:storefront.catalog.manage')
+            ->name('administration.storefront.categories');
+
+        Route::get('/cms', StorefrontCmsManager::class)
+            ->middleware('can:storefront.cms.manage')
+            ->name('administration.storefront.cms');
+
+        Route::get('/shipping', StorefrontShippingManager::class)
+            ->middleware('can:storefront.shipping.manage')
+            ->name('administration.storefront.shipping');
+    });
 
     Route::prefix('admin')->middleware('can:roles.manage')->group(function () {
         // Set active branch for admin

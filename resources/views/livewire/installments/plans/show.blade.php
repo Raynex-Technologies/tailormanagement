@@ -1,5 +1,5 @@
 <div>
-    <flux:main class="space-y-6 p-6">
+    <flux:main class="space-y-6">
         <flux:breadcrumbs>
             <flux:breadcrumbs.item :href="route('dashboard')" icon="home" wire:navigate />
             <flux:breadcrumbs.item :href="route('installments.dashboard')" wire:navigate>{{ __('Installments') }}</flux:breadcrumbs.item>
@@ -17,7 +17,7 @@
             <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                 <div>
                     <h1 class="text-xl font-bold text-zinc-900 dark:text-white">{{ $plan->plan_no }}</h1>
-                    <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">{{ $plan->customer?->name }} · {{ $plan->package_name }}</p>
+                    <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">{{ $plan->customer?->name }} Â· {{ $plan->package_name }}</p>
                 </div>
 
                 @can('recordPayment', $plan)

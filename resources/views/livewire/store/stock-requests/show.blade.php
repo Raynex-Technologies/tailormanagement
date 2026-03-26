@@ -1,5 +1,5 @@
 <div>
-    <flux:main class="p-6">
+    <flux:main class="p-0">
         {{-- Page Header --}}
         <div class="mb-6">
             <flux:breadcrumbs>
@@ -42,7 +42,7 @@
                         Order: <a href="{{ route('orders.show', $stockRequest->order) }}" class="font-medium text-indigo-600 hover:text-indigo-800 dark:text-indigo-400" wire:navigate>
                             {{ $stockRequest->order?->order_no }}
                         </a>
-                        • Customer: <span class="font-medium">{{ $stockRequest->order?->customer?->name ?? 'N/A' }}</span>
+                        â€¢ Customer: <span class="font-medium">{{ $stockRequest->order?->customer?->name ?? 'N/A' }}</span>
                     </flux:text>
                 </div>
 
@@ -117,7 +117,7 @@
                                                     {{ number_format($item->qty_approved, 0) }}
                                                 </span>
                                             @else
-                                                <span class="text-zinc-400">—</span>
+                                                <span class="text-zinc-400">â€”</span>
                                             @endif
                                         </td>
                                         <td class="py-3 text-center">
@@ -126,7 +126,7 @@
                                                     {{ number_format($item->qty_issued, 0) }}
                                                 </span>
                                             @else
-                                                <span class="text-zinc-400">—</span>
+                                                <span class="text-zinc-400">â€”</span>
                                             @endif
                                         </td>
                                         <td class="py-3 text-center">
@@ -137,7 +137,7 @@
                                             @elseif ($item->qty_approved !== null)
                                                 <flux:badge color="green" size="sm">Complete</flux:badge>
                                             @else
-                                                <span class="text-zinc-400">—</span>
+                                                <span class="text-zinc-400">â€”</span>
                                             @endif
                                         </td>
                                     </tr>
@@ -322,9 +322,9 @@
                                     <div class="flex-1">
                                         <span class="font-medium">{{ $item->inventoryItem?->name }}</span>
                                         <div class="text-sm text-zinc-500">
-                                            Approved: {{ number_format($item->qty_approved, 0) }} •
-                                            Issued: {{ number_format($item->qty_issued, 0) }} •
-                                            Remaining: {{ number_format($item->remaining_to_issue, 0) }} •
+                                            Approved: {{ number_format($item->qty_approved, 0) }} â€¢
+                                            Issued: {{ number_format($item->qty_issued, 0) }} â€¢
+                                            Remaining: {{ number_format($item->remaining_to_issue, 0) }} â€¢
                                             <span class="{{ ($item->inventoryItem?->stock?->qty_on_hand ?? 0) < $item->remaining_to_issue ? 'text-red-500' : '' }}">
                                                 On Hand: {{ number_format($item->inventoryItem?->stock?->qty_on_hand ?? 0, 0) }}
                                             </span>

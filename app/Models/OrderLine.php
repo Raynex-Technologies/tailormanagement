@@ -14,21 +14,28 @@ class OrderLine extends Model
 
     protected $fillable = [
         'order_id',
+        'inventory_item_id',
+        'inventory_item_variant_id',
         'assigned_tailor_id',
+        'sku',
         'item_name',
         'qty',
         'unit_price',
         'line_total',
         'notes',
+        'meta',
     ];
 
     protected function casts(): array
     {
         return [
+            'inventory_item_id' => 'integer',
+            'inventory_item_variant_id' => 'integer',
             'assigned_tailor_id' => 'integer',
             'qty' => 'decimal:2',
             'unit_price' => 'decimal:2',
             'line_total' => 'decimal:2',
+            'meta' => 'array',
         ];
     }
 
@@ -45,5 +52,15 @@ class OrderLine extends Model
     public function assignedTailor(): BelongsTo
     {
         return $this->belongsTo(User::class, 'assigned_tailor_id');
+    }
+
+    public function inventoryItem(): BelongsTo
+    {
+        return $this->belongsTo(InventoryItem::class);
+    }
+
+    public function variant(): BelongsTo
+    {
+        return $this->belongsTo(InventoryItemVariant::class, 'inventory_item_variant_id');
     }
 }

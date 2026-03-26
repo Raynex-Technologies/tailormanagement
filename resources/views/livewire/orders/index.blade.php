@@ -1,5 +1,5 @@
 <div>
-    <flux:main class="p-6">
+    <flux:main class="p-0">
         <div class="mb-6">
             <flux:breadcrumbs>
                 <flux:breadcrumbs.item :href="route('dashboard')" icon="home" wire:navigate />
@@ -52,6 +52,13 @@
                     @endforeach
                 </flux:select>
 
+                <flux:select wire:model.live="priorityFilter">
+                    <flux:select.option value="">All Priorities</flux:select.option>
+                    @foreach ($priorities as $value => $label)
+                        <flux:select.option value="{{ $value }}">{{ $label }}</flux:select.option>
+                    @endforeach
+                </flux:select>
+
                 <flux:select wire:model.live="tailorFilter">
                     <flux:select.option value="">All Tailors</flux:select.option>
                     @foreach ($tailors as $id => $name)
@@ -59,17 +66,18 @@
                     @endforeach
                 </flux:select>
 
-                <flux:input
-                    wire:model.live="dateFrom"
-                    type="date"
-                    placeholder="From date"
-                />
-
-                <flux:input
-                    wire:model.live="dateTo"
-                    type="date"
-                    placeholder="To date"
-                />
+                <div class="grid grid-cols-2 gap-2">
+                    <flux:input
+                        wire:model.live="dateFrom"
+                        type="date"
+                        placeholder="From date"
+                    />
+                    <flux:input
+                        wire:model.live="dateTo"
+                        type="date"
+                        placeholder="To date"
+                    />
+                </div>
 
                 <div class="flex items-center gap-2">
                     <flux:select wire:model.live="perPage" class="flex-1">
@@ -108,6 +116,7 @@
                             @php
                                 $statusColor = $order->status->color();
                                 $paymentColor = $order->payment_status->color();
+                                $isUrgentOrder = ($order->priority?->value ?? $order->priority) === \App\Enums\Priority::Urgent->value;
                             @endphp
                             <tr class="text-sm text-zinc-700 dark:text-zinc-300" wire:key="order-{{ $order->id }}">
                                 <td class="px-4 py-3">
@@ -125,9 +134,17 @@
                                     </div>
                                 </td>
                                 <td class="px-4 py-3 text-center">
-                                    <flux:badge color="{{ $statusColor }}">
-                                        {{ $order->status->label() }}
-                                    </flux:badge>
+                                    <div class="inline-flex items-center gap-1.5">
+                                        <flux:badge color="{{ $statusColor }}">
+                                            {{ $order->status->label() }}
+                                        </flux:badge>
+                                        @if ($isUrgentOrder)
+                                            <span class="inline-flex items-center text-red-500" title="{{ __('Urgent order') }}">
+                                                <i class="fa-duotone fa-clock-desk size-4"></i>
+                                                <span class="sr-only">{{ __('Urgent') }}</span>
+                                            </span>
+                                        @endif
+                                    </div>
                                 </td>
                                 <td class="px-4 py-3">
                                     {{ $order->due_date?->format('M d, Y') ?? '-' }}
@@ -173,25 +190,27 @@
                                     @endif
                                 </td>
                                 <td class="px-4 py-3">
-                                    <div class="flex items-center justify-end gap-1">
-                                        <flux:button
-                                            size="sm"
-                                            variant="ghost"
-                                            icon="eye"
-                                            :href="route('orders.show', $order)"
-                                            wire:navigate
-                                            title="View"
-                                        />
-                                        @can('orders.update')
-                                            <flux:button
-                                                size="sm"
-                                                variant="ghost"
-                                                icon="pencil"
-                                                :href="route('orders.edit', $order)"
-                                                wire:navigate
-                                                title="Edit"
-                                            />
-                                        @endcan
+                                    <div class="flex items-center justify-end">
+                                        <flux:dropdown position="bottom" align="end">
+                                            <button type="button" class="flex items-center justify-center size-8 rounded-lg text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-800 dark:hover:text-zinc-100">
+                                                <i class="fa-duotone fa-ellipsis-vertical size-4"></i>
+                                                <span class="sr-only">{{ __('Actions') }}</span>
+                                            </button>
+
+                                            <flux:menu>
+                                                <flux:menu.item :href="route('orders.show', $order)" wire:navigate>
+                                                    <i class="fa-duotone fa-eye text-sm text-zinc-400 mr-2"></i>
+                                                    {{ __('View Order') }}
+                                                </flux:menu.item>
+
+                                                @can('orders.update')
+                                                    <flux:menu.item :href="route('orders.edit', $order)" wire:navigate>
+                                                        <i class="fa-duotone fa-pen-to-square text-sm text-zinc-400 mr-2"></i>
+                                                        {{ __('Edit Order') }}
+                                                    </flux:menu.item>
+                                                @endcan
+                                            </flux:menu>
+                                        </flux:dropdown>
                                     </div>
                                 </td>
                             </tr>

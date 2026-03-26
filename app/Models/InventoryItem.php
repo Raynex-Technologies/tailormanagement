@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Models\Concerns\BranchScoped;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
@@ -19,10 +20,28 @@ class InventoryItem extends Model
         'inventory_unit_id',
         'sku',
         'name',
+        'slug',
         'unit',
+        'short_description',
+        'full_description',
+        'featured_image_path',
+        'gallery_images',
+        'status',
         'reorder_level',
+        'low_stock_threshold',
         'default_buy_price',
         'default_sell_price',
+        'compare_at_price',
+        'track_stock',
+        'allow_backorders',
+        'storefront_is_visible',
+        'is_featured',
+        'weight',
+        'dimensions',
+        'shipping_profile_id',
+        'is_taxable',
+        'meta_title',
+        'meta_description',
         'is_active',
     ];
 
@@ -30,8 +49,18 @@ class InventoryItem extends Model
     {
         return [
             'reorder_level' => 'decimal:2',
+            'low_stock_threshold' => 'decimal:2',
             'default_buy_price' => 'decimal:2',
             'default_sell_price' => 'decimal:2',
+            'compare_at_price' => 'decimal:2',
+            'track_stock' => 'boolean',
+            'allow_backorders' => 'boolean',
+            'storefront_is_visible' => 'boolean',
+            'is_featured' => 'boolean',
+            'weight' => 'decimal:3',
+            'dimensions' => 'array',
+            'gallery_images' => 'array',
+            'is_taxable' => 'boolean',
             'is_active' => 'boolean',
         ];
     }
@@ -56,6 +85,26 @@ class InventoryItem extends Model
         return $this->hasMany(InventoryTransaction::class);
     }
 
+    public function media(): HasMany
+    {
+        return $this->hasMany(InventoryItemMedia::class)->orderBy('sort_order');
+    }
+
+    public function variants(): HasMany
+    {
+        return $this->hasMany(InventoryItemVariant::class);
+    }
+
+    public function shippingProfile(): BelongsTo
+    {
+        return $this->belongsTo(ShippingProfile::class);
+    }
+
+    public function tags(): BelongsToMany
+    {
+        return $this->belongsToMany(ProductTag::class, 'inventory_item_product_tag');
+    }
+
     public function purchaseRequestItems(): HasMany
     {
         return $this->hasMany(PurchaseRequestItem::class);
@@ -74,6 +123,21 @@ class InventoryItem extends Model
     public function stockRequestItems(): HasMany
     {
         return $this->hasMany(OrderStockRequestItem::class);
+    }
+
+    public function scopeStorefrontVisible($query)
+    {
+        return $query
+            ->where('storefront_is_visible', true)
+            ->where('status', 'active')
+            ->where('is_active', true);
+    }
+
+    public function storefrontRouteKey(): string
+    {
+        $slug = trim((string) $this->slug);
+
+        return $slug !== '' ? $slug : (string) $this->getKey();
     }
 
     /**

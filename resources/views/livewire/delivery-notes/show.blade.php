@@ -1,5 +1,5 @@
 <div>
-    <flux:main class="p-6">
+    <flux:main class="p-0">
         {{-- Page Header --}}
         <div class="mb-6">
             <flux:breadcrumbs>

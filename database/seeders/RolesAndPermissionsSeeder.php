@@ -208,6 +208,15 @@ class RolesAndPermissionsSeeder extends Seeder
             'todos.use',
             'todos.assign',
 
+            // Storefront
+            'storefront.view',
+            'storefront.settings.manage',
+            'storefront.catalog.manage',
+            'storefront.cms.manage',
+            'storefront.shipping.manage',
+            'storefront.orders.manage',
+            'storefront.payments.manage',
+
             // SMS
             'sms.send',
             'sms.logs.view',
@@ -299,6 +308,14 @@ class RolesAndPermissionsSeeder extends Seeder
                 // Todos
                 'todos.use',
                 'todos.assign',
+                // Storefront
+                'storefront.view',
+                'storefront.settings.manage',
+                'storefront.catalog.manage',
+                'storefront.cms.manage',
+                'storefront.shipping.manage',
+                'storefront.orders.manage',
+                'storefront.payments.manage',
                 // SMS - FULL ACCESS
                 'sms.send',
                 'sms.logs.view',
@@ -373,6 +390,14 @@ class RolesAndPermissionsSeeder extends Seeder
                 // Todos
                 'todos.use',
                 'todos.assign',
+                // Storefront
+                'storefront.view',
+                'storefront.settings.manage',
+                'storefront.catalog.manage',
+                'storefront.cms.manage',
+                'storefront.shipping.manage',
+                'storefront.orders.manage',
+                'storefront.payments.manage',
                 // SMS
                 'sms.send',
                 'sms.logs.view',
@@ -516,6 +541,12 @@ class RolesAndPermissionsSeeder extends Seeder
                 // - sms.*
                 // ============================================================
             ],
+
+            // -----------------------------------------------------------------
+            // CUSTOMER: storefront portal access only
+            // -----------------------------------------------------------------
+            'customer' => [
+            ],
         ];
 
         // ====================================================================
@@ -590,7 +621,7 @@ class RolesAndPermissionsSeeder extends Seeder
 
         // Verify branch_manager has expected permissions
         $branchManager = Role::findByName('branch_manager');
-        $branchManagerRequired = ['orders.create', 'payments.create', 'capital.assign', 'todos.assign'];
+        $branchManagerRequired = ['orders.create', 'payments.create', 'capital.assign', 'todos.assign', 'storefront.settings.manage'];
         $branchManagerMissing = [];
         foreach ($branchManagerRequired as $perm) {
             if (! $branchManager->hasPermissionTo($perm)) {

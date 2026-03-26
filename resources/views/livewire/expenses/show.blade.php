@@ -1,4 +1,4 @@
-<flux:main class="space-y-6 p-6">
+<flux:main class="space-y-6">
     {{-- Breadcrumbs --}}
     <flux:breadcrumbs>
         <flux:breadcrumbs.item href="{{ route('dashboard') }}" icon="home" wire:navigate />
@@ -25,7 +25,7 @@
                 </div>
                 <flux:text class="mt-1">
                     {{ $expense->expense_date->format('F d, Y') }}
-                    <span class="text-zinc-400">•</span>
+                    <span class="text-zinc-400">â€¢</span>
                     {{ $expense->category?->name ?? __('Uncategorized') }}
                 </flux:text>
             </div>

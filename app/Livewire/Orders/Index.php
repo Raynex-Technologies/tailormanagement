@@ -3,6 +3,7 @@
 namespace App\Livewire\Orders;
 
 use App\Enums\OrderStatus;
+use App\Enums\Priority;
 use App\Models\Order;
 use App\Models\User;
 use Livewire\Attributes\Layout;
@@ -27,6 +28,9 @@ class Index extends Component
     public string $tailorFilter = '';
 
     #[Url]
+    public string $priorityFilter = '';
+
+    #[Url]
     public string $dateFrom = '';
 
     #[Url]
@@ -49,6 +53,11 @@ class Index extends Component
         $this->resetPage();
     }
 
+    public function updatedPriorityFilter(): void
+    {
+        $this->resetPage();
+    }
+
     public function updatedDateFrom(): void
     {
         $this->resetPage();
@@ -66,7 +75,7 @@ class Index extends Component
 
     public function clearFilters(): void
     {
-        $this->reset(['search', 'statusFilter', 'tailorFilter', 'dateFrom', 'dateTo']);
+        $this->reset(['search', 'statusFilter', 'tailorFilter', 'priorityFilter', 'dateFrom', 'dateTo']);
         $this->resetPage();
     }
 
@@ -79,7 +88,10 @@ class Index extends Component
             ->search($this->search)
             ->status($this->statusFilter)
             ->assignedTo($this->tailorFilter ?: null)
-            ->dateRange($this->dateFrom, $this->dateTo);
+            ->when($this->priorityFilter !== '', fn ($q) => $q->where('priority', $this->priorityFilter));
+
+        [$dateFrom, $dateTo] = $this->normalizedDateRange();
+        $query->dateRange($dateFrom, $dateTo);
 
         // For tailors, show only their assigned orders
         if ($user->hasRole('tailor')) {
@@ -95,6 +107,9 @@ class Index extends Component
         $statuses = collect(OrderStatus::cases())
             ->mapWithKeys(fn ($status) => [$status->value => $status->label()]);
 
+        $priorities = collect(Priority::cases())
+            ->mapWithKeys(fn ($priority) => [$priority->value => $priority->label()]);
+
         // Get tailors for filter (only from current branch context)
         $tailors = User::whereHas('roles', fn ($q) => $q->where('name', 'tailor'))
             ->orderBy('name')
@@ -107,8 +122,21 @@ class Index extends Component
         return view('livewire.orders.index', [
             'orders' => $orders,
             'statuses' => $statuses,
+            'priorities' => $priorities,
             'tailors' => $tailors,
             'canViewFinancials' => $canViewFinancials,
         ]);
+    }
+
+    protected function normalizedDateRange(): array
+    {
+        $from = $this->dateFrom !== '' ? $this->dateFrom : null;
+        $to = $this->dateTo !== '' ? $this->dateTo : null;
+
+        if ($from && $to && $from > $to) {
+            [$from, $to] = [$to, $from];
+        }
+
+        return [$from, $to];
     }
 }

@@ -47,7 +47,7 @@ class OrderPaymentService
             // Calculate current paid amount
             $currentPaid = $order->payments()->sum('amount');
             $newTotal = $currentPaid + $amount;
-            $orderTotal = (float) $order->total;
+            $orderTotal = $order->payableTotal();
 
             // Block overpayment unless global admin (with small tolerance)
             $tolerance = 0.01;
@@ -85,7 +85,7 @@ class OrderPaymentService
      */
     public function recalculatePaymentStatus(Order $order): void
     {
-        $total = (float) $order->total;
+        $total = $order->payableTotal();
         $paid = (float) $order->payments()->sum('amount');
 
         $status = match (true) {
@@ -102,7 +102,7 @@ class OrderPaymentService
      */
     public function getPaymentSummary(Order $order): array
     {
-        $total = (float) $order->total;
+        $total = $order->payableTotal();
         $paid = (float) $order->payments()->sum('amount');
         $balance = $total - $paid;
 

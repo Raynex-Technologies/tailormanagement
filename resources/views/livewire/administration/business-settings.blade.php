@@ -1,5 +1,50 @@
 <div>
-    <flux:main class="p-6">
+    @php
+        $previewInvoice = (object) [
+            'invoice_no' => 'INV-2026-003979',
+            'issue_date' => now(),
+            'due_date' => now()->addDays(10),
+            'subtotal' => 3460,
+            'discount' => 0,
+            'tax_amount' => 519,
+            'total' => 3979,
+            'notes' => __('Sample terms and conditions for template preview.'),
+            'order' => (object) [
+                'order_no' => 'ORD-2026-001245',
+                'status' => \App\Enums\OrderStatus::InProgress,
+                'payment_status' => \App\Enums\PaymentStatus::Partial,
+                'paid_amount' => 1980,
+                'balance_due' => 1999,
+                'customer' => (object) [
+                    'name' => 'Decines Smith',
+                    'phone' => '+039 123 456 7890',
+                    'email' => 'decinesmith0123@gmail.com',
+                    'address' => '456 Quincy Street, New York, US',
+                ],
+            ],
+            'branch' => (object) [
+                'name' => 'Main Branch',
+            ],
+            'lines' => collect([
+                (object) ['item_name' => 'Invoice Design', 'qty' => 1, 'unit_price' => 230, 'line_total' => 230, 'notes' => null],
+                (object) ['item_name' => 'UI/UX Design', 'qty' => 3, 'unit_price' => 180, 'line_total' => 540, 'notes' => null],
+                (object) ['item_name' => 'Logo Design', 'qty' => 5, 'unit_price' => 130, 'line_total' => 650, 'notes' => null],
+                (object) ['item_name' => 'Web Design', 'qty' => 2, 'unit_price' => 340, 'line_total' => 680, 'notes' => null],
+                (object) ['item_name' => 'Brochure Design', 'qty' => 3, 'unit_price' => 240, 'line_total' => 720, 'notes' => null],
+                (object) ['item_name' => 'Namecard Design', 'qty' => 4, 'unit_price' => 160, 'line_total' => 640, 'notes' => null],
+            ]),
+        ];
+
+        $previewPaymentMethods = collect([
+            (object) [
+                'name' => 'Bank Transfer',
+                'account_number' => '012 345 678 900',
+                'account_holder_name' => 'Nova Musimas',
+            ],
+        ]);
+    @endphp
+
+    <flux:main class="p-0">
         <flux:breadcrumbs>
             <flux:breadcrumbs.item :href="route('dashboard')" wire:navigate>{{ __('Dashboard') }}</flux:breadcrumbs.item>
             <flux:breadcrumbs.item>{{ __('Administration') }}</flux:breadcrumbs.item>
@@ -134,32 +179,20 @@
 
         @if ($tab === 'payment_methods')
             <flux:card class="mt-6 space-y-6">
-                <div>
-                    <flux:heading size="lg">{{ __('Payment Methods') }}</flux:heading>
-                    <flux:text class="mt-1 text-zinc-500 dark:text-zinc-400">
-                        {{ __('Configure available payment methods used for deposits and order payments.') }}
-                    </flux:text>
-                </div>
+                <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                        <flux:heading size="lg">{{ __('Payment Methods') }}</flux:heading>
+                        <flux:text class="mt-1 text-zinc-500 dark:text-zinc-400">
+                            {{ __('Configure available payment methods used for deposits and order payments.') }}
+                        </flux:text>
+                        <flux:text class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+                            {{ __('Online gateway credentials can be saved per payment method. Pesapal still falls back to .env keys when per-method credentials are not set.') }}
+                        </flux:text>
+                    </div>
 
-                <div class="grid gap-4 sm:grid-cols-3">
-                    <flux:input wire:model.blur="paymentMethodName" label="{{ __('Method Name') }}" placeholder="{{ __('e.g. Bank Transfer') }}" required />
-                    <flux:input wire:model.blur="paymentMethodAccountNumber" label="{{ __('Account Number') }}" placeholder="{{ __('Optional') }}" />
-                    <flux:input wire:model.blur="paymentMethodAccountHolderName" label="{{ __('Account Holder Name') }}" placeholder="{{ __('Optional') }}" />
-                </div>
-
-                @error('paymentMethodName')
-                    <p class="text-sm text-red-500">{{ $message }}</p>
-                @enderror
-
-                <div class="flex justify-end gap-2">
-                    @if ($editingPaymentMethodId)
-                        <flux:button type="button" variant="ghost" wire:click="resetPaymentMethodForm">
-                            {{ __('Cancel') }}
-                        </flux:button>
-                    @endif
-                    <flux:button type="button" variant="primary" wire:click="savePaymentMethod">
-                        <x-icon name="check" class="mr-1 size-4" />
-                        {{ $editingPaymentMethodId ? __('Update Method') : __('Add Method') }}
+                    <flux:button type="button" variant="primary" wire:click="openCreatePaymentMethodModal">
+                        <x-icon name="add" class="mr-1 size-4" />
+                        {{ __('New Payment Method') }}
                     </flux:button>
                 </div>
 
@@ -168,8 +201,12 @@
                         <thead class="bg-zinc-50 dark:bg-zinc-800">
                             <tr class="text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                                 <th class="px-4 py-3">{{ __('Method') }}</th>
+                                <th class="px-4 py-3">{{ __('Code') }}</th>
+                                <th class="px-4 py-3">{{ __('Type') }}</th>
+                                <th class="px-4 py-3">{{ __('Enabled') }}</th>
                                 <th class="px-4 py-3">{{ __('Account Number') }}</th>
                                 <th class="px-4 py-3">{{ __('Account Holder') }}</th>
+                                <th class="px-4 py-3">{{ __('Sort') }}</th>
                                 <th class="px-4 py-3 text-right">{{ __('Actions') }}</th>
                             </tr>
                         </thead>
@@ -184,8 +221,16 @@
                                             @endif
                                         </div>
                                     </td>
+                                    <td class="px-4 py-3 text-zinc-500">{{ $method->code ?: '-' }}</td>
+                                    <td class="px-4 py-3 text-zinc-500">{{ ucfirst($method->type ?? 'offline') }}</td>
+                                    <td class="px-4 py-3">
+                                        <flux:badge size="sm" :color="$method->is_enabled ? 'green' : 'zinc'">
+                                            {{ $method->is_enabled ? __('Enabled') : __('Disabled') }}
+                                        </flux:badge>
+                                    </td>
                                     <td class="px-4 py-3 text-zinc-500">{{ $method->account_number ?: '-' }}</td>
                                     <td class="px-4 py-3 text-zinc-500">{{ $method->account_holder_name ?: '-' }}</td>
+                                    <td class="px-4 py-3 text-zinc-500">{{ $method->sort_order }}</td>
                                     <td class="px-4 py-3">
                                         <div class="flex justify-end gap-2">
                                             <flux:button type="button" size="sm" variant="ghost" wire:click="editPaymentMethod({{ $method->id }})">
@@ -201,7 +246,7 @@
                                 </tr>
                             @empty
                                 <tr>
-                                    <td colspan="4" class="px-4 py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">
+                                    <td colspan="8" class="px-4 py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">
                                         {{ __('No payment methods configured.') }}
                                     </td>
                                 </tr>
@@ -209,6 +254,93 @@
                         </tbody>
                     </table>
                 </div>
+
+                <flux:modal wire:model="showPaymentMethodModal" class="max-w-3xl">
+                    <div class="space-y-4">
+                        <flux:heading size="lg">{{ $editingPaymentMethodId ? __('Edit Payment Method') : __('New Payment Method') }}</flux:heading>
+
+                        <div class="grid gap-4 sm:grid-cols-3">
+                            <flux:input wire:model.blur="paymentMethodName" label="{{ __('Method Name') }}" placeholder="{{ __('e.g. Bank Transfer') }}" required />
+                            <flux:input wire:model.blur="paymentMethodCode" label="{{ __('Method Code') }}" placeholder="{{ __('e.g. pesapal') }}" required />
+                            <flux:select wire:model.blur="paymentMethodType" label="{{ __('Type') }}">
+                                <flux:select.option value="offline">{{ __('Offline') }}</flux:select.option>
+                                <flux:select.option value="online">{{ __('Online') }}</flux:select.option>
+                            </flux:select>
+                            <flux:input wire:model.blur="paymentMethodAccountNumber" label="{{ __('Account Number') }}" placeholder="{{ __('Optional') }}" />
+                            <flux:input wire:model.blur="paymentMethodAccountHolderName" label="{{ __('Account Holder Name') }}" placeholder="{{ __('Optional') }}" />
+                            <flux:input wire:model.blur="paymentMethodSortOrder" type="number" min="0" label="{{ __('Sort Order') }}" />
+                        </div>
+
+                        <div class="grid gap-4 sm:grid-cols-2">
+                            <label class="flex items-center justify-between rounded-xl border border-zinc-200 px-4 py-3 dark:border-zinc-700">
+                                <span class="text-sm font-medium">{{ __('Enabled at Checkout') }}</span>
+                                <input type="checkbox" wire:model="paymentMethodEnabled" class="rounded border-zinc-300 text-lime-600 focus:ring-lime-500" />
+                            </label>
+                            <label class="flex items-center justify-between rounded-xl border border-zinc-200 px-4 py-3 dark:border-zinc-700">
+                                <span class="text-sm font-medium">{{ __('Online Gateway') }}</span>
+                                <input type="checkbox" wire:model="paymentMethodOnline" class="rounded border-zinc-300 text-lime-600 focus:ring-lime-500" />
+                            </label>
+                        </div>
+
+                        <flux:textarea wire:model.blur="paymentMethodDescription" label="{{ __('Checkout Description') }}" rows="2" />
+
+                        @php($isOnlineGatewayForm = $this->isOnlineGatewayForm())
+                        @php($isPesapalGateway = strtolower(trim((string) $paymentMethodCode)) === 'pesapal')
+
+                        @if ($isOnlineGatewayForm)
+                            <div class="space-y-3 rounded-xl border border-zinc-200 p-4 dark:border-zinc-700">
+                                <flux:heading size="sm">{{ __('Gateway Credentials') }}</flux:heading>
+
+                                @if ($isPesapalGateway)
+                                    <div class="grid gap-4 sm:grid-cols-2">
+                                        <flux:input
+                                            wire:model.blur="paymentMethodConsumerKey"
+                                            label="{{ __('Merchant Consumer Key') }}"
+                                            placeholder="{{ __('Required for Pesapal online checkout') }}"
+                                        />
+                                        <flux:input
+                                            wire:model.blur="paymentMethodConsumerSecret"
+                                            type="password"
+                                            autocomplete="new-password"
+                                            label="{{ __('Merchant Consumer Secret') }}"
+                                            placeholder="{{ __('Required for Pesapal online checkout') }}"
+                                        />
+                                    </div>
+                                    <flux:text class="text-xs text-zinc-500 dark:text-zinc-400">
+                                        {{ __('These credentials are used for Pesapal /Auth/RequestToken authentication for this payment method.') }}
+                                    </flux:text>
+                                @else
+                                    <flux:text class="text-xs text-zinc-500 dark:text-zinc-400">
+                                        {{ __('Provider-specific gateway fields will appear here based on the method code.') }}
+                                    </flux:text>
+                                @endif
+                            </div>
+                        @endif
+
+                        @error('paymentMethodName')
+                            <p class="text-sm text-red-500">{{ $message }}</p>
+                        @enderror
+                        @error('paymentMethodCode')
+                            <p class="text-sm text-red-500">{{ $message }}</p>
+                        @enderror
+                        @error('paymentMethodConsumerKey')
+                            <p class="text-sm text-red-500">{{ $message }}</p>
+                        @enderror
+                        @error('paymentMethodConsumerSecret')
+                            <p class="text-sm text-red-500">{{ $message }}</p>
+                        @enderror
+
+                        <div class="flex justify-end gap-2">
+                            <flux:button type="button" variant="ghost" wire:click="closePaymentMethodModal">
+                                {{ __('Cancel') }}
+                            </flux:button>
+                            <flux:button type="button" variant="primary" wire:click="savePaymentMethod">
+                                <x-icon name="check" class="mr-1 size-4" />
+                                {{ $editingPaymentMethodId ? __('Update Method') : __('Add Method') }}
+                            </flux:button>
+                        </div>
+                    </div>
+                </flux:modal>
             </flux:card>
         @endif
 
@@ -237,47 +369,6 @@
                 @error('invoice_template_id')
                     <p class="text-sm text-red-500">{{ $message }}</p>
                 @enderror
-
-                @php
-                    $previewInvoice = (object) [
-                        'invoice_no' => 'INV-2026-003979',
-                        'issue_date' => now(),
-                        'due_date' => now()->addDays(10),
-                        'subtotal' => 3460,
-                        'discount' => 0,
-                        'tax_amount' => 519,
-                        'total' => 3979,
-                        'notes' => __('Sample terms and conditions for template preview.'),
-                        'order' => (object) [
-                            'order_no' => 'ORD-2026-001245',
-                            'customer' => (object) [
-                                'name' => 'Decines Smith',
-                                'phone' => '+039 123 456 7890',
-                                'email' => 'decinesmith0123@gmail.com',
-                                'address' => '456 Quincy Street, New York, US',
-                            ],
-                        ],
-                        'branch' => (object) [
-                            'name' => 'Main Branch',
-                        ],
-                        'lines' => collect([
-                            (object) ['item_name' => 'Invoice Design', 'qty' => 1, 'unit_price' => 230, 'line_total' => 230, 'notes' => null],
-                            (object) ['item_name' => 'UI/UX Design', 'qty' => 3, 'unit_price' => 180, 'line_total' => 540, 'notes' => null],
-                            (object) ['item_name' => 'Logo Design', 'qty' => 5, 'unit_price' => 130, 'line_total' => 650, 'notes' => null],
-                            (object) ['item_name' => 'Web Design', 'qty' => 2, 'unit_price' => 340, 'line_total' => 680, 'notes' => null],
-                            (object) ['item_name' => 'Brochure Design', 'qty' => 3, 'unit_price' => 240, 'line_total' => 720, 'notes' => null],
-                            (object) ['item_name' => 'Namecard Design', 'qty' => 4, 'unit_price' => 160, 'line_total' => 640, 'notes' => null],
-                        ]),
-                    ];
-
-                    $previewPaymentMethods = collect([
-                        (object) [
-                            'name' => 'Bank Transfer',
-                            'account_number' => '012 345 678 900',
-                            'account_holder_name' => 'Nova Musimas',
-                        ],
-                    ]);
-                @endphp
 
                 <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                     @foreach ($invoiceTemplates as $template)

@@ -1,5 +1,5 @@
 <div>
-    <flux:main class="space-y-6 p-6">
+    <flux:main class="space-y-6">
         {{-- Breadcrumbs --}}
         <flux:breadcrumbs>
             <flux:breadcrumbs.item href="{{ route('dashboard') }}" icon="home" wire:navigate />
@@ -47,7 +47,7 @@
                                     <p class="font-semibold capitalize text-zinc-900 dark:text-white">{{ str_replace('_', ' ', $role->name) }}</p>
                                     <div class="flex gap-3 text-xs text-zinc-500 dark:text-zinc-400">
                                         <span>{{ $role->users_count }} {{ Str::plural('user', $role->users_count) }}</span>
-                                        <span>•</span>
+                                        <span>â€¢</span>
                                         <span>{{ $role->permissions_count }} {{ Str::plural('permission', $role->permissions_count) }}</span>
                                     </div>
                                 </div>
