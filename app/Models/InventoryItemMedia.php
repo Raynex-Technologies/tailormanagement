@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\StorefrontMedia;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -20,5 +21,15 @@ class InventoryItemMedia extends Model
     public function item(): BelongsTo
     {
         return $this->belongsTo(InventoryItem::class, 'inventory_item_id');
+    }
+
+    public function getImageUrlAttribute(): ?string
+    {
+        return StorefrontMedia::url($this->path);
+    }
+
+    public function setPathAttribute(mixed $value): void
+    {
+        $this->attributes['path'] = StorefrontMedia::normalizePath($value);
     }
 }

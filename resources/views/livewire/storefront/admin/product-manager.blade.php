@@ -69,8 +69,8 @@
                                 <tr class="text-sm">
                                     <td class="px-4 py-3">
                                         <div class="flex items-center gap-3">
-                                            @if ($product->featured_image_path)
-                                                <img src="{{ asset('storage/'.$product->featured_image_path) }}" alt="{{ $product->name }}" class="h-10 w-10 rounded-lg border border-zinc-200 object-cover dark:border-zinc-700" />
+                                            @if ($product->featured_image_url)
+                                                <img src="{{ $product->featured_image_url }}" alt="{{ $product->name }}" class="h-10 w-10 rounded-lg border border-zinc-200 object-cover dark:border-zinc-700" />
                                             @else
                                                 <div class="flex h-10 w-10 items-center justify-center rounded-lg border border-zinc-200 text-xs text-zinc-500 dark:border-zinc-700">{{ __('N/A') }}</div>
                                             @endif
@@ -281,7 +281,7 @@
             <div class="space-y-2 rounded-xl border border-zinc-200 p-4 dark:border-zinc-700">
                 <flux:label>{{ __('Combo Image') }}</flux:label>
                 @if ($comboFeaturedImagePath && ! $comboFeaturedImageUpload)
-                    <img src="{{ asset('storage/'.$comboFeaturedImagePath) }}" alt="{{ __('Combo image') }}" class="h-20 rounded-lg border border-zinc-200 object-cover dark:border-zinc-700" />
+                    <img src="{{ \App\Support\StorefrontMedia::url($comboFeaturedImagePath) }}" alt="{{ __('Combo image') }}" class="h-20 rounded-lg border border-zinc-200 object-cover dark:border-zinc-700" />
                 @endif
                 @if ($comboFeaturedImageUpload)
                     <img src="{{ $comboFeaturedImageUpload->temporaryUrl() }}" alt="{{ __('Preview') }}" class="h-20 rounded-lg border border-zinc-200 object-cover dark:border-zinc-700" />

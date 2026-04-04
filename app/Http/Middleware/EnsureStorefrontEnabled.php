@@ -20,16 +20,17 @@ class EnsureStorefrontEnabled
             return $next($request);
         }
 
+        $message = $this->storefrontContext->settings()->storefront_maintenance_message
+            ?: 'The storefront is currently unavailable.';
+
         if ($request->expectsJson()) {
             return response()->json([
-                'message' => $this->storefrontContext->settings()->storefront_maintenance_message
-                    ?: 'The storefront is currently unavailable.',
+                'message' => $message,
             ], 503);
         }
 
-        return response()->view('storefront.unavailable', [
-            'settings' => $this->storefrontContext->settings(),
-            'message' => $this->storefrontContext->settings()->storefront_maintenance_message,
-        ], 503);
+        return redirect()
+            ->route('dashboard')
+            ->with('error', $message);
     }
 }

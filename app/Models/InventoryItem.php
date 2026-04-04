@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\BranchScoped;
+use App\Support\StorefrontMedia;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -138,6 +139,36 @@ class InventoryItem extends Model
         $slug = trim((string) $this->slug);
 
         return $slug !== '' ? $slug : (string) $this->getKey();
+    }
+
+    public function getFeaturedImageUrlAttribute(): ?string
+    {
+        return StorefrontMedia::url($this->featured_image_path);
+    }
+
+    public function getGalleryImageUrlsAttribute(): array
+    {
+        return collect((array) $this->gallery_images)
+            ->map(fn ($path) => StorefrontMedia::url($path))
+            ->filter()
+            ->values()
+            ->all();
+    }
+
+    public function setFeaturedImagePathAttribute(mixed $value): void
+    {
+        $this->attributes['featured_image_path'] = StorefrontMedia::normalizePath($value);
+    }
+
+    public function setGalleryImagesAttribute(mixed $value): void
+    {
+        $paths = collect(is_array($value) ? $value : [])
+            ->map(fn ($path) => StorefrontMedia::normalizePath($path))
+            ->filter()
+            ->values()
+            ->all();
+
+        $this->attributes['gallery_images'] = json_encode($paths, JSON_UNESCAPED_SLASHES);
     }
 
     /**

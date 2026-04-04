@@ -43,25 +43,24 @@
 @section('content')
     @php
         $gallery = collect();
-        if ($product->featured_image_path) {
+        if ($product->featured_image_url) {
             $gallery->push([
-                'path' => $product->featured_image_path,
+                'url' => $product->featured_image_url,
                 'alt' => $product->name,
             ]);
         }
         foreach ($product->media as $media) {
-            if ($media->path && $media->path !== $product->featured_image_path) {
+            if ($media->image_url && $media->image_url !== $product->featured_image_url) {
                 $gallery->push([
-                    'path' => $media->path,
+                    'url' => $media->image_url,
                     'alt' => $media->alt_text ?: $product->name,
                 ]);
             }
         }
         if ($gallery->isEmpty()) {
             $gallery->push([
-                'path' => 'frontend/assets/img/product/1.jpg',
+                'url' => asset('frontend/assets/img/product/1.jpg'),
                 'alt' => $product->name,
-                'public' => true,
             ]);
         }
 
@@ -161,14 +160,9 @@
                     <div class="storefront-product-gallery">
                         <div class="quick_view_slide">
                             @foreach ($gallery as $image)
-                                @php
-                                    $imageUrl = ! empty($image['public'])
-                                        ? asset($image['path'])
-                                        : asset('storage/'.$image['path']);
-                                @endphp
                                 <div class="single_view_slide">
-                                    <a href="{{ $imageUrl }}" data-lightbox="product-gallery-{{ $product->id }}" class="d-block mb-4">
-                                        <img src="{{ $imageUrl }}" class="img-fluid" alt="{{ $image['alt'] }}" loading="{{ $loop->first ? 'eager' : 'lazy' }}">
+                                    <a href="{{ $image['url'] }}" data-lightbox="product-gallery-{{ $product->id }}" class="d-block mb-4">
+                                        <img src="{{ $image['url'] }}" class="img-fluid" alt="{{ $image['alt'] }}" loading="{{ $loop->first ? 'eager' : 'lazy' }}">
                                     </a>
                                 </div>
                             @endforeach

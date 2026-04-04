@@ -34,36 +34,33 @@
 @section('content')
     @php
         $gallery = collect();
-        if ($combo->featured_image_path) {
+        if ($combo->featured_image_url) {
             $gallery->push([
-                'path' => $combo->featured_image_path,
+                'url' => $combo->featured_image_url,
                 'alt' => $combo->name,
-                'storage' => true,
             ]);
         }
 
         foreach ($comboItems as $comboItem) {
             $product = $comboItem->product;
-            if (! $product || ! $product->featured_image_path) {
+            if (! $product || ! $product->featured_image_url) {
                 continue;
             }
 
-            if ($gallery->contains(fn ($image) => $image['path'] === $product->featured_image_path)) {
+            if ($gallery->contains(fn ($image) => $image['url'] === $product->featured_image_url)) {
                 continue;
             }
 
             $gallery->push([
-                'path' => $product->featured_image_path,
+                'url' => $product->featured_image_url,
                 'alt' => $product->name,
-                'storage' => true,
             ]);
         }
 
         if ($gallery->isEmpty()) {
             $gallery->push([
-                'path' => 'frontend/assets/img/product/1.jpg',
+                'url' => asset('frontend/assets/img/product/1.jpg'),
                 'alt' => $combo->name,
-                'storage' => false,
             ]);
         }
 
@@ -77,14 +74,9 @@
                     <div class="storefront-combo-gallery">
                         <div class="quick_view_slide">
                             @foreach ($gallery as $image)
-                                @php
-                                    $imageUrl = ! empty($image['storage'])
-                                        ? asset('storage/'.$image['path'])
-                                        : asset($image['path']);
-                                @endphp
                                 <div class="single_view_slide">
-                                    <a href="{{ $imageUrl }}" data-lightbox="combo-gallery-{{ $combo->id }}" class="d-block mb-4">
-                                        <img src="{{ $imageUrl }}" class="img-fluid" alt="{{ $image['alt'] }}" loading="{{ $loop->first ? 'eager' : 'lazy' }}">
+                                    <a href="{{ $image['url'] }}" data-lightbox="combo-gallery-{{ $combo->id }}" class="d-block mb-4">
+                                        <img src="{{ $image['url'] }}" class="img-fluid" alt="{{ $image['alt'] }}" loading="{{ $loop->first ? 'eager' : 'lazy' }}">
                                     </a>
                                 </div>
                             @endforeach

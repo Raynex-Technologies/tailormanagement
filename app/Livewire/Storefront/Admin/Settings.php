@@ -4,7 +4,7 @@ namespace App\Livewire\Storefront\Admin;
 
 use App\Models\Branch;
 use App\Models\BusinessSetting;
-use Illuminate\Support\Facades\Storage;
+use App\Support\StorefrontMedia;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -83,10 +83,38 @@ class Settings extends Component
             'storefront_announcement_text' => ['nullable', 'string', 'max:191'],
             'storefront_announcement_link' => ['nullable', 'url', 'max:191'],
             'storefront_default_branch_id' => ['nullable', 'integer', Rule::exists('branches', 'id')],
-            'storefrontLogoUpload' => ['nullable', 'image', 'max:3072'],
-            'storefrontFaviconUpload' => ['nullable', 'image', 'max:1024'],
-            'storefrontHeroUpload' => ['nullable', 'image', 'max:6144'],
-            'storefrontSocialUpload' => ['nullable', 'image', 'max:3072'],
+            'storefrontLogoUpload' => [
+                'nullable',
+                'image',
+                'mimes:jpg,jpeg,png,webp',
+                'mimetypes:image/jpeg,image/png,image/webp',
+                'max:2048',
+                'dimensions:min_width=64,min_height=64,max_width=3000,max_height=3000',
+            ],
+            'storefrontFaviconUpload' => [
+                'nullable',
+                'image',
+                'mimes:png,webp',
+                'mimetypes:image/png,image/webp',
+                'max:512',
+                'dimensions:min_width=32,min_height=32,max_width=512,max_height=512',
+            ],
+            'storefrontHeroUpload' => [
+                'nullable',
+                'image',
+                'mimes:jpg,jpeg,png,webp',
+                'mimetypes:image/jpeg,image/png,image/webp',
+                'max:6144',
+                'dimensions:min_width=320,min_height=180,max_width=5000,max_height=5000',
+            ],
+            'storefrontSocialUpload' => [
+                'nullable',
+                'image',
+                'mimes:jpg,jpeg,png,webp',
+                'mimetypes:image/jpeg,image/png,image/webp',
+                'max:3072',
+                'dimensions:min_width=200,min_height=200,max_width=5000,max_height=5000',
+            ],
         ]);
 
         $settings = BusinessSetting::instance();
@@ -112,34 +140,34 @@ class Settings extends Component
 
         if ($this->storefrontLogoUpload) {
             if ($settings->storefront_logo_path) {
-                Storage::disk('public')->delete($settings->storefront_logo_path);
+                StorefrontMedia::delete($settings->storefront_logo_path);
             }
 
-            $data['storefront_logo_path'] = $this->storefrontLogoUpload->store('storefront/media', 'public');
+            $data['storefront_logo_path'] = StorefrontMedia::store($this->storefrontLogoUpload, 'storefront/media');
         }
 
         if ($this->storefrontFaviconUpload) {
             if ($settings->storefront_favicon_path) {
-                Storage::disk('public')->delete($settings->storefront_favicon_path);
+                StorefrontMedia::delete($settings->storefront_favicon_path);
             }
 
-            $data['storefront_favicon_path'] = $this->storefrontFaviconUpload->store('storefront/media', 'public');
+            $data['storefront_favicon_path'] = StorefrontMedia::store($this->storefrontFaviconUpload, 'storefront/media');
         }
 
         if ($this->storefrontHeroUpload) {
             if ($settings->storefront_hero_media_path) {
-                Storage::disk('public')->delete($settings->storefront_hero_media_path);
+                StorefrontMedia::delete($settings->storefront_hero_media_path);
             }
 
-            $data['storefront_hero_media_path'] = $this->storefrontHeroUpload->store('storefront/media', 'public');
+            $data['storefront_hero_media_path'] = StorefrontMedia::store($this->storefrontHeroUpload, 'storefront/media');
         }
 
         if ($this->storefrontSocialUpload) {
             if ($settings->storefront_social_image_path) {
-                Storage::disk('public')->delete($settings->storefront_social_image_path);
+                StorefrontMedia::delete($settings->storefront_social_image_path);
             }
 
-            $data['storefront_social_image_path'] = $this->storefrontSocialUpload->store('storefront/media', 'public');
+            $data['storefront_social_image_path'] = StorefrontMedia::store($this->storefrontSocialUpload, 'storefront/media');
         }
 
         $settings->update($data);

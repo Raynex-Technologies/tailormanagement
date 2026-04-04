@@ -67,8 +67,8 @@
                             <tr class="text-sm">
                                 <td class="px-4 py-3">
                                     <div class="flex items-center gap-3">
-                                        @if ($category->storefront_image_path)
-                                            <img src="{{ asset('storage/'.$category->storefront_image_path) }}" alt="{{ $category->name }}" class="h-10 w-10 rounded-lg border border-zinc-200 object-cover dark:border-zinc-700" />
+                                        @if ($category->image_url)
+                                            <img src="{{ $category->image_url }}" alt="{{ $category->name }}" class="h-10 w-10 rounded-lg border border-zinc-200 object-cover dark:border-zinc-700" />
                                         @endif
                                         <div>
                                             <p class="font-medium text-zinc-900 dark:text-zinc-100">{{ $category->name }}</p>
@@ -149,8 +149,8 @@
 
             <div class="space-y-2 rounded-xl border border-zinc-200 p-4 dark:border-zinc-700">
                 <flux:label>{{ __('Category Image') }}</flux:label>
-                @if ($existingImagePath && ! $imageUpload)
-                    <img src="{{ asset('storage/'.$existingImagePath) }}" alt="{{ __('Category image') }}" class="h-20 rounded-lg border border-zinc-200 object-cover dark:border-zinc-700" />
+                @if ($existingImageUrl && ! $imageUpload)
+                    <img src="{{ $existingImageUrl }}" alt="{{ __('Category image') }}" class="h-20 rounded-lg border border-zinc-200 object-cover dark:border-zinc-700" />
                 @endif
                 @if ($imageUpload)
                     <img src="{{ $imageUpload->temporaryUrl() }}" alt="{{ __('Preview') }}" class="h-20 rounded-lg border border-zinc-200 object-cover dark:border-zinc-700" />

@@ -15,7 +15,7 @@
                 @forelse ($featuredCategories->take(3) as $category)
                     @php
                         $fallback = asset('frontend/assets/img/a-'.(($loop->index % 3) + 1).'.png');
-                        $categoryImage = $category->storefront_image_path ? asset('storage/'.$category->storefront_image_path) : $fallback;
+                        $categoryImage = $category->image_url ?: $fallback;
                     @endphp
                     <div class="col-xl-4 col-lg-4 col-md-4 col-sm-12">
                         <a href="{{ route('storefront.catalog.index', ['category' => $category->slug]) }}" class="card card-overflow card-scale no-radius mb-0">

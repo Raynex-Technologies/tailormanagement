@@ -9,7 +9,7 @@ use App\Models\StorefrontCoupon;
 use App\Models\StorefrontCouponUsage;
 use App\Models\StorefrontProductCombo;
 use App\Support\BranchContext;
-use Illuminate\Support\Facades\Storage;
+use App\Support\StorefrontMedia;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -146,8 +146,23 @@ class ProductManager extends Component
             'productHeight' => ['nullable', 'numeric', 'min:0'],
             'productSizes' => ['nullable', 'string', 'max:2000'],
             'productColors' => ['nullable', 'string', 'max:2000'],
-            'productFeaturedImageUpload' => ['nullable', 'image', 'max:4096'],
-            'productGalleryUploads.*' => ['nullable', 'image', 'max:4096'],
+            'productFeaturedImageUpload' => [
+                'nullable',
+                'image',
+                'mimes:jpg,jpeg,png,webp',
+                'mimetypes:image/jpeg,image/png,image/webp',
+                'max:4096',
+                'dimensions:min_width=64,min_height=64,max_width=4096,max_height=4096',
+            ],
+            'productGalleryUploads' => ['nullable', 'array', 'max:12'],
+            'productGalleryUploads.*' => [
+                'nullable',
+                'image',
+                'mimes:jpg,jpeg,png,webp',
+                'mimetypes:image/jpeg,image/png,image/webp',
+                'max:4096',
+                'dimensions:min_width=64,min_height=64,max_width=4096,max_height=4096',
+            ],
         ]);
 
         $branchId = $this->resolveBranchId();
@@ -196,10 +211,10 @@ class ProductManager extends Component
 
         if ($this->productFeaturedImageUpload) {
             if ($product->exists && $product->featured_image_path) {
-                Storage::disk('public')->delete($product->featured_image_path);
+                StorefrontMedia::delete($product->featured_image_path);
             }
 
-            $payload['featured_image_path'] = $this->productFeaturedImageUpload->store('storefront/products/featured', 'public');
+            $payload['featured_image_path'] = StorefrontMedia::store($this->productFeaturedImageUpload, 'storefront/products/featured');
         }
 
         $product->fill($payload);
@@ -261,6 +276,7 @@ class ProductManager extends Component
         $this->existingProductGallery = $product->media->map(fn (InventoryItemMedia $media) => [
             'id' => $media->id,
             'path' => $media->path,
+            'image_url' => $media->image_url,
             'alt_text' => $media->alt_text,
         ])->all();
         $this->productFeaturedImagePath = $product->featured_image_path;
@@ -277,7 +293,7 @@ class ProductManager extends Component
         $media = InventoryItemMedia::query()->findOrFail($mediaId);
         $product = InventoryItem::query()->findOrFail($media->inventory_item_id);
 
-        Storage::disk('public')->delete($media->path);
+        StorefrontMedia::delete($media->path);
         $media->delete();
 
         $this->syncGalleryImagesColumn($product->fresh('media'));
@@ -304,11 +320,11 @@ class ProductManager extends Component
         }
 
         if ($product->featured_image_path) {
-            Storage::disk('public')->delete($product->featured_image_path);
+            StorefrontMedia::delete($product->featured_image_path);
         }
 
         foreach ($product->media as $media) {
-            Storage::disk('public')->delete($media->path);
+            StorefrontMedia::delete($media->path);
         }
 
         $product->delete();
@@ -364,7 +380,14 @@ class ProductManager extends Component
             'comboActive' => ['boolean'],
             'comboVisible' => ['boolean'],
             'comboSortOrder' => ['nullable', 'integer', 'min:0', 'max:9999'],
-            'comboFeaturedImageUpload' => ['nullable', 'image', 'max:4096'],
+            'comboFeaturedImageUpload' => [
+                'nullable',
+                'image',
+                'mimes:jpg,jpeg,png,webp',
+                'mimetypes:image/jpeg,image/png,image/webp',
+                'max:4096',
+                'dimensions:min_width=64,min_height=64,max_width=4096,max_height=4096',
+            ],
         ]);
 
         $branchId = $this->resolveBranchId();
@@ -387,10 +410,10 @@ class ProductManager extends Component
 
         if ($this->comboFeaturedImageUpload) {
             if ($combo->exists && $combo->featured_image_path) {
-                Storage::disk('public')->delete($combo->featured_image_path);
+                StorefrontMedia::delete($combo->featured_image_path);
             }
 
-            $payload['featured_image_path'] = $this->comboFeaturedImageUpload->store('storefront/combos', 'public');
+            $payload['featured_image_path'] = StorefrontMedia::store($this->comboFeaturedImageUpload, 'storefront/combos');
         }
 
         $combo->fill($payload);
@@ -433,7 +456,7 @@ class ProductManager extends Component
         $combo = StorefrontProductCombo::query()->findOrFail($comboId);
 
         if ($combo->featured_image_path) {
-            Storage::disk('public')->delete($combo->featured_image_path);
+            StorefrontMedia::delete($combo->featured_image_path);
         }
 
         $combo->delete();
@@ -718,7 +741,7 @@ class ProductManager extends Component
 
         $maxSort = (int) ($product->media()->max('sort_order') ?? 0);
         foreach ($uploads as $upload) {
-            $path = $upload->store('storefront/products/gallery', 'public');
+            $path = StorefrontMedia::store($upload, 'storefront/products/gallery');
             $maxSort++;
 
             $product->media()->create([

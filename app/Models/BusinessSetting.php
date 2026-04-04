@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\StorefrontMedia;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -131,38 +132,42 @@ class BusinessSetting extends Model
 
     public function getStorefrontLogoUrlAttribute(): ?string
     {
-        if (blank($this->storefront_logo_path)) {
-            return null;
-        }
-
-        return url(Storage::disk('public')->url($this->storefront_logo_path));
+        return StorefrontMedia::url($this->storefront_logo_path);
     }
 
     public function getStorefrontFaviconUrlAttribute(): ?string
     {
-        if (blank($this->storefront_favicon_path)) {
-            return null;
-        }
-
-        return url(Storage::disk('public')->url($this->storefront_favicon_path));
+        return StorefrontMedia::url($this->storefront_favicon_path);
     }
 
     public function getStorefrontHeroMediaUrlAttribute(): ?string
     {
-        if (blank($this->storefront_hero_media_path)) {
-            return null;
-        }
-
-        return url(Storage::disk('public')->url($this->storefront_hero_media_path));
+        return StorefrontMedia::url($this->storefront_hero_media_path);
     }
 
     public function getStorefrontSocialImageUrlAttribute(): ?string
     {
-        if (blank($this->storefront_social_image_path)) {
-            return null;
-        }
+        return StorefrontMedia::url($this->storefront_social_image_path);
+    }
 
-        return url(Storage::disk('public')->url($this->storefront_social_image_path));
+    public function setStorefrontLogoPathAttribute(mixed $value): void
+    {
+        $this->attributes['storefront_logo_path'] = StorefrontMedia::normalizePath($value);
+    }
+
+    public function setStorefrontFaviconPathAttribute(mixed $value): void
+    {
+        $this->attributes['storefront_favicon_path'] = StorefrontMedia::normalizePath($value);
+    }
+
+    public function setStorefrontHeroMediaPathAttribute(mixed $value): void
+    {
+        $this->attributes['storefront_hero_media_path'] = StorefrontMedia::normalizePath($value);
+    }
+
+    public function setStorefrontSocialImagePathAttribute(mixed $value): void
+    {
+        $this->attributes['storefront_social_image_path'] = StorefrontMedia::normalizePath($value);
     }
 
     public function isStorefrontOpen(): bool

@@ -9,29 +9,29 @@
     $quickViewDesc = trim(strip_tags((string) ($product->short_description ?: $product->full_description)));
 
     $quickViewGallery = collect();
-    if ($product->featured_image_path) {
+    if ($product->featured_image_url) {
         $quickViewGallery->push([
-            'path' => $product->featured_image_path,
+            'url' => $product->featured_image_url,
             'alt' => $product->name,
         ]);
     }
 
     foreach ((array) $product->gallery_images as $path) {
-        if (! $path || $path === $product->featured_image_path) {
+        $imageUrl = \App\Support\StorefrontMedia::url($path);
+        if (! $imageUrl || $imageUrl === $product->featured_image_url) {
             continue;
         }
 
         $quickViewGallery->push([
-            'path' => $path,
+            'url' => $imageUrl,
             'alt' => $product->name,
         ]);
     }
 
     if ($quickViewGallery->isEmpty()) {
         $quickViewGallery->push([
-            'path' => 'frontend/assets/img/product/1.jpg',
+            'url' => asset('frontend/assets/img/product/1.jpg'),
             'alt' => $product->name,
-            'public' => true,
         ]);
     }
 
@@ -109,8 +109,8 @@
                 data-bs-target="#{{ $quickViewModalId }}"
                 aria-label="{{ __('Quick view for :name', ['name' => $product->name]) }}"
             >
-                @if ($product->featured_image_path)
-                    <img class="card-img-top" src="{{ asset('storage/'.$product->featured_image_path) }}" alt="{{ $product->name }}">
+                @if ($product->featured_image_url)
+                    <img class="card-img-top" src="{{ $product->featured_image_url }}" alt="{{ $product->name }}">
                 @else
                     <img class="card-img-top" src="{{ asset('frontend/assets/img/product/1.jpg') }}" alt="{{ $product->name }}">
                 @endif
@@ -166,13 +166,8 @@
                     <div class="quick_view_thmb">
                         <div class="quick_view_slide">
                             @foreach ($quickViewGallery as $image)
-                                @php
-                                    $imageUrl = ! empty($image['public'])
-                                        ? asset($image['path'])
-                                        : asset('storage/'.$image['path']);
-                                @endphp
                                 <div class="single_view_slide">
-                                    <img src="{{ $imageUrl }}" class="img-fluid" alt="{{ $image['alt'] }}" loading="{{ $loop->first ? 'eager' : 'lazy' }}" />
+                                    <img src="{{ $image['url'] }}" class="img-fluid" alt="{{ $image['alt'] }}" loading="{{ $loop->first ? 'eager' : 'lazy' }}" />
                                 </div>
                             @endforeach
                         </div>

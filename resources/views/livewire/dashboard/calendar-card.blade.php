@@ -6,8 +6,8 @@
     $upcomingDueOrders = $this->upcomingDueOrders;
 @endphp
 
-<div class="grid gap-4 md:grid-cols-2 items-start">
-    <div class="rounded-2xl bg-white dark:bg-zinc-800/50 p-4 lg:p-5 shadow-sm border border-zinc-200/50 dark:border-zinc-700/50 min-h-[27rem] xl:min-h-[32rem] flex flex-col">
+<div class="grid gap-4 md:grid-cols-2 md:items-start">
+    <div class="rounded-2xl bg-white dark:bg-zinc-800/50 p-4 lg:p-5 shadow-sm border border-zinc-200/50 dark:border-zinc-700/50 flex flex-col">
         <div class="flex items-start justify-between gap-2">
             <div>
                 <h2 class="text-base font-semibold text-zinc-900 dark:text-white">{{ __('Calendar') }}</h2>
@@ -124,7 +124,7 @@
         @endif
     </div>
 
-    <div class="flex flex-col">
+    <div class="flex flex-col md:self-start">
         <div class="flex items-center justify-between">
             <div>
                 <h2 class="text-lg font-semibold leading-tight text-zinc-900 dark:text-white">{{ __('Upcoming Due Orders') }}</h2>

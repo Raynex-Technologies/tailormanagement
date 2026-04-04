@@ -5,7 +5,6 @@ namespace App\Livewire\Storefront\Admin;
 use App\Models\Branch;
 use App\Models\InventoryCategory;
 use App\Support\BranchContext;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
@@ -39,7 +38,7 @@ class CategoryManager extends Component
     public bool $storefrontVisible = true;
     public bool $storefrontFeatured = false;
     public $imageUpload = null;
-    public ?string $existingImagePath = null;
+    public ?string $existingImageUrl = null;
 
     public ?int $branchId = null;
     public bool $showBranchSelector = false;
@@ -77,7 +76,14 @@ class CategoryManager extends Component
             'description' => ['nullable', 'string', 'max:2000'],
             'storefrontVisible' => ['boolean'],
             'storefrontFeatured' => ['boolean'],
-            'imageUpload' => ['nullable', 'image', 'max:4096'],
+            'imageUpload' => [
+                'nullable',
+                'image',
+                'mimes:jpg,jpeg,png,webp',
+                'mimetypes:image/jpeg,image/png,image/webp',
+                'max:3072',
+                'dimensions:min_width=64,min_height=64,max_width=4096,max_height=4096',
+            ],
         ];
 
         if ($this->showBranchSelector && ! $this->isEditing) {
@@ -129,7 +135,7 @@ class CategoryManager extends Component
         $this->description = (string) ($category->description ?? '');
         $this->storefrontVisible = (bool) $category->storefront_is_visible;
         $this->storefrontFeatured = (bool) $category->storefront_featured;
-        $this->existingImagePath = $category->storefront_image_path;
+        $this->existingImageUrl = $category->image_url;
         $this->imageUpload = null;
         $this->branchId = $category->branch_id;
     }
@@ -171,18 +177,24 @@ class CategoryManager extends Component
 
         if ($this->isEditing && $this->editingId) {
             $category = InventoryCategory::query()->findOrFail($this->editingId);
-            if ($this->imageUpload && $category->storefront_image_path) {
-                Storage::disk('public')->delete($category->storefront_image_path);
-            }
+
             if ($this->imageUpload) {
-                $payload['storefront_image_path'] = $this->imageUpload->store('storefront/categories', 'public');
+                InventoryCategory::ensureStorefrontImageDirectoryExists();
+
+                if ($category->storefront_image_path) {
+                    InventoryCategory::deleteStorefrontImageFile($category->storefront_image_path);
+                }
+
+                $payload['storefront_image_path'] = $this->imageUpload->store('', InventoryCategory::STOREFRONT_IMAGE_DISK);
             }
+
             $category->update($payload);
             session()->flash('success', 'Storefront category updated.');
         } else {
             $payload['branch_id'] = $effectiveBranchId;
             if ($this->imageUpload) {
-                $payload['storefront_image_path'] = $this->imageUpload->store('storefront/categories', 'public');
+                InventoryCategory::ensureStorefrontImageDirectoryExists();
+                $payload['storefront_image_path'] = $this->imageUpload->store('', InventoryCategory::STOREFRONT_IMAGE_DISK);
             }
             InventoryCategory::query()->create($payload);
             session()->flash('success', 'Storefront category created.');
@@ -227,10 +239,6 @@ class CategoryManager extends Component
             return;
         }
 
-        if ($category->storefront_image_path) {
-            Storage::disk('public')->delete($category->storefront_image_path);
-        }
-
         $category->delete();
         session()->flash('success', 'Storefront category deleted.');
         $this->closeDeleteModal();
@@ -246,7 +254,7 @@ class CategoryManager extends Component
         $this->storefrontVisible = true;
         $this->storefrontFeatured = false;
         $this->imageUpload = null;
-        $this->existingImagePath = null;
+        $this->existingImageUrl = null;
         if ($this->showBranchSelector) {
             $this->branchId = BranchContext::id();
         }

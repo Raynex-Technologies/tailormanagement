@@ -41,7 +41,7 @@ class StorefrontModuleTest extends TestCase
         BranchContext::clear();
     }
 
-    public function test_storefront_disabled_routes_show_unavailable_page(): void
+    public function test_storefront_disabled_routes_redirect_to_dashboard(): void
     {
         $this->configureStorefront([
             'storefront_enabled' => false,
@@ -49,8 +49,7 @@ class StorefrontModuleTest extends TestCase
 
         $response = $this->get(route('storefront.home'));
 
-        $response->assertStatus(503);
-        $response->assertSee('Storefront Unavailable');
+        $response->assertRedirect(route('dashboard', absolute: false));
     }
 
     public function test_cms_page_slug_and_excerpt_are_auto_generated_and_body_is_sanitized(): void

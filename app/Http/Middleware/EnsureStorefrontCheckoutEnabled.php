@@ -17,10 +17,12 @@ class EnsureStorefrontCheckoutEnabled
     public function handle(Request $request, Closure $next): Response
     {
         if (! $this->storefrontContext->isStorefrontEnabled()) {
-            return response()->view('storefront.unavailable', [
-                'settings' => $this->storefrontContext->settings(),
-                'message' => $this->storefrontContext->settings()->storefront_maintenance_message,
-            ], 503);
+            $message = $this->storefrontContext->settings()->storefront_maintenance_message
+                ?: 'The storefront is currently unavailable.';
+
+            return redirect()
+                ->route('dashboard')
+                ->with('error', $message);
         }
 
         if ($this->storefrontContext->isCatalogMode()) {

@@ -135,7 +135,7 @@
             <div class="space-y-3 rounded-xl border border-zinc-200 p-4 dark:border-zinc-700">
                 <flux:label>{{ __('Featured Image') }}</flux:label>
                 @if ($productFeaturedImagePath && ! $productFeaturedImageUpload)
-                    <img src="{{ asset('storage/'.$productFeaturedImagePath) }}" alt="{{ __('Featured image') }}" class="h-20 rounded-lg border border-zinc-200 object-cover dark:border-zinc-700" />
+                    <img src="{{ \App\Support\StorefrontMedia::url($productFeaturedImagePath) }}" alt="{{ __('Featured image') }}" class="h-20 rounded-lg border border-zinc-200 object-cover dark:border-zinc-700" />
                 @endif
                 @if ($productFeaturedImageUpload)
                     <img src="{{ $productFeaturedImageUpload->temporaryUrl() }}" alt="{{ __('Preview') }}" class="h-20 rounded-lg border border-zinc-200 object-cover dark:border-zinc-700" />
@@ -152,7 +152,7 @@
                         <div class="flex min-w-max gap-3">
                             @foreach ($existingProductGallery as $image)
                                 <div class="w-24 flex-shrink-0">
-                                    <img src="{{ asset('storage/'.$image['path']) }}" alt="{{ $image['alt_text'] ?: 'Image' }}" class="h-24 w-full rounded-lg border border-zinc-200 object-cover dark:border-zinc-700" />
+                                    <img src="{{ $image['image_url'] ?? \App\Support\StorefrontMedia::url($image['path']) }}" alt="{{ $image['alt_text'] ?: 'Image' }}" class="h-24 w-full rounded-lg border border-zinc-200 object-cover dark:border-zinc-700" />
                                     <flux:button type="button" size="xs" variant="ghost" wire:click="removeProductMedia({{ $image['id'] }})" class="mt-1 w-full text-red-600">
                                         {{ __('Remove') }}
                                     </flux:button>

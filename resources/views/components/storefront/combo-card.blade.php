@@ -16,8 +16,8 @@
         <div class="card-body p-0">
             <div class="shop_thumb position-relative">
                 <a class="card-img-top d-block overflow-hidden" href="{{ $comboUrl }}">
-                    @if ($combo->featured_image_path)
-                        <img class="card-img-top" src="{{ asset('storage/'.$combo->featured_image_path) }}" alt="{{ $combo->name }}">
+                    @if ($combo->featured_image_url)
+                        <img class="card-img-top" src="{{ $combo->featured_image_url }}" alt="{{ $combo->name }}">
                     @else
                         <img class="card-img-top" src="{{ asset('frontend/assets/img/product/8.jpg') }}" alt="{{ $combo->name }}">
                     @endif
