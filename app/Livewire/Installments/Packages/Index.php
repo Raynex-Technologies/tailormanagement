@@ -5,8 +5,8 @@ namespace App\Livewire\Installments\Packages;
 use App\Models\Branch;
 use App\Models\Package;
 use App\Models\PackageItem;
+use App\Services\Media\ImageUploadService;
 use App\Support\BranchContext;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -106,7 +106,7 @@ class Index extends Component
             'itemName' => ['required', 'string', 'max:255'],
             'itemDescription' => ['nullable', 'string', 'max:2000'],
             'itemSortOrder' => ['required', 'integer', 'min:0'],
-            'itemImageUpload' => ['nullable', 'image', 'max:2048'],
+            'itemImageUpload' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'mimetypes:image/jpeg,image/png,image/webp', 'max:2048'],
         ];
     }
 
@@ -227,11 +227,13 @@ class Index extends Component
         ];
 
         if ($this->itemImageUpload) {
-            if ($item->image_path) {
-                Storage::disk('public')->delete($item->image_path);
-            }
+            $stored = app(ImageUploadService::class)->replacePublic(
+                upload: $this->itemImageUpload,
+                existingPath: $item->image_path,
+                directory: 'installment-package-items'
+            );
 
-            $data['image_path'] = $this->itemImageUpload->store('installment-package-items', 'public');
+            $data['image_path'] = $stored->path;
         }
 
         $item->fill($data);
@@ -247,7 +249,7 @@ class Index extends Component
         $this->authorize('update', $item->package);
 
         if ($item->image_path) {
-            Storage::disk('public')->delete($item->image_path);
+            app(ImageUploadService::class)->deletePublic($item->image_path);
         }
 
         $item->delete();
@@ -265,7 +267,7 @@ class Index extends Component
         $packages = Package::query()
             ->with('items')
             ->when($this->search !== '', function ($builder) {
-                $term = '%' . $this->search . '%';
+                $term = '%'.$this->search.'%';
                 $builder->where(function ($query) use ($term) {
                     $query->where('name', 'like', $term)
                         ->orWhere('description', 'like', $term);

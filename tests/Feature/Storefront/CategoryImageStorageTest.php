@@ -4,6 +4,7 @@ namespace Tests\Feature\Storefront;
 
 use App\Livewire\Storefront\Admin\CategoryManager;
 use App\Models\InventoryCategory;
+use App\Services\Media\ImageUploadService;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -12,18 +13,18 @@ use Tests\TestCase;
 
 class CategoryImageStorageTest extends TestCase
 {
-    public function test_category_image_upload_stores_file_on_storefront_categories_disk(): void
+    public function test_category_image_upload_stores_file_on_public_uploads_disk(): void
     {
         $this->actingAsRole('branch_manager', $this->branch);
 
         $this->assertSame(
-            public_path('uploads/categories'),
-            config('filesystems.disks.storefront_categories.root')
+            public_path('uploads/images'),
+            config('filesystems.disks.public_uploads.root')
         );
 
-        Storage::fake(InventoryCategory::STOREFRONT_IMAGE_DISK);
+        Storage::fake(ImageUploadService::PUBLIC_DISK);
 
-        $upload = UploadedFile::fake()->image('category.jpg');
+        $upload = UploadedFile::fake()->image('category.jpg', 800, 800);
 
         Livewire::test(CategoryManager::class)
             ->call('openCreateModal')
@@ -40,39 +41,41 @@ class CategoryImageStorageTest extends TestCase
 
         $this->assertNotNull($category);
         $this->assertNotNull($category->storefront_image_path);
+        $this->assertStringStartsWith('categories/', (string) $category->storefront_image_path);
         $this->assertStringNotContainsString('/storage/', (string) $category->storefront_image_path);
-        $this->assertStringNotContainsString('storefront/categories/', (string) $category->storefront_image_path);
-        Storage::disk(InventoryCategory::STOREFRONT_IMAGE_DISK)->assertExists($category->storefront_image_path);
+        $this->assertStringNotContainsString('http://', (string) $category->storefront_image_path);
+        $this->assertStringNotContainsString('https://', (string) $category->storefront_image_path);
+        Storage::disk(ImageUploadService::PUBLIC_DISK)->assertExists($category->storefront_image_path);
     }
 
-    public function test_category_image_url_accessor_uses_storefront_categories_url(): void
+    public function test_category_image_url_accessor_uses_public_uploads_url(): void
     {
         config([
-            'filesystems.disks.storefront_categories.url' => 'https://rajcruzbrand.shop/uploads/categories',
+            'filesystems.disks.public_uploads.url' => 'https://rajcruzbrand.shop/uploads/images',
         ]);
 
         $category = InventoryCategory::factory()->create([
             'branch_id' => $this->branch->id,
-            'storefront_image_path' => '/storage/storefront/categories/lookbook.jpg',
+            'storefront_image_path' => '/storage/uploads/categories/lookbook.jpg',
         ])->fresh();
 
-        $this->assertSame('lookbook.jpg', $category->storefront_image_path);
-        $this->assertSame('https://rajcruzbrand.shop/uploads/categories/lookbook.jpg', $category->image_url);
+        $this->assertSame('categories/lookbook.jpg', $category->storefront_image_path);
+        $this->assertSame('https://rajcruzbrand.shop/uploads/images/categories/lookbook.jpg', $category->image_url);
     }
 
     public function test_replacing_category_image_deletes_old_file(): void
     {
         $this->actingAsRole('branch_manager', $this->branch);
-        Storage::fake(InventoryCategory::STOREFRONT_IMAGE_DISK);
+        Storage::fake(ImageUploadService::PUBLIC_DISK);
 
-        Storage::disk(InventoryCategory::STOREFRONT_IMAGE_DISK)->put('old-image.jpg', 'old');
+        Storage::disk(ImageUploadService::PUBLIC_DISK)->put('categories/old-image.jpg', 'old');
 
         $category = InventoryCategory::factory()->create([
             'branch_id' => $this->branch->id,
-            'storefront_image_path' => 'old-image.jpg',
+            'storefront_image_path' => 'categories/old-image.jpg',
         ]);
 
-        $newUpload = UploadedFile::fake()->image('new-image.jpg');
+        $newUpload = UploadedFile::fake()->image('new-image.jpg', 800, 800);
 
         Livewire::test(CategoryManager::class)
             ->call('openEditModal', $category->id)
@@ -82,21 +85,21 @@ class CategoryImageStorageTest extends TestCase
 
         $category->refresh();
 
-        Storage::disk(InventoryCategory::STOREFRONT_IMAGE_DISK)->assertMissing('old-image.jpg');
-        Storage::disk(InventoryCategory::STOREFRONT_IMAGE_DISK)->assertExists($category->storefront_image_path);
-        $this->assertNotSame('old-image.jpg', $category->storefront_image_path);
+        Storage::disk(ImageUploadService::PUBLIC_DISK)->assertMissing('categories/old-image.jpg');
+        Storage::disk(ImageUploadService::PUBLIC_DISK)->assertExists($category->storefront_image_path);
+        $this->assertNotSame('categories/old-image.jpg', $category->storefront_image_path);
     }
 
     public function test_deleting_category_deletes_image_file(): void
     {
         $this->actingAsRole('branch_manager', $this->branch);
-        Storage::fake(InventoryCategory::STOREFRONT_IMAGE_DISK);
+        Storage::fake(ImageUploadService::PUBLIC_DISK);
 
-        Storage::disk(InventoryCategory::STOREFRONT_IMAGE_DISK)->put('delete-me.jpg', 'content');
+        Storage::disk(ImageUploadService::PUBLIC_DISK)->put('categories/delete-me.jpg', 'content');
 
         $category = InventoryCategory::factory()->create([
             'branch_id' => $this->branch->id,
-            'storefront_image_path' => 'delete-me.jpg',
+            'storefront_image_path' => 'categories/delete-me.jpg',
         ]);
 
         Livewire::test(CategoryManager::class)
@@ -107,43 +110,16 @@ class CategoryImageStorageTest extends TestCase
         $this->assertDatabaseMissing('inventory_categories', [
             'id' => $category->id,
         ]);
-        Storage::disk(InventoryCategory::STOREFRONT_IMAGE_DISK)->assertMissing('delete-me.jpg');
+        Storage::disk(ImageUploadService::PUBLIC_DISK)->assertMissing('categories/delete-me.jpg');
     }
 
-    public function test_storefront_category_image_migration_command_normalizes_legacy_values_and_copies_files(): void
+    public function test_media_normalization_command_normalizes_category_path_and_migrates_file(): void
     {
         Storage::fake('public');
-        Storage::fake(InventoryCategory::STOREFRONT_IMAGE_DISK);
+        Storage::fake(ImageUploadService::PUBLIC_DISK);
 
-        Storage::disk('public')->put('storefront/categories/plain.jpg', 'plain');
-        Storage::disk('public')->put('storefront/categories/prefixed.jpg', 'prefixed');
-        Storage::disk('public')->put('storefront/categories/with-storage-prefix.jpg', 'storage-prefix');
         Storage::disk('public')->put('storefront/categories/from-url.jpg', 'from-url');
 
-        $plain = $this->createCategoryWithRawImagePath('plain.jpg');
-        $prefixed = $this->createCategoryWithRawImagePath('storefront/categories/prefixed.jpg');
-        $storagePrefixed = $this->createCategoryWithRawImagePath('/storage/storefront/categories/with-storage-prefix.jpg');
-        $fullUrl = $this->createCategoryWithRawImagePath('https://rajcruzbrand.shop/storage/storefront/categories/from-url.jpg');
-        $missing = $this->createCategoryWithRawImagePath('/storage/storefront/categories/missing.jpg');
-
-        $this->artisan('storefront:migrate-category-images')
-            ->assertExitCode(0);
-
-        $this->assertSame('plain.jpg', $plain->fresh()->storefront_image_path);
-        $this->assertSame('prefixed.jpg', $prefixed->fresh()->storefront_image_path);
-        $this->assertSame('with-storage-prefix.jpg', $storagePrefixed->fresh()->storefront_image_path);
-        $this->assertSame('from-url.jpg', $fullUrl->fresh()->storefront_image_path);
-        $this->assertSame('missing.jpg', $missing->fresh()->storefront_image_path);
-
-        Storage::disk(InventoryCategory::STOREFRONT_IMAGE_DISK)->assertExists('plain.jpg');
-        Storage::disk(InventoryCategory::STOREFRONT_IMAGE_DISK)->assertExists('prefixed.jpg');
-        Storage::disk(InventoryCategory::STOREFRONT_IMAGE_DISK)->assertExists('with-storage-prefix.jpg');
-        Storage::disk(InventoryCategory::STOREFRONT_IMAGE_DISK)->assertExists('from-url.jpg');
-        Storage::disk(InventoryCategory::STOREFRONT_IMAGE_DISK)->assertMissing('missing.jpg');
-    }
-
-    protected function createCategoryWithRawImagePath(string $rawPath): InventoryCategory
-    {
         $category = InventoryCategory::factory()->create([
             'branch_id' => $this->branch->id,
             'storefront_image_path' => null,
@@ -151,8 +127,12 @@ class CategoryImageStorageTest extends TestCase
 
         DB::table('inventory_categories')
             ->where('id', $category->id)
-            ->update(['storefront_image_path' => $rawPath]);
+            ->update(['storefront_image_path' => 'https://rajcruzbrand.shop/storage/storefront/categories/from-url.jpg']);
 
-        return $category;
+        $this->artisan('media:normalize-image-paths')
+            ->assertExitCode(0);
+
+        $this->assertSame('categories/from-url.jpg', $category->fresh()->storefront_image_path);
+        Storage::disk(ImageUploadService::PUBLIC_DISK)->assertExists('categories/from-url.jpg');
     }
 }

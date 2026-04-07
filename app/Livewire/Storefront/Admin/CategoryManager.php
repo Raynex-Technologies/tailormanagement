@@ -4,6 +4,7 @@ namespace App\Livewire\Storefront\Admin;
 
 use App\Models\Branch;
 use App\Models\InventoryCategory;
+use App\Services\Media\ImageUploadService;
 use App\Support\BranchContext;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -27,23 +28,35 @@ class CategoryManager extends Component
     public int $perPage = 15;
 
     public bool $showFormModal = false;
+
     public bool $showDeleteModal = false;
+
     public bool $isEditing = false;
+
     public ?int $editingId = null;
 
     public string $name = '';
+
     public string $slug = '';
+
     public bool $slugManuallyEdited = false;
+
     public string $description = '';
+
     public bool $storefrontVisible = true;
+
     public bool $storefrontFeatured = false;
+
     public $imageUpload = null;
+
     public ?string $existingImageUrl = null;
 
     public ?int $branchId = null;
+
     public bool $showBranchSelector = false;
 
     public ?int $deletingId = null;
+
     public string $deletingName = '';
 
     public function mount(): void
@@ -179,13 +192,13 @@ class CategoryManager extends Component
             $category = InventoryCategory::query()->findOrFail($this->editingId);
 
             if ($this->imageUpload) {
-                InventoryCategory::ensureStorefrontImageDirectoryExists();
+                $stored = app(ImageUploadService::class)->replacePublic(
+                    upload: $this->imageUpload,
+                    existingPath: $category->storefront_image_path,
+                    directory: 'categories'
+                );
 
-                if ($category->storefront_image_path) {
-                    InventoryCategory::deleteStorefrontImageFile($category->storefront_image_path);
-                }
-
-                $payload['storefront_image_path'] = $this->imageUpload->store('', InventoryCategory::STOREFRONT_IMAGE_DISK);
+                $payload['storefront_image_path'] = $stored->path;
             }
 
             $category->update($payload);
@@ -193,8 +206,9 @@ class CategoryManager extends Component
         } else {
             $payload['branch_id'] = $effectiveBranchId;
             if ($this->imageUpload) {
-                InventoryCategory::ensureStorefrontImageDirectoryExists();
-                $payload['storefront_image_path'] = $this->imageUpload->store('', InventoryCategory::STOREFRONT_IMAGE_DISK);
+                $payload['storefront_image_path'] = app(ImageUploadService::class)
+                    ->storePublic($this->imageUpload, 'categories')
+                    ->path;
             }
             InventoryCategory::query()->create($payload);
             session()->flash('success', 'Storefront category created.');

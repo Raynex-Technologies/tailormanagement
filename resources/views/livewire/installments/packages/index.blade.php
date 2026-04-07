@@ -224,7 +224,7 @@
                 @if($existingItemImagePath)
                     <div class="rounded-xl border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-800">
                         <p class="mb-2 text-xs uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ __('Current image') }}</p>
-                        <img src="{{ Storage::disk('public')->url($existingItemImagePath) }}" alt="" class="h-20 rounded-lg object-cover">
+                        <img src="{{ \App\Support\StorefrontMedia::url($existingItemImagePath) }}" alt="" class="h-20 rounded-lg object-cover">
                     </div>
                 @endif
 

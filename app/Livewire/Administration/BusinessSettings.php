@@ -5,8 +5,8 @@ namespace App\Livewire\Administration;
 use App\Models\BusinessSetting;
 use App\Models\InvoiceTemplate;
 use App\Models\PaymentMethod;
+use App\Services\Media\ImageUploadService;
 use App\Support\InvoiceTemplateResolver;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -22,35 +22,59 @@ class BusinessSettings extends Component
     public string $tab = 'business';
 
     public string $business_name = '';
+
     public string $phone = '';
+
     public string $alternate_phone = '';
+
     public string $email = '';
+
     public string $tin_number = '';
+
     public string $address = '';
+
     public ?string $logo_path = null;
+
     public $logoUpload = null;
 
     public string $email_from_name = '';
+
     public string $email_from_address = '';
+
     public string $email_reply_to = '';
+
     public ?int $invoice_template_id = null;
 
     public bool $tax_enabled = false;
+
     public string $tax_name = 'VAT';
+
     public ?float $tax_rate = 0;
 
     public ?int $editingPaymentMethodId = null;
+
     public string $paymentMethodName = '';
+
     public string $paymentMethodCode = '';
+
     public string $paymentMethodAccountNumber = '';
+
     public string $paymentMethodAccountHolderName = '';
+
     public string $paymentMethodType = 'offline';
+
     public bool $paymentMethodEnabled = true;
+
     public bool $paymentMethodOnline = false;
+
     public int $paymentMethodSortOrder = 0;
+
     public string $paymentMethodDescription = '';
+
     public string $paymentMethodConsumerKey = '';
+
     public string $paymentMethodConsumerSecret = '';
+
     public bool $showPaymentMethodModal = false;
 
     protected BusinessSetting $settings;
@@ -96,7 +120,7 @@ class BusinessSettings extends Component
             'email' => ['nullable', 'email', 'max:191'],
             'tin_number' => ['nullable', 'string', 'max:100'],
             'address' => ['nullable', 'string', 'max:1000'],
-            'logoUpload' => ['nullable', 'image', 'max:2048'],
+            'logoUpload' => ['nullable', 'image', 'mimes:jpg,jpeg,png,webp', 'mimetypes:image/jpeg,image/png,image/webp', 'max:2048'],
         ]);
 
         $settings = BusinessSetting::instance();
@@ -110,11 +134,13 @@ class BusinessSettings extends Component
         ];
 
         if ($this->logoUpload) {
-            if ($settings->logo_path) {
-                Storage::disk('public')->delete($settings->logo_path);
-            }
+            $result = app(ImageUploadService::class)->replacePublic(
+                upload: $this->logoUpload,
+                existingPath: $settings->logo_path,
+                directory: 'business-logos'
+            );
 
-            $data['logo_path'] = $this->logoUpload->store('business-logos', 'public');
+            $data['logo_path'] = $result->path;
         }
 
         $settings->update($data);
@@ -130,7 +156,7 @@ class BusinessSettings extends Component
 
         $settings = BusinessSetting::instance();
         if ($settings->logo_path) {
-            Storage::disk('public')->delete($settings->logo_path);
+            app(ImageUploadService::class)->deletePublic($settings->logo_path);
             $settings->update(['logo_path' => null]);
         }
 

@@ -1,22 +1,30 @@
 <?php
 
+use App\Http\Controllers\Media\PrivateImageController;
+use App\Http\Controllers\Storefront\AccountController as StorefrontAccountController;
+use App\Http\Controllers\Storefront\CartController as StorefrontCartController;
+use App\Http\Controllers\Storefront\CatalogController as StorefrontCatalogController;
+use App\Http\Controllers\Storefront\CheckoutController as StorefrontCheckoutController;
+use App\Http\Controllers\Storefront\CmsPageController as StorefrontCmsPageController;
+use App\Http\Controllers\Storefront\HomeController as StorefrontHomeController;
+use App\Http\Controllers\Storefront\PaymentController as StorefrontPaymentController;
 use App\Livewire\Administration\BusinessSettings as AdministrationBusinessSettings;
 use App\Livewire\Administration\EmailSetup as AdministrationEmailSetup;
 use App\Livewire\Branches\Index as BranchesIndex;
 use App\Livewire\Calendar\Index as CalendarIndex;
 use App\Livewire\DeliveryNotes\Show as DeliveryNoteShow;
-use App\Livewire\Inventory\Categories\Index as CategoriesIndex;
-use App\Livewire\Inventory\Items\Index as ItemsIndex;
-use App\Livewire\Inventory\Suppliers\Index as InventorySuppliersIndex;
-use App\Livewire\Inventory\Stock\Index as StockIndex;
-use App\Livewire\Inventory\Transactions\Index as TransactionsIndex;
-use App\Livewire\Inventory\Units\Index as UnitsIndex;
 use App\Livewire\Installments\Analytics as InstallmentsAnalytics;
 use App\Livewire\Installments\Dashboard as InstallmentsDashboard;
 use App\Livewire\Installments\Packages\Index as InstallmentPackagesIndex;
 use App\Livewire\Installments\Plans\Form as InstallmentPlansForm;
 use App\Livewire\Installments\Plans\Index as InstallmentPlansIndex;
 use App\Livewire\Installments\Plans\Show as InstallmentPlansShow;
+use App\Livewire\Inventory\Categories\Index as CategoriesIndex;
+use App\Livewire\Inventory\Items\Index as ItemsIndex;
+use App\Livewire\Inventory\Stock\Index as StockIndex;
+use App\Livewire\Inventory\Suppliers\Index as InventorySuppliersIndex;
+use App\Livewire\Inventory\Transactions\Index as TransactionsIndex;
+use App\Livewire\Inventory\Units\Index as UnitsIndex;
 use App\Livewire\Invoices\Index as InvoicesIndex;
 use App\Livewire\Invoices\Show as InvoicesShow;
 use App\Livewire\Orders\Board as OrdersBoard;
@@ -25,28 +33,20 @@ use App\Livewire\Orders\Index as OrdersIndex;
 use App\Livewire\Orders\Show as OrdersShow;
 use App\Livewire\Orders\StockRequests\Index as OrderStockRequestsIndex;
 use App\Livewire\Payments\Index as PaymentsIndex;
-use App\Livewire\Storefront\Admin\CmsManager as StorefrontCmsManager;
+use App\Livewire\Store\StockRequests\Index as StoreStockRequestsIndex;
+use App\Livewire\Store\StockRequests\Show as StoreStockRequestShow;
 use App\Livewire\Storefront\Admin\CategoryManager as StorefrontCategoryManager;
+use App\Livewire\Storefront\Admin\CmsManager as StorefrontCmsManager;
 use App\Livewire\Storefront\Admin\ProductForm as StorefrontProductForm;
 use App\Livewire\Storefront\Admin\ProductManager as StorefrontProductManager;
 use App\Livewire\Storefront\Admin\Settings as StorefrontSettingsManager;
 use App\Livewire\Storefront\Admin\ShippingManager as StorefrontShippingManager;
-use App\Http\Controllers\Storefront\AccountController as StorefrontAccountController;
-use App\Http\Controllers\Storefront\CartController as StorefrontCartController;
-use App\Http\Controllers\Storefront\CatalogController as StorefrontCatalogController;
-use App\Http\Controllers\Storefront\CheckoutController as StorefrontCheckoutController;
-use App\Http\Controllers\Storefront\CmsPageController as StorefrontCmsPageController;
-use App\Http\Controllers\Storefront\HomeController as StorefrontHomeController;
-use App\Http\Controllers\Storefront\PaymentController as StorefrontPaymentController;
-use App\Models\BusinessSetting;
-use App\Livewire\Store\StockRequests\Index as StoreStockRequestsIndex;
-use App\Livewire\Store\StockRequests\Show as StoreStockRequestShow;
 use App\Models\Branch;
+use App\Models\BusinessSetting;
 use App\Models\Invoice;
 use App\Models\PaymentMethod;
-use App\Support\InvoicePdfRenderer;
-use App\Support\InvoiceTemplateResolver;
 use App\Support\BranchContext;
+use App\Support\InvoiceTemplateResolver;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
@@ -80,9 +80,14 @@ Route::prefix('storefront/payments/pesapal')
     ->middleware('throttle:storefront-payments')
     ->name('storefront.payments.')
     ->group(function () {
-    Route::get('/callback', [StorefrontPaymentController::class, 'callback'])->name('callback');
-    Route::match(['get', 'post'], '/ipn', [StorefrontPaymentController::class, 'ipn'])->name('ipn');
-});
+        Route::get('/callback', [StorefrontPaymentController::class, 'callback'])->name('callback');
+        Route::match(['get', 'post'], '/ipn', [StorefrontPaymentController::class, 'ipn'])->name('ipn');
+    });
+
+Route::middleware(['auth', 'verified'])
+    ->get('/media/private/{scope}/{path}', PrivateImageController::class)
+    ->where('path', '.*')
+    ->name('media.private.show');
 
 Route::middleware(['auth', 'verified'])
     ->prefix('account')
@@ -259,7 +264,7 @@ Route::middleware(['auth', 'verified', 'branch.context'])->group(function () {
                 ->output();
 
             return response()->streamDownload(
-                fn () => print($pdf),
+                fn () => print ($pdf),
                 $invoice->invoice_no.'.pdf',
                 ['Content-Type' => 'application/pdf']
             );

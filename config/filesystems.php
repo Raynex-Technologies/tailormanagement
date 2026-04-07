@@ -1,5 +1,25 @@
 <?php
 
+$appUrl = rtrim(env('APP_URL', 'http://localhost'), '/');
+
+$publicUploadsRoot = env('PUBLIC_UPLOADS_ROOT', env('STOREFRONT_UPLOADS_ROOT', public_path('uploads/images')));
+if (! is_string($publicUploadsRoot) || trim($publicUploadsRoot) === '') {
+    $publicUploadsRoot = public_path('uploads/images');
+}
+$publicUploadsRoot = rtrim($publicUploadsRoot, '/\\');
+
+$publicUploadsUrl = env('PUBLIC_UPLOADS_URL', env('STOREFRONT_UPLOADS_URL', $appUrl.'/uploads/images'));
+if (! is_string($publicUploadsUrl) || trim($publicUploadsUrl) === '') {
+    $publicUploadsUrl = $appUrl.'/uploads/images';
+}
+$publicUploadsUrl = rtrim($publicUploadsUrl, '/');
+
+$storefrontUploadsRoot = env('STOREFRONT_UPLOADS_ROOT', public_path('uploads'));
+if (! is_string($storefrontUploadsRoot) || trim($storefrontUploadsRoot) === '') {
+    $storefrontUploadsRoot = public_path('uploads');
+}
+$storefrontUploadsRoot = rtrim($storefrontUploadsRoot, '/\\');
+
 return [
 
     /*
@@ -41,26 +61,45 @@ return [
         'public' => [
             'driver' => 'local',
             'root' => storage_path('app/public'),
-            'url' => rtrim(env('APP_URL', 'http://localhost'), '/').'/storage',
+            'url' => $appUrl.'/storage',
             'visibility' => 'public',
+            'throw' => false,
+            'report' => false,
+        ],
+
+        'public_uploads' => [
+            'driver' => 'local',
+            'root' => $publicUploadsRoot,
+            'url' => $publicUploadsUrl,
+            'visibility' => 'public',
+            'throw' => false,
+            'report' => false,
+        ],
+
+        'private_uploads' => [
+            'driver' => 'local',
+            'root' => storage_path('app/private'),
+            'visibility' => 'private',
             'throw' => false,
             'report' => false,
         ],
 
         'storefront_categories' => [
             'driver' => 'local',
-            'root' => public_path('uploads/categories'),
-            'url' => rtrim(env('APP_URL', 'http://localhost'), '/').'/uploads/categories',
+            'root' => $publicUploadsRoot,
+            'url' => $publicUploadsUrl,
             'visibility' => 'public',
+            'legacy_root' => public_path('uploads/categories'),
             'throw' => false,
             'report' => false,
         ],
 
         'storefront_uploads' => [
             'driver' => 'local',
-            'root' => public_path('uploads'),
-            'url' => rtrim(env('APP_URL', 'http://localhost'), '/').'/uploads',
+            'root' => $publicUploadsRoot,
+            'url' => $publicUploadsUrl,
             'visibility' => 'public',
+            'legacy_root' => $storefrontUploadsRoot,
             'throw' => false,
             'report' => false,
         ],

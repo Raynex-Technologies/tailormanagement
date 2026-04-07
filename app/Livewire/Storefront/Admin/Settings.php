@@ -4,7 +4,7 @@ namespace App\Livewire\Storefront\Admin;
 
 use App\Models\Branch;
 use App\Models\BusinessSetting;
-use App\Support\StorefrontMedia;
+use App\Services\Media\ImageUploadService;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -18,25 +18,43 @@ class Settings extends Component
     use WithFileUploads;
 
     public bool $storefront_enabled = false;
+
     public bool $storefront_catalog_mode = false;
+
     public bool $custom_order_portal_enabled = true;
+
     public bool $guest_checkout_enabled = true;
+
     public bool $allow_cash_on_delivery = false;
+
     public string $storefront_maintenance_message = '';
+
     public string $storefront_currency = 'TZS';
+
     public string $storefront_contact_email = '';
+
     public string $storefront_contact_phone = '';
+
     public string $storefront_address = '';
+
     public string $storefront_seo_title = '';
+
     public string $storefront_seo_description = '';
+
     public string $storefront_announcement_text = '';
+
     public string $storefront_announcement_link = '';
+
     public bool $storefront_announcement_bar_enabled = false;
+
     public ?int $storefront_default_branch_id = null;
 
     public $storefrontLogoUpload = null;
+
     public $storefrontFaviconUpload = null;
+
     public $storefrontHeroUpload = null;
+
     public $storefrontSocialUpload = null;
 
     public function mount(): void
@@ -139,35 +157,35 @@ class Settings extends Component
         ];
 
         if ($this->storefrontLogoUpload) {
-            if ($settings->storefront_logo_path) {
-                StorefrontMedia::delete($settings->storefront_logo_path);
-            }
-
-            $data['storefront_logo_path'] = StorefrontMedia::store($this->storefrontLogoUpload, 'storefront/media');
+            $data['storefront_logo_path'] = app(ImageUploadService::class)->replacePublic(
+                upload: $this->storefrontLogoUpload,
+                existingPath: $settings->storefront_logo_path,
+                directory: 'storefront/media'
+            )->path;
         }
 
         if ($this->storefrontFaviconUpload) {
-            if ($settings->storefront_favicon_path) {
-                StorefrontMedia::delete($settings->storefront_favicon_path);
-            }
-
-            $data['storefront_favicon_path'] = StorefrontMedia::store($this->storefrontFaviconUpload, 'storefront/media');
+            $data['storefront_favicon_path'] = app(ImageUploadService::class)->replacePublic(
+                upload: $this->storefrontFaviconUpload,
+                existingPath: $settings->storefront_favicon_path,
+                directory: 'storefront/media'
+            )->path;
         }
 
         if ($this->storefrontHeroUpload) {
-            if ($settings->storefront_hero_media_path) {
-                StorefrontMedia::delete($settings->storefront_hero_media_path);
-            }
-
-            $data['storefront_hero_media_path'] = StorefrontMedia::store($this->storefrontHeroUpload, 'storefront/media');
+            $data['storefront_hero_media_path'] = app(ImageUploadService::class)->replacePublic(
+                upload: $this->storefrontHeroUpload,
+                existingPath: $settings->storefront_hero_media_path,
+                directory: 'storefront/media'
+            )->path;
         }
 
         if ($this->storefrontSocialUpload) {
-            if ($settings->storefront_social_image_path) {
-                StorefrontMedia::delete($settings->storefront_social_image_path);
-            }
-
-            $data['storefront_social_image_path'] = StorefrontMedia::store($this->storefrontSocialUpload, 'storefront/media');
+            $data['storefront_social_image_path'] = app(ImageUploadService::class)->replacePublic(
+                upload: $this->storefrontSocialUpload,
+                existingPath: $settings->storefront_social_image_path,
+                directory: 'storefront/media'
+            )->path;
         }
 
         $settings->update($data);

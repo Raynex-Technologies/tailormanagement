@@ -3,19 +3,18 @@
 namespace App\Models;
 
 use App\Models\Concerns\BranchScoped;
+use App\Services\Media\ImageUploadService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Support\Facades\File;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class InventoryCategory extends Model
 {
     use BranchScoped, HasFactory;
 
-    public const STOREFRONT_IMAGE_DISK = 'storefront_categories';
+    public const STOREFRONT_IMAGE_DISK = ImageUploadService::PUBLIC_DISK;
 
     public const LEGACY_STOREFRONT_IMAGE_PREFIX = 'storefront/categories/';
 
@@ -136,7 +135,7 @@ class InventoryCategory extends Model
             return null;
         }
 
-        return Storage::disk(static::STOREFRONT_IMAGE_DISK)->url($path);
+        return app(ImageUploadService::class)->publicUrl($path);
     }
 
     public function setStorefrontImagePathAttribute(mixed $value): void
@@ -146,65 +145,29 @@ class InventoryCategory extends Model
 
     public static function normalizeStorefrontImagePath(mixed $value): ?string
     {
-        if (! is_string($value) && ! is_numeric($value)) {
+        $path = app(ImageUploadService::class)->normalizePublicPath($value);
+        if ($path === null) {
             return null;
         }
 
-        $path = trim((string) $value);
-
-        if ($path === '') {
-            return null;
+        if (str_starts_with($path, static::LEGACY_STOREFRONT_IMAGE_PREFIX)) {
+            $path = 'categories/'.ltrim(substr($path, strlen(static::LEGACY_STOREFRONT_IMAGE_PREFIX)), '/');
         }
 
-        $parsedPath = parse_url($path, PHP_URL_PATH);
-        if (is_string($parsedPath) && $parsedPath !== '') {
-            $path = $parsedPath;
+        if (! str_starts_with($path, 'categories/')) {
+            $path = 'categories/'.$path;
         }
 
-        $path = str_replace('\\', '/', $path);
-        $path = preg_replace('#/+#', '/', $path) ?? $path;
-        $path = ltrim($path, '/');
-
-        $prefixes = [
-            'uploads/categories/',
-            'storage/uploads/categories/',
-            'storage/'.static::LEGACY_STOREFRONT_IMAGE_PREFIX,
-            static::LEGACY_STOREFRONT_IMAGE_PREFIX,
-        ];
-
-        foreach ($prefixes as $prefix) {
-            if (! Str::startsWith($path, $prefix)) {
-                continue;
-            }
-
-            $path = substr($path, strlen($prefix));
-            break;
-        }
-
-        $segments = array_values(array_filter(
-            explode('/', $path),
-            static fn (string $segment): bool => $segment !== '' && $segment !== '.' && $segment !== '..'
-        ));
-
-        $normalizedPath = implode('/', $segments);
-
-        return $normalizedPath === '' ? null : $normalizedPath;
+        return app(ImageUploadService::class)->normalizePublicPath($path);
     }
 
     public static function ensureStorefrontImageDirectoryExists(): void
     {
-        File::ensureDirectoryExists(Storage::disk(static::STOREFRONT_IMAGE_DISK)->path(''));
+        app(ImageUploadService::class)->ensurePublicDirectory('categories');
     }
 
     public static function deleteStorefrontImageFile(mixed $value): void
     {
-        $path = static::normalizeStorefrontImagePath($value);
-
-        if (blank($path)) {
-            return;
-        }
-
-        Storage::disk(static::STOREFRONT_IMAGE_DISK)->delete($path);
-        Storage::disk('public')->delete(static::LEGACY_STOREFRONT_IMAGE_PREFIX.$path);
+        app(ImageUploadService::class)->deletePublic(static::normalizeStorefrontImagePath($value));
     }
 }

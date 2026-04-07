@@ -102,19 +102,11 @@ chmod -R 755 storage bootstrap/cache
 chmod -R 644 .env
 ```
 
-### 5. Storage Symlink
+### 5. Storage Symlink (Optional)
 
-If SSH access is available:
-```bash
-php artisan storage:link
-```
+TailorPro image uploads do **not** rely on `storage:link` because images are served from `public/uploads/images`.
 
-Otherwise, create a symbolic link manually or use this in a one-time PHP script:
-```php
-<?php
-// Run once then delete
-symlink('../storage/app/public', './storage');
-```
+Only run `storage:link` if your deployment still needs legacy `/storage/*` assets for non-image files.
 
 ### 6. Configure Cron Job
 
@@ -264,10 +256,10 @@ php artisan event:cache
 php artisan optimize
 ```
 
-### Storage Link
+### Image Path Normalization
 
 ```bash
-php artisan storage:link
+php artisan media:normalize-image-paths
 ```
 
 ---
@@ -351,10 +343,9 @@ php artisan config:clear
 - Check MySQL is running: `sudo systemctl status mysql`
 - Test connection: `mysql -u user -p -h host database`
 
-**Storage Not Accessible**
+**Public Uploads Not Accessible**
 ```bash
-php artisan storage:link
-chmod -R 755 storage/app/public
+chmod -R 755 public/uploads/images
 ```
 
 ### Health Check

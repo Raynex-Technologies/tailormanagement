@@ -22,6 +22,12 @@
         </div>
 
         <flux:card class="mt-6 space-y-4">
+            @error('save')
+                <div class="rounded-xl border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-800/70 dark:bg-red-950/40 dark:text-red-300">
+                    {{ $message }}
+                </div>
+            @enderror
+
             <div class="grid gap-4 sm:grid-cols-2">
                 <flux:input wire:model.blur="productName" label="{{ __('Name') }}" required />
                 <flux:input wire:model.blur="productSku" label="{{ __('SKU') }}" placeholder="{{ __('Auto-generated if empty') }}" />
@@ -141,11 +147,26 @@
                     <img src="{{ $productFeaturedImageUpload->temporaryUrl() }}" alt="{{ __('Preview') }}" class="h-20 rounded-lg border border-zinc-200 object-cover dark:border-zinc-700" />
                 @endif
                 <input type="file" wire:model="productFeaturedImageUpload" accept="image/*" class="block w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-600" />
+                @error('productFeaturedImageUpload')
+                    <p class="text-xs text-red-600">{{ $message }}</p>
+                @enderror
             </div>
 
             <div class="space-y-3 rounded-xl border border-zinc-200 p-4 dark:border-zinc-700">
                 <flux:label>{{ __('Gallery Images') }}</flux:label>
                 <input type="file" wire:model="productGalleryUploads" multiple accept="image/*" class="block w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-600" />
+                <p wire:loading wire:target="productGalleryUploads" class="text-xs text-zinc-500 dark:text-zinc-400">
+                    {{ __('Uploading gallery images...') }}
+                </p>
+                @error('productGalleryUploads')
+                    <p class="text-xs text-red-600">{{ $message }}</p>
+                @enderror
+                @php
+                    $galleryErrors = collect($errors->get('productGalleryUploads.*'))->flatten();
+                @endphp
+                @foreach ($galleryErrors as $galleryError)
+                    <p class="text-xs text-red-600">{{ $galleryError }}</p>
+                @endforeach
 
                 @if (! empty($existingProductGallery))
                     <div class="overflow-x-auto pb-1">

@@ -10,15 +10,15 @@ use App\Models\Conversation;
 use App\Models\DeliveryNote;
 use App\Models\Expense;
 use App\Models\ExpenseCategory;
+use App\Models\InstallmentPlan;
 use App\Models\InventoryCategory;
 use App\Models\InventoryItem;
 use App\Models\InventoryUnit;
 use App\Models\Invoice;
-use App\Models\InstallmentPlan;
-use App\Models\Package;
 use App\Models\Message;
 use App\Models\Order;
 use App\Models\OrderStockRequest;
+use App\Models\Package;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseRequest;
 use App\Models\User;
@@ -28,31 +28,32 @@ use App\Policies\ConversationPolicy;
 use App\Policies\DeliveryNotePolicy;
 use App\Policies\ExpenseCategoryPolicy;
 use App\Policies\ExpensePolicy;
+use App\Policies\InstallmentPlanPolicy;
 use App\Policies\InventoryCategoryPolicy;
 use App\Policies\InventoryItemPolicy;
 use App\Policies\InventoryUnitPolicy;
 use App\Policies\InvoicePolicy;
-use App\Policies\InstallmentPlanPolicy;
 use App\Policies\MessagePolicy;
 use App\Policies\OrderPolicy;
 use App\Policies\OrderStockRequestPolicy;
+use App\Policies\PackagePolicy;
+use App\Policies\PrivateImagePolicy;
 use App\Policies\PurchaseOrderPolicy;
 use App\Policies\PurchaseRequestPolicy;
-use App\Policies\PackagePolicy;
 use App\Policies\UserPolicy;
 use App\Support\BranchContext;
+use App\Support\PrivateImage;
 use Carbon\CarbonImmutable;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Date;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Cache;
-
 use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Facades\View;
+use Illuminate\Support\ServiceProvider;
 use Illuminate\Validation\Rules\Password;
 use Livewire\Livewire;
 use Throwable;
@@ -82,6 +83,7 @@ class AppServiceProvider extends ServiceProvider
         OrderStockRequest::class => OrderStockRequestPolicy::class,
         PurchaseOrder::class => PurchaseOrderPolicy::class,
         PurchaseRequest::class => PurchaseRequestPolicy::class,
+        PrivateImage::class => PrivateImagePolicy::class,
         User::class => UserPolicy::class,
     ];
 

@@ -2,10 +2,10 @@
 
 namespace App\Models;
 
+use App\Services\Media\ImageUploadService;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Support\Facades\Storage;
 
 class PackageItem extends Model
 {
@@ -33,10 +33,11 @@ class PackageItem extends Model
 
     public function getImageUrlAttribute(): ?string
     {
-        if (blank($this->image_path)) {
-            return null;
-        }
+        return app(ImageUploadService::class)->publicUrl($this->image_path);
+    }
 
-        return Storage::disk('public')->url($this->image_path);
+    public function setImagePathAttribute(mixed $value): void
+    {
+        $this->attributes['image_path'] = app(ImageUploadService::class)->normalizePublicPath($value);
     }
 }

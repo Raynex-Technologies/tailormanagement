@@ -2,11 +2,11 @@
 
 namespace App\Models;
 
+use App\Services\Media\ImageUploadService;
 use App\Support\StorefrontMedia;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Support\Facades\Storage;
 
 class BusinessSetting extends Model
 {
@@ -117,17 +117,12 @@ class BusinessSetting extends Model
 
     public function getLogoUrlAttribute(): ?string
     {
-        if (blank($this->logo_path)) {
-            return null;
-        }
+        return app(ImageUploadService::class)->publicUrl($this->logo_path);
+    }
 
-        $url = Storage::disk('public')->url($this->logo_path);
-
-        if (str_starts_with($url, 'http://') || str_starts_with($url, 'https://')) {
-            return $url;
-        }
-
-        return url($url);
+    public function getLogoFilePathAttribute(): ?string
+    {
+        return app(ImageUploadService::class)->publicPath($this->logo_path);
     }
 
     public function getStorefrontLogoUrlAttribute(): ?string
@@ -168,6 +163,11 @@ class BusinessSetting extends Model
     public function setStorefrontSocialImagePathAttribute(mixed $value): void
     {
         $this->attributes['storefront_social_image_path'] = StorefrontMedia::normalizePath($value);
+    }
+
+    public function setLogoPathAttribute(mixed $value): void
+    {
+        $this->attributes['logo_path'] = app(ImageUploadService::class)->normalizePublicPath($value);
     }
 
     public function isStorefrontOpen(): bool

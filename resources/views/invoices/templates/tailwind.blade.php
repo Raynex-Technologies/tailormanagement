@@ -6,7 +6,7 @@
     $logoSrc = null;
     if ($settings->logo_path) {
         $logoSrc = ($downloadMode ?? false)
-            ? storage_path('app/public/' . $settings->logo_path)
+            ? $settings->logo_file_path
             : $settings->logo_url;
     } elseif ($settings->logo_url) {
         $logoSrc = $settings->logo_url;

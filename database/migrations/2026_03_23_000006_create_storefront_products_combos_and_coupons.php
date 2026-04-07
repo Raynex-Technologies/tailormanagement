@@ -246,6 +246,11 @@ return new class extends Migration
 
     protected function hasConstraint(string $table, string $constraintName): bool
     {
+        if (DB::connection()->getDriverName() === 'sqlite') {
+            // SQLite does not expose named constraints in information_schema.
+            return true;
+        }
+
         $databaseName = DB::connection()->getDatabaseName();
 
         return DB::table('information_schema.TABLE_CONSTRAINTS')

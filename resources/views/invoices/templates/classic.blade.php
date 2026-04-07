@@ -12,7 +12,7 @@
                         @if ($settings->logo_path)
                             @php
                                 $logoSrc = ($downloadMode ?? false)
-                                    ? storage_path('app/public/' . $settings->logo_path)
+                                    ? $settings->logo_file_path
                                     : $settings->logo_url;
                             @endphp
                             <td style="vertical-align: middle; padding: 0 12px 0 0;">

@@ -7,6 +7,7 @@ use App\Models\InventoryItem;
 use App\Models\InventoryItemMedia;
 use App\Support\BranchContext;
 use App\Support\StorefrontMedia;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -14,6 +15,7 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Livewire\WithFileUploads;
+use Throwable;
 
 #[Layout('layouts.app.sidebar')]
 #[Title('Storefront Product Form')]
@@ -22,31 +24,57 @@ class ProductForm extends Component
     use WithFileUploads;
 
     public ?int $editingProductId = null;
+
     public string $productName = '';
+
     public string $productShortDescription = '';
+
     public string $productDescription = '';
+
     public string $productSku = '';
+
     public string $productStatus = 'draft';
+
     public ?int $productCategoryId = null;
+
     public ?float $productPrice = null;
+
     public ?float $productCompareAtPrice = null;
+
     public bool $productTrackStock = true;
+
     public ?float $productStockQuantity = 0;
+
     public ?float $productLowStockThreshold = 0;
+
     public bool $productAllowBackorders = false;
+
     public bool $productVisible = true;
+
     public bool $productFeatured = false;
+
     public bool $productTaxable = false;
+
     public ?float $productWeight = null;
+
     public ?float $productLength = null;
+
     public ?float $productWidth = null;
+
     public ?float $productHeight = null;
+
     public string $productSizes = '';
+
     public string $productColors = '';
+
     public array $productColorOptions = [];
+
     public $productFeaturedImageUpload = null;
+
     public ?string $productFeaturedImagePath = null;
+
     public array $productGalleryUploads = [];
+
     public array $existingProductGallery = [];
 
     public function mount(?InventoryItem $product = null): void
@@ -64,54 +92,14 @@ class ProductForm extends Component
     public function save()
     {
         $this->authorize('storefront.catalog.manage');
+        $this->resetErrorBag('save');
         $this->productColorOptions = $this->normalizeProductColors($this->productColorOptions);
         $this->syncProductColorsString();
 
-        $validated = $this->validate([
-            'productName' => ['required', 'string', 'max:191'],
-            'productShortDescription' => ['nullable', 'string', 'max:2000'],
-            'productDescription' => ['nullable', 'string', 'max:20000'],
-            'productSku' => [
-                'nullable',
-                'string',
-                'max:100',
-                Rule::unique('inventory_items', 'sku')->ignore($this->editingProductId),
-            ],
-            'productStatus' => ['required', Rule::in(['draft', 'active', 'inactive'])],
-            'productCategoryId' => ['nullable', 'integer', 'exists:inventory_categories,id'],
-            'productPrice' => ['required', 'numeric', 'min:0'],
-            'productCompareAtPrice' => ['nullable', 'numeric', 'min:0'],
-            'productTrackStock' => ['boolean'],
-            'productStockQuantity' => ['nullable', 'numeric', 'min:0'],
-            'productLowStockThreshold' => ['nullable', 'numeric', 'min:0'],
-            'productAllowBackorders' => ['boolean'],
-            'productVisible' => ['boolean'],
-            'productFeatured' => ['boolean'],
-            'productTaxable' => ['boolean'],
-            'productWeight' => ['nullable', 'numeric', 'min:0'],
-            'productLength' => ['nullable', 'numeric', 'min:0'],
-            'productWidth' => ['nullable', 'numeric', 'min:0'],
-            'productHeight' => ['nullable', 'numeric', 'min:0'],
-            'productSizes' => ['nullable', 'string', 'max:2000'],
-            'productColors' => ['nullable', 'string', 'max:2000'],
-            'productFeaturedImageUpload' => [
-                'nullable',
-                'image',
-                'mimes:jpg,jpeg,png,webp',
-                'mimetypes:image/jpeg,image/png,image/webp',
-                'max:4096',
-                'dimensions:min_width=64,min_height=64,max_width=4096,max_height=4096',
-            ],
-            'productGalleryUploads' => ['nullable', 'array', 'max:12'],
-            'productGalleryUploads.*' => [
-                'nullable',
-                'image',
-                'mimes:jpg,jpeg,png,webp',
-                'mimetypes:image/jpeg,image/png,image/webp',
-                'max:4096',
-                'dimensions:min_width=64,min_height=64,max_width=4096,max_height=4096',
-            ],
-        ]);
+        $validated = $this->validate(
+            $this->productValidationRules(),
+            $this->productValidationMessages()
+        );
 
         $branchId = $this->resolveBranchId();
         $name = $this->sanitizeText($validated['productName']) ?? 'Product';
@@ -153,41 +141,74 @@ class ProductForm extends Component
             'is_active' => $isActive,
         ];
 
-        $product = $this->editingProductId
-            ? InventoryItem::query()->with(['media', 'stock'])->findOrFail($this->editingProductId)
-            : new InventoryItem();
+        $storedPaths = [];
+        $previousFeaturedImagePath = null;
 
-        if ($this->productFeaturedImageUpload) {
-            if ($product->exists && $product->featured_image_path) {
-                StorefrontMedia::delete($product->featured_image_path);
+        try {
+            DB::transaction(function () use ($payload, $validated, &$storedPaths, &$previousFeaturedImagePath): void {
+                $product = $this->editingProductId
+                    ? InventoryItem::query()->with(['media', 'stock'])->findOrFail($this->editingProductId)
+                    : new InventoryItem;
+
+                if ($this->productFeaturedImageUpload) {
+                    $featuredImagePath = StorefrontMedia::store($this->productFeaturedImageUpload, 'storefront/products/featured');
+                    $storedPaths[] = $featuredImagePath;
+
+                    if ($product->exists && $product->featured_image_path && $product->featured_image_path !== $featuredImagePath) {
+                        $previousFeaturedImagePath = $product->featured_image_path;
+                    }
+
+                    $payload['featured_image_path'] = $featuredImagePath;
+                }
+
+                $product->fill($payload);
+                $product->save();
+
+                $product->stock()->updateOrCreate(
+                    ['inventory_item_id' => $product->id],
+                    [
+                        'branch_id' => $product->branch_id,
+                        'qty_on_hand' => round((float) ($validated['productStockQuantity'] ?? 0), 2),
+                        'qty_reserved' => (float) ($product->stock?->qty_reserved ?? 0),
+                    ]
+                );
+
+                $this->syncProductVariants(
+                    $product,
+                    $this->splitCsv($validated['productSizes'] ?? ''),
+                    $this->splitCsv($validated['productColors'] ?? '')
+                );
+
+                $storedPaths = array_merge($storedPaths, $this->appendGalleryUploads($product));
+            });
+        } catch (ValidationException $exception) {
+            throw $exception;
+        } catch (Throwable $exception) {
+            foreach (array_values(array_unique($storedPaths)) as $path) {
+                StorefrontMedia::delete($path);
             }
 
-            $payload['featured_image_path'] = StorefrontMedia::store($this->productFeaturedImageUpload, 'storefront/products/featured');
+            report($exception);
+            $this->addError('save', 'Failed to save product. Please review the upload files and try again.');
+
+            return null;
         }
 
-        $product->fill($payload);
-        $product->save();
-
-        $product->stock()->updateOrCreate(
-            ['inventory_item_id' => $product->id],
-            [
-                'branch_id' => $product->branch_id,
-                'qty_on_hand' => round((float) ($validated['productStockQuantity'] ?? 0), 2),
-                'qty_reserved' => (float) ($product->stock?->qty_reserved ?? 0),
-            ]
-        );
-
-        $this->syncProductVariants(
-            $product,
-            $this->splitCsv($validated['productSizes'] ?? ''),
-            $this->splitCsv($validated['productColors'] ?? '')
-        );
-
-        $this->appendGalleryUploads($product);
+        if ($previousFeaturedImagePath) {
+            StorefrontMedia::delete($previousFeaturedImagePath);
+        }
 
         return redirect()
             ->route('administration.storefront.products')
             ->with('success', $this->editingProductId ? 'Product updated.' : 'Product created.');
+    }
+
+    public function updatedProductGalleryUploads(): void
+    {
+        $this->validate(
+            $this->galleryValidationRules(),
+            $this->productValidationMessages()
+        );
     }
 
     public function addProductColor(string $value): void
@@ -330,18 +351,20 @@ class ProductForm extends Component
         ];
     }
 
-    protected function appendGalleryUploads(InventoryItem $product): void
+    protected function appendGalleryUploads(InventoryItem $product): array
     {
         $uploads = array_filter($this->productGalleryUploads);
         if ($uploads === []) {
             $this->syncGalleryImagesColumn($product->fresh('media'));
 
-            return;
+            return [];
         }
 
+        $storedPaths = [];
         $maxSort = (int) ($product->media()->max('sort_order') ?? 0);
         foreach ($uploads as $upload) {
             $path = StorefrontMedia::store($upload, 'storefront/products/gallery');
+            $storedPaths[] = $path;
             $maxSort++;
 
             $product->media()->create([
@@ -353,6 +376,8 @@ class ProductForm extends Component
 
         $this->syncGalleryImagesColumn($product->fresh('media'));
         $this->productGalleryUploads = [];
+
+        return $storedPaths;
     }
 
     protected function syncGalleryImagesColumn(InventoryItem $product): void
@@ -492,6 +517,79 @@ class ProductForm extends Component
         $sanitized = trim(strip_tags($value));
 
         return $sanitized === '' ? null : $sanitized;
+    }
+
+    protected function productValidationRules(): array
+    {
+        return [
+            'productName' => ['required', 'string', 'max:191'],
+            'productShortDescription' => ['nullable', 'string', 'max:2000'],
+            'productDescription' => ['nullable', 'string', 'max:20000'],
+            'productSku' => [
+                'nullable',
+                'string',
+                'max:100',
+                Rule::unique('inventory_items', 'sku')->ignore($this->editingProductId),
+            ],
+            'productStatus' => ['required', Rule::in(['draft', 'active', 'inactive'])],
+            'productCategoryId' => ['nullable', 'integer', 'exists:inventory_categories,id'],
+            'productPrice' => ['required', 'numeric', 'min:0'],
+            'productCompareAtPrice' => ['nullable', 'numeric', 'min:0'],
+            'productTrackStock' => ['boolean'],
+            'productStockQuantity' => ['nullable', 'numeric', 'min:0'],
+            'productLowStockThreshold' => ['nullable', 'numeric', 'min:0'],
+            'productAllowBackorders' => ['boolean'],
+            'productVisible' => ['boolean'],
+            'productFeatured' => ['boolean'],
+            'productTaxable' => ['boolean'],
+            'productWeight' => ['nullable', 'numeric', 'min:0'],
+            'productLength' => ['nullable', 'numeric', 'min:0'],
+            'productWidth' => ['nullable', 'numeric', 'min:0'],
+            'productHeight' => ['nullable', 'numeric', 'min:0'],
+            'productSizes' => ['nullable', 'string', 'max:2000'],
+            'productColors' => ['nullable', 'string', 'max:2000'],
+            'productFeaturedImageUpload' => [
+                'nullable',
+                'image',
+                'mimes:jpg,jpeg,png,webp',
+                'mimetypes:image/jpeg,image/png,image/webp',
+                'max:10240',
+            ],
+            'productGalleryUploads' => ['nullable', 'array', 'max:12'],
+            'productGalleryUploads.*' => [
+                'nullable',
+                'image',
+                'mimes:jpg,jpeg,png,webp',
+                'mimetypes:image/jpeg,image/png,image/webp',
+                'max:10240',
+            ],
+        ];
+    }
+
+    protected function galleryValidationRules(): array
+    {
+        return [
+            'productGalleryUploads' => ['nullable', 'array', 'max:12'],
+            'productGalleryUploads.*' => [
+                'nullable',
+                'image',
+                'mimes:jpg,jpeg,png,webp',
+                'mimetypes:image/jpeg,image/png,image/webp',
+                'max:10240',
+            ],
+        ];
+    }
+
+    protected function productValidationMessages(): array
+    {
+        return [
+            'productFeaturedImageUpload.max' => 'Featured image must be 10MB or smaller.',
+            'productFeaturedImageUpload.mimes' => 'Featured image must be a JPG, PNG, or WEBP file.',
+            'productGalleryUploads.max' => 'You can upload up to 12 gallery images.',
+            'productGalleryUploads.*.image' => 'Each gallery file must be a valid image.',
+            'productGalleryUploads.*.mimes' => 'Gallery images must be JPG, PNG, or WEBP files.',
+            'productGalleryUploads.*.max' => 'Each gallery image must be 10MB or smaller.',
+        ];
     }
 
     public function render()
