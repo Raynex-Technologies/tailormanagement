@@ -30,7 +30,7 @@
     </div>
 
     {{-- Stats Cards --}}
-    <div class="grid gap-4 sm:grid-cols-4">
+    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div class="rounded-2xl bg-white dark:bg-zinc-800/50 p-4 shadow-sm border border-zinc-200/50 dark:border-zinc-700/50">
             <div class="flex items-center gap-3">
                 <div class="flex items-center justify-center size-10 rounded-xl bg-zinc-100 dark:bg-zinc-800">
@@ -105,7 +105,7 @@
 
             <div class="mt-4 divide-y divide-zinc-100 dark:divide-zinc-700/50">
                 @forelse ($this->trackedAssignments as $trackedTask)
-                    <div class="flex items-center justify-between gap-3 py-3">
+                    <div class="flex flex-wrap items-center justify-between gap-3 py-3">
                         <div class="min-w-0">
                             <p class="truncate text-sm font-medium text-zinc-900 dark:text-white">{{ $trackedTask->title }}</p>
                             <p class="truncate text-xs text-zinc-500 dark:text-zinc-400">
@@ -465,7 +465,7 @@
 
                 <flux:field>
                     <flux:label>{{ __('Color') }}</flux:label>
-                    <div class="grid grid-cols-6 gap-2 mt-2">
+                    <div class="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-6">
                         @foreach ($this->categoryColors as $colorKey => $colorName)
                             <button
                                 type="button"
@@ -492,7 +492,7 @@
                     <div class="space-y-2">
                         @foreach ($this->categories as $cat)
                             @php $catColors = $cat->getColorClasses(); @endphp
-                            <div class="flex items-center justify-between px-3 py-2 rounded-xl {{ $catColors['bg'] }}">
+                            <div class="flex flex-wrap items-center justify-between gap-2 rounded-xl px-3 py-2 {{ $catColors['bg'] }}">
                                 <span class="flex items-center gap-2 text-sm font-medium {{ $catColors['text'] }}">
                                     <span class="size-2.5 rounded-full {{ $catColors['dot'] }}"></span>
                                     {{ $cat->name }}

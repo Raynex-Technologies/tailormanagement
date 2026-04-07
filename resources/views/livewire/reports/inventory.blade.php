@@ -29,7 +29,7 @@
 
     {{-- Filters --}}
     <div class="rounded-2xl bg-white dark:bg-zinc-800/50 p-5 shadow-sm border border-zinc-200/50 dark:border-zinc-700/50">
-        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
+        <div class="grid gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
             <flux:input wire:model.blur="dateFrom" type="date" label="{{ __('Movement From') }}" />
             <flux:input wire:model.blur="dateTo" type="date" label="{{ __('Movement To') }}" />
             <flux:select wire:model.blur="categoryId" label="{{ __('Category') }}">
@@ -55,7 +55,7 @@
     </div>
 
     {{-- Summary KPI Cards --}}
-    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+    <div class="grid gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
         <div class="rounded-2xl bg-white dark:bg-zinc-800/50 p-5 shadow-sm border border-zinc-200/50 dark:border-zinc-700/50">
             <div class="flex items-center justify-center size-11 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 mb-3">
                 <i class="fa-duotone fa-boxes-stacked size-5 text-indigo-500"></i>
@@ -121,7 +121,7 @@
                 </div>
             </div>
 
-            <div class="overflow-x-auto">
+            <div class="overflow-x-auto custom-scrollbar-light">
                 <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
                     <thead>
                         <tr class="text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
@@ -186,7 +186,7 @@
                 </div>
             </div>
 
-            <div class="overflow-x-auto">
+            <div class="overflow-x-auto custom-scrollbar-light">
                 <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
                     <thead>
                         <tr class="text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">

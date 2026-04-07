@@ -29,7 +29,7 @@
 
     {{-- Filters --}}
     <div class="rounded-2xl bg-white dark:bg-zinc-800/50 p-5 shadow-sm border border-zinc-200/50 dark:border-zinc-700/50">
-        <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-7">
+        <div class="grid gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-7">
             <flux:input wire:model.live="dateFrom" type="date" label="{{ __('From Date') }}" />
             <flux:input wire:model.live="dateTo" type="date" label="{{ __('To Date') }}" />
             <flux:select wire:model.live="categoryId" label="{{ __('Category') }}">
@@ -142,7 +142,7 @@
             </div>
         </div>
 
-        <div class="overflow-x-auto">
+        <div class="overflow-x-auto custom-scrollbar-light">
             <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
                 <thead>
                     <tr class="text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">

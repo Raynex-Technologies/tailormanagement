@@ -42,7 +42,7 @@
     </div>
 
     <flux:card>
-        <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
+        <div class="grid gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
             @if ($branches->isNotEmpty())
                 <div class="xl:col-span-1">
                     <flux:label for="branchFilter">{{ __('Branch') }}</flux:label>
@@ -96,7 +96,7 @@
                 <flux:text class="text-zinc-500">{{ __('Try changing the selected filters.') }}</flux:text>
             </div>
         @else
-            <div class="overflow-x-auto">
+            <div class="overflow-x-auto custom-scrollbar-light">
                 <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
                     <thead>
                         <tr class="text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">

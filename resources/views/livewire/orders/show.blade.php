@@ -244,9 +244,9 @@
             </div>
         @endif
 
-        <div class="grid gap-6 lg:grid-cols-3">
+        <div class="grid gap-6 xl:grid-cols-3">
             {{-- Main Content Area --}}
-            <div class="lg:col-span-2 min-w-0 space-y-6">
+            <div class="xl:col-span-2 min-w-0 space-y-6">
                 {{-- Order Items --}}
                 <div class="rounded-2xl bg-white dark:bg-zinc-800/50 p-5 shadow-sm border border-zinc-200/50 dark:border-zinc-700/50">
                     <div class="mb-4 flex items-center gap-3">
@@ -345,7 +345,7 @@
                 {{-- Storefront Fulfillment / Shipment Manager --}}
                 @if ($canManageStorefrontOperations && $isStorefrontOrder)
                     <div class="rounded-2xl bg-white dark:bg-zinc-800/50 p-5 shadow-sm border border-zinc-200/50 dark:border-zinc-700/50 space-y-5">
-                        <div class="flex items-center justify-between">
+                        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                             <div class="flex items-center gap-3">
                                 <div class="flex size-10 items-center justify-center rounded-xl bg-sky-100 dark:bg-sky-900/30">
                                     <i class="fa-duotone fa-truck-fast text-sky-600 dark:text-sky-400"></i>
@@ -531,7 +531,7 @@
                 {{-- Materials Panel --}}
                 @if ($canViewMaterials)
                     <div class="rounded-2xl bg-white dark:bg-zinc-800/50 p-5 shadow-sm border border-zinc-200/50 dark:border-zinc-700/50">
-                        <div class="mb-4 flex items-center justify-between">
+                        <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                             <div class="flex items-center gap-3">
                                 <div class="flex size-10 items-center justify-center rounded-xl bg-amber-100 dark:bg-amber-900/30">
                                     <i class="fa-duotone fa-swatchbook text-amber-600 dark:text-amber-400" aria-hidden="true"></i>
@@ -549,7 +549,7 @@
                         @if ($materials->isNotEmpty())
                             <div class="space-y-3">
                                 @foreach ($materials as $material)
-                                    <div class="flex items-center justify-between rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-zinc-700 dark:bg-zinc-800/50">
+                                    <div class="flex flex-col gap-2 rounded-xl border border-zinc-200 bg-zinc-50 px-4 py-3 dark:border-zinc-700 dark:bg-zinc-800/50 sm:flex-row sm:items-center sm:justify-between">
                                         <div>
                                             <span class="font-medium text-zinc-900 dark:text-white">
                                                 {{ $material['inventory_item']?->name ?? 'Unknown Item' }}
@@ -595,7 +595,7 @@
                                 <p class="mb-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">Recent Requests</p>
                                 <div class="space-y-2">
                                     @foreach ($stockRequests->take(3) as $request)
-                                        <div class="flex items-center justify-between text-sm">
+                                        <div class="flex flex-col gap-1 text-sm sm:flex-row sm:items-center sm:justify-between">
                                             <span class="text-zinc-600 dark:text-zinc-400">
                                                 {{ $request->request_no }} &bull; {{ $request->items->count() }} item(s)
                                             </span>

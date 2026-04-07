@@ -135,10 +135,10 @@
         </div>
 
         {{-- Board Columns --}}
-        <div class="grid gap-6 lg:grid-cols-3">
+        <div class="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
             {{-- New Column --}}
             <div class="flex flex-col">
-                <div class="mb-4 flex items-center justify-between">
+                <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
                     <div class="flex items-center gap-2">
                         <div class="h-3 w-3 rounded-full bg-blue-500"></div>
                         <flux:heading size="lg">New</flux:heading>
@@ -173,7 +173,7 @@
 
             {{-- In Progress Column --}}
             <div class="flex flex-col">
-                <div class="mb-4 flex items-center justify-between">
+                <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
                     <div class="flex items-center gap-2">
                         <div class="h-3 w-3 rounded-full bg-amber-500"></div>
                         <flux:heading size="lg">In Progress</flux:heading>
@@ -208,7 +208,7 @@
 
             {{-- Ready Column --}}
             <div class="flex flex-col">
-                <div class="mb-4 flex items-center justify-between">
+                <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
                     <div class="flex items-center gap-2">
                         <div class="h-3 w-3 rounded-full bg-emerald-500"></div>
                         <flux:heading size="lg">Ready</flux:heading>

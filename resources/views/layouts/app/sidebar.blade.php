@@ -4,7 +4,7 @@
         @include('partials.head')
     </head>
     <body
-        class="app-layout min-h-screen"
+        class="app-layout min-h-screen overflow-x-hidden"
         x-data="{ desktopSidebarCollapsed: false }"
         x-init="desktopSidebarCollapsed = JSON.parse(window.localStorage.getItem('desktopSidebarCollapsed') ?? 'false'); $watch('desktopSidebarCollapsed', value => window.localStorage.setItem('desktopSidebarCollapsed', JSON.stringify(value)))"
     >
@@ -730,7 +730,7 @@
                 x-transition:leave="transition ease-in-out duration-300 transform"
                 x-transition:leave-start="translate-x-0"
                 x-transition:leave-end="-translate-x-full"
-                class="fixed left-4 top-4 bottom-4 w-64 z-50 flex flex-col overflow-hidden"
+                class="app-mobile-sidebar fixed inset-y-3 left-3 right-3 z-50 flex flex-col overflow-hidden sm:inset-y-4 sm:left-4 sm:right-auto sm:w-64"
                 style="background: linear-gradient(180deg, #1E1F2E 0%, #252637 100%); border-radius: 1.5rem; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.05);"
             >
                 {{-- Close button --}}
@@ -963,7 +963,7 @@
         </div>
 
         {{-- Mobile Header --}}
-        <header class="top-frosted-nav lg:hidden sticky top-4 z-30 h-16 mx-4 mt-4 rounded-2xl flex items-center justify-between px-4">
+        <header class="top-frosted-nav lg:hidden sticky top-3 z-30 h-16 mx-3 mt-3 rounded-2xl flex items-center justify-between px-3 sm:top-4 sm:mx-4 sm:mt-4 sm:px-4">
             <div class="relative flex items-center gap-3">
                 <button 
                     @click="$dispatch('toggle-sidebar')"
@@ -971,7 +971,7 @@
                 >
                     <i class="fa-duotone fa-bars size-5 text-navy-900 dark:text-white"></i>
                 </button>
-                <span class="text-lg font-semibold text-navy-900 dark:text-white">{{ $businessName }}</span>
+                <span class="app-mobile-brand max-w-[9.5rem] truncate text-lg font-semibold text-navy-900 dark:text-white sm:max-w-none">{{ $businessName }}</span>
             </div>
 
             <div class="relative flex items-center gap-2">
@@ -1043,7 +1043,7 @@
         </header>
 
         {{-- Main Content Area --}}
-        <main class="pt-0 min-h-screen transition-[margin] duration-300 ease-out" :class="desktopSidebarCollapsed ? 'lg:ml-28' : 'lg:ml-72'">
+        <main class="app-main-shell pt-0 min-h-screen overflow-x-hidden transition-[margin] duration-300 ease-out" :class="desktopSidebarCollapsed ? 'lg:ml-28' : 'lg:ml-72'">
             {{-- Desktop Header --}}
             <header class="top-frosted-nav hidden lg:flex sticky top-4 z-40 h-16 items-center justify-end gap-x-4 px-6 mx-4 mt-4 rounded-2xl">
                 {{-- Right side actions --}}
@@ -1122,7 +1122,7 @@
             <x-branch-required-banner />
 
             {{-- Page Content --}}
-            <div class="p-4 lg:p-6">
+            <div class="app-page-content p-3 sm:p-4 lg:p-6">
                 {{ $slot }}
             </div>
         </main>

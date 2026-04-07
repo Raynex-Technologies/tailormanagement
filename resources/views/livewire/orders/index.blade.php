@@ -38,7 +38,7 @@
 
         {{-- Filters --}}
         <flux:card class="mb-6">
-            <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
+            <div class="grid gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
                 <flux:input
                     wire:model.live.debounce.300ms="search"
                     placeholder="Search order, customer..."
@@ -66,7 +66,7 @@
                     @endforeach
                 </flux:select>
 
-                <div class="grid grid-cols-2 gap-2">
+                <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
                     <flux:input
                         wire:model.live="dateFrom"
                         type="date"
@@ -95,7 +95,7 @@
 
         {{-- Orders Table --}}
         <flux:card>
-            <div class="overflow-x-auto">
+            <div class="overflow-x-auto custom-scrollbar-light">
                 <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
                     <thead>
                         <tr class="text-left text-sm font-semibold text-zinc-900 dark:text-white">

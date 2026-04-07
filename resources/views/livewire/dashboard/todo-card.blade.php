@@ -252,7 +252,7 @@
 
                 <flux:field>
                     <flux:label>{{ __('Color') }}</flux:label>
-                    <div class="grid grid-cols-6 gap-2 mt-2">
+                    <div class="mt-2 grid grid-cols-3 gap-2 sm:grid-cols-6">
                         @foreach ($this->categoryColors as $colorKey => $colorName)
                             <button
                                 type="button"

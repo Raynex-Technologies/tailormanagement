@@ -461,6 +461,83 @@ select:focus[data-flux-control] {
    ADDITIONAL UTILITY CLASSES
    ============================================ */
 
+/* ============================================
+   RESPONSIVE LAYOUT HARDENING
+   ============================================ */
+
+.app-layout {
+    overflow-x: hidden;
+}
+
+[data-flux-main] {
+    min-width: 0;
+}
+
+.app-main-shell {
+    min-width: 0;
+}
+
+.app-page-content {
+    min-width: 0;
+}
+
+ui-table-scroll-area,
+.overflow-x-auto {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+}
+
+@media (max-width: 1023px) {
+    .app-main-shell {
+        overflow-x: hidden;
+    }
+
+    .app-page-content {
+        padding: 0.875rem;
+    }
+}
+
+@media (max-width: 639px) {
+    [data-flux-main]:not(.p-0) {
+        padding: 0.875rem;
+    }
+
+    .app-page-content {
+        padding: 0.75rem;
+    }
+}
+
+@media (min-width: 1024px) and (max-width: 1279px) {
+    .lg\:grid-cols-3 {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+
+    .lg\:grid-cols-4,
+    .lg\:grid-cols-5,
+    .lg\:grid-cols-6,
+    .lg\:grid-cols-7 {
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    }
+}
+
+@media (min-width: 640px) and (max-width: 767px) {
+    .sm\:grid-cols-3,
+    .sm\:grid-cols-4 {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+}
+
+@media (max-width: 639px) {
+    .flex.items-center.justify-between {
+        flex-wrap: wrap;
+        row-gap: 0.625rem;
+    }
+
+    .flex.items-center.justify-between > * {
+        min-width: 0;
+    }
+}
+
 /* Status badges */
 .badge-success {
     background: rgba(163, 230, 53, 0.15);

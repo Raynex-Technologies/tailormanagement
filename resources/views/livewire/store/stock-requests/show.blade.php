@@ -65,14 +65,14 @@
             </div>
         </flux:card>
 
-        <div class="grid gap-6 lg:grid-cols-3">
+        <div class="grid gap-6 xl:grid-cols-3">
             {{-- Request Items --}}
-            <div class="lg:col-span-2">
+            <div class="xl:col-span-2">
                 <flux:card>
                     <flux:heading size="lg" class="mb-4">Requested Items</flux:heading>
 
-                    <div class="overflow-x-auto">
-                        <table class="w-full text-sm">
+                    <div class="overflow-x-auto custom-scrollbar-light">
+                        <table class="w-full min-w-[620px] text-sm">
                             <thead>
                                 <tr class="border-b border-zinc-200 text-left dark:border-zinc-700">
                                     <th class="pb-3 font-medium text-zinc-600 dark:text-zinc-400">Item</th>
@@ -262,7 +262,7 @@
                         <span class="mb-3 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Set Approved Quantities</span>
                         <div class="space-y-3">
                             @foreach ($stockRequest->items as $index => $item)
-                                <div class="flex items-center justify-between gap-4" wire:key="approve-item-{{ $item->id }}">
+                                <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between" wire:key="approve-item-{{ $item->id }}">
                                     <div class="flex-1">
                                         <span class="font-medium">{{ $item->inventoryItem?->name }}</span>
                                         <span class="ml-2 text-sm text-zinc-500">
@@ -318,7 +318,7 @@
                     <div class="space-y-3">
                         @foreach ($stockRequest->items as $index => $item)
                             @if ($item->remaining_to_issue > 0)
-                                <div class="flex items-center justify-between gap-4" wire:key="issue-item-{{ $item->id }}">
+                                <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between" wire:key="issue-item-{{ $item->id }}">
                                     <div class="flex-1">
                                         <span class="font-medium">{{ $item->inventoryItem?->name }}</span>
                                         <div class="text-sm text-zinc-500">
@@ -340,7 +340,7 @@
                                     />
                                 </div>
                             @else
-                                <div class="flex items-center justify-between gap-4 opacity-50" wire:key="issue-item-{{ $item->id }}">
+                                <div class="flex flex-col gap-3 opacity-50 sm:flex-row sm:items-center sm:justify-between" wire:key="issue-item-{{ $item->id }}">
                                     <div class="flex-1">
                                         <span class="font-medium">{{ $item->inventoryItem?->name }}</span>
                                         <flux:badge color="green" size="sm" class="ml-2">Fully Issued</flux:badge>

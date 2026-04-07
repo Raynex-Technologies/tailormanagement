@@ -14,14 +14,14 @@
 
         <flux:card class="mx-auto max-w-3xl">
             {{-- Header --}}
-            <div class="mb-6 flex items-start justify-between">
+            <div class="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                     <flux:heading size="xl">{{ $deliveryNote->delivery_note_no }}</flux:heading>
                     <flux:text class="mt-1 text-zinc-600 dark:text-zinc-400">
                         Delivery Note
                     </flux:text>
                 </div>
-                <flux:button variant="subtle" :href="route('delivery-notes.print', $deliveryNote)" target="_blank">
+                <flux:button class="self-start sm:self-auto" variant="subtle" :href="route('delivery-notes.print', $deliveryNote)" target="_blank">
                     <x-icon name="print" class="mr-1 size-4" />
                     Print
                 </flux:button>
@@ -84,34 +84,36 @@
                 </div>
 
                 {{-- Order Lines --}}
-                <table class="w-full text-sm">
-                    <thead>
-                        <tr class="border-b border-zinc-200 dark:border-zinc-700">
-                            <th class="pb-2 text-left font-medium text-zinc-700 dark:text-zinc-300">Item</th>
-                            <th class="pb-2 text-right font-medium text-zinc-700 dark:text-zinc-300">Qty</th>
-                            <th class="pb-2 text-right font-medium text-zinc-700 dark:text-zinc-300">Unit Price</th>
-                            <th class="pb-2 text-right font-medium text-zinc-700 dark:text-zinc-300">Total</th>
-                        </tr>
-                    </thead>
-                    <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
-                        @foreach ($deliveryNote->order?->lines ?? [] as $line)
-                            <tr>
-                                <td class="py-2 text-zinc-900 dark:text-white">{{ $line->item_name }}</td>
-                                <td class="py-2 text-right text-zinc-600 dark:text-zinc-400">{{ number_format($line->qty, 0) }}</td>
-                                <td class="py-2 text-right font-mono text-zinc-600 dark:text-zinc-400">{{ number_format($line->unit_price, 0) }}</td>
-                                <td class="py-2 text-right font-mono text-zinc-900 dark:text-white">{{ number_format($line->line_total, 0) }}</td>
+                <div class="overflow-x-auto custom-scrollbar-light">
+                    <table class="w-full min-w-[640px] text-sm">
+                        <thead>
+                            <tr class="border-b border-zinc-200 dark:border-zinc-700">
+                                <th class="pb-2 text-left font-medium text-zinc-700 dark:text-zinc-300">Item</th>
+                                <th class="pb-2 text-right font-medium text-zinc-700 dark:text-zinc-300">Qty</th>
+                                <th class="pb-2 text-right font-medium text-zinc-700 dark:text-zinc-300">Unit Price</th>
+                                <th class="pb-2 text-right font-medium text-zinc-700 dark:text-zinc-300">Total</th>
                             </tr>
-                        @endforeach
-                    </tbody>
-                    <tfoot>
-                        <tr class="border-t border-zinc-200 dark:border-zinc-700">
-                            <td colspan="3" class="pt-3 text-right font-medium text-zinc-900 dark:text-white">Total</td>
-                            <td class="pt-3 text-right font-mono text-lg font-semibold text-indigo-600 dark:text-indigo-400">
-                                {{ number_format($deliveryNote->order?->total ?? 0, 0) }}
-                            </td>
-                        </tr>
-                    </tfoot>
-                </table>
+                        </thead>
+                        <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
+                            @foreach ($deliveryNote->order?->lines ?? [] as $line)
+                                <tr>
+                                    <td class="py-2 text-zinc-900 dark:text-white">{{ $line->item_name }}</td>
+                                    <td class="py-2 text-right text-zinc-600 dark:text-zinc-400">{{ number_format($line->qty, 0) }}</td>
+                                    <td class="py-2 text-right font-mono text-zinc-600 dark:text-zinc-400">{{ number_format($line->unit_price, 0) }}</td>
+                                    <td class="py-2 text-right font-mono text-zinc-900 dark:text-white">{{ number_format($line->line_total, 0) }}</td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                        <tfoot>
+                            <tr class="border-t border-zinc-200 dark:border-zinc-700">
+                                <td colspan="3" class="pt-3 text-right font-medium text-zinc-900 dark:text-white">Total</td>
+                                <td class="pt-3 text-right font-mono text-lg font-semibold text-indigo-600 dark:text-indigo-400">
+                                    {{ number_format($deliveryNote->order?->total ?? 0, 0) }}
+                                </td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
             </div>
 
             {{-- Notes --}}

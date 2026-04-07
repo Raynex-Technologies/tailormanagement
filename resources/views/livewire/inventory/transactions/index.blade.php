@@ -75,7 +75,7 @@
 
         {{-- Filters --}}
         <flux:card class="mb-6">
-            <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
+            <div class="grid gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
                 <flux:input
                     wire:model.blur="search"
                     placeholder="Search item..."
@@ -124,7 +124,7 @@
 
         {{-- Transactions Table --}}
         <flux:card>
-            <div class="overflow-x-auto">
+            <div class="overflow-x-auto custom-scrollbar-light">
                 <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
                     <thead>
                         <tr class="text-left text-sm font-semibold text-zinc-900 dark:text-white">

@@ -1,7 +1,7 @@
 <div class="space-y-6">
     {{-- Payment Summary Card --}}
     <flux:card>
-        <div class="flex items-center justify-between">
+        <div class="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
             <flux:heading size="lg">{{ __('Payments') }}</flux:heading>
             @if ($canRecordPayments && $balanceAmount > 0 && $paymentMethods->isNotEmpty())
                 <flux:button size="sm" wire:click="openPaymentModal">
@@ -11,7 +11,7 @@
             @endif
         </div>
 
-        <div class="mt-4 grid grid-cols-3 gap-4">
+        <div class="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
             <div class="rounded-lg bg-zinc-50 p-4 dark:bg-zinc-800">
                 <flux:text class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('Total Amount') }}</flux:text>
                 <flux:heading size="xl">{{ money_tzs($totalAmount) }}</flux:heading>

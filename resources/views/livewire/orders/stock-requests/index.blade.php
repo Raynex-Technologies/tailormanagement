@@ -9,7 +9,7 @@
                 <flux:breadcrumbs.item>Stock Requests</flux:breadcrumbs.item>
             </flux:breadcrumbs>
 
-            <div class="mt-4 flex items-center justify-between">
+            <div class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <flux:heading size="xl">Stock Requests</flux:heading>
                     <flux:text class="mt-1 text-zinc-600 dark:text-zinc-400">
@@ -40,7 +40,7 @@
                     $statusColor = $request->status->color();
                 @endphp
                 <flux:card wire:key="request-{{ $request->id }}">
-                    <div class="flex items-start justify-between">
+                    <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <div class="flex-1">
                             <div class="flex items-center gap-3">
                                 <flux:badge color="{{ $statusColor }}">
@@ -80,8 +80,9 @@
                     {{-- Request Items (Expandable) --}}
                     @if ($viewingRequestId === $request->id)
                         <div class="mt-4 border-t border-zinc-200 pt-4 dark:border-zinc-700">
-                            <table class="w-full text-sm">
-                                <thead>
+                            <div class="overflow-x-auto custom-scrollbar-light">
+                                <table class="w-full min-w-[620px] text-sm">
+                                    <thead>
                                     <tr class="text-left text-zinc-600 dark:text-zinc-400">
                                         <th class="pb-2">Item</th>
                                         <th class="pb-2 text-center">On Hand</th>
@@ -89,8 +90,8 @@
                                         <th class="pb-2 text-center">Approved</th>
                                         <th class="pb-2 text-center">Issued</th>
                                     </tr>
-                                </thead>
-                                <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
+                                    </thead>
+                                    <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
                                     @foreach ($request->items as $item)
                                         <tr>
                                             <td class="py-2">
@@ -119,8 +120,9 @@
                                             </td>
                                         </tr>
                                     @endforeach
-                                </tbody>
-                            </table>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     @endif
                 </flux:card>
