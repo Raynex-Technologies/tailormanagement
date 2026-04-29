@@ -3,6 +3,15 @@
         ->take(3)
         ->values();
 
+    $invoiceSentAt = data_get($invoice, 'sent_at');
+    $invoiceSentAtLabel = null;
+
+    if ($invoiceSentAt instanceof \DateTimeInterface) {
+        $invoiceSentAtLabel = $invoiceSentAt->format('M d, Y H:i');
+    } elseif (filled($invoiceSentAt)) {
+        $invoiceSentAtLabel = \Illuminate\Support\Carbon::parse($invoiceSentAt)->format('M d, Y H:i');
+    }
+
     $logoSrc = null;
     if ($settings->logo_path) {
         $logoSrc = ($downloadMode ?? false)
@@ -179,8 +188,8 @@
             <p><strong>Payment:</strong> {{ $invoice->order?->payment_status?->label() ?? 'N/A' }}</p>
             <p><strong>Paid Amount:</strong> {{ number_format($invoice->order?->paid_amount ?? 0, 0) }}</p>
             <p><strong>Balance Due:</strong> {{ number_format($invoice->order?->balance_due ?? 0, 0) }}</p>
-            @if ($invoice->sent_at)
-                <p><strong>Sent:</strong> {{ $invoice->sent_at->format('M d, Y H:i') }}</p>
+            @if ($invoiceSentAtLabel)
+                <p><strong>Sent:</strong> {{ $invoiceSentAtLabel }}</p>
             @endif
         </div>
     </div>

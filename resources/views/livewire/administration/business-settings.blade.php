@@ -381,18 +381,26 @@
                         >
                             <input type="radio" class="sr-only" name="invoice_template_id" value="{{ $template->id }}" @checked($isSelected)>
 
+                            @php(ob_start())
+                            @includeFirst(
+                                [$template->blade_view, 'invoices.templates.classic'],
+                                [
+                                    'invoice' => $previewInvoice,
+                                    'settings' => $settings,
+                                    'paymentMethods' => $previewPaymentMethods,
+                                    'template' => $template,
+                                ]
+                            )
+                            @php($previewHtml = ob_get_clean())
+
                             <div class="relative mb-4 h-40 overflow-hidden rounded-lg border border-zinc-200 bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900/60">
-                                <div style="transform: scale(0.23); transform-origin: top left; width: 435%; pointer-events: none;">
-                                    @includeFirst(
-                                        [$template->blade_view, 'invoices.templates.classic'],
-                                        [
-                                            'invoice' => $previewInvoice,
-                                            'settings' => $settings,
-                                            'paymentMethods' => $previewPaymentMethods,
-                                            'template' => $template,
-                                        ]
-                                    )
-                                </div>
+                                <iframe
+                                    class="pointer-events-none h-full w-full border-0 bg-white"
+                                    title="{{ $template->name }} {{ __('preview') }}"
+                                    loading="lazy"
+                                    sandbox="allow-same-origin"
+                                    srcdoc="{{ $previewHtml }}"
+                                ></iframe>
                             </div>
 
                             <div class="flex items-start justify-between gap-2">
