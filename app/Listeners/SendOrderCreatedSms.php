@@ -24,11 +24,10 @@ class SendOrderCreatedSms
                 'phone' => $customerPhone ? substr($customerPhone, 0, 4) . '***' : null,
             ]);
 
-            $message = OrderSmsTemplates::orderCreated($order);
-
-            $this->smsService->sendIfPhonePresent(
+            $this->smsService->sendTemplate(
+                'order_created',
                 $customerPhone,
-                $message,
+                OrderSmsTemplates::replacementsForOrder($order),
                 $order,
                 $event->actor
             );

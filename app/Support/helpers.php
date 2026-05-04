@@ -1,14 +1,13 @@
 <?php
 
 use App\Support\Phone;
+use App\Support\SystemUiSettings;
 
 if (! function_exists('money_tzs')) {
     /**
      * Format a number as Tanzanian Shillings.
      *
-     * @param  float|int|string|null  $amount
      * @param  bool  $showPrefix  Whether to show "Tsh" prefix
-     * @return string
      */
     function money_tzs(float|int|string|null $amount, bool $showPrefix = true): string
     {
@@ -25,8 +24,6 @@ if (! function_exists('money_tzs')) {
 if (! function_exists('money_currency')) {
     /**
      * Format amount with any currency code.
-     *
-     * @param  float|int|string|null  $amount
      */
     function money_currency(float|int|string|null $amount, string $currency = 'TZS'): string
     {
@@ -53,5 +50,12 @@ if (! function_exists('phone_display')) {
     function phone_display(?string $phone): ?string
     {
         return Phone::formatDisplay($phone);
+    }
+}
+
+if (! function_exists('app_ui_color')) {
+    function app_ui_color(string $key): string
+    {
+        return SystemUiSettings::color($key);
     }
 }

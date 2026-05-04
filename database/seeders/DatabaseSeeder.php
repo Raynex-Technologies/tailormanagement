@@ -14,8 +14,10 @@ class DatabaseSeeder extends Seeder
         // Always run core seeders
         $this->call([
             RolesAndPermissionsSeeder::class,
+            SmsTemplateSeeder::class,
             BranchSeeder::class,
             InvoiceTemplateSeeder::class,
+            BookingSystemSeeder::class,
             SuperAdminSeeder::class,
         ]);
 

@@ -7,6 +7,8 @@ use App\Models\InvoiceTemplate;
 use App\Models\PaymentMethod;
 use App\Services\Media\ImageUploadService;
 use App\Support\InvoiceTemplateResolver;
+use App\Support\SystemUiSettings;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -36,6 +38,12 @@ class BusinessSettings extends Component
     public ?string $logo_path = null;
 
     public $logoUpload = null;
+
+    public string $ui_primary_color = SystemUiSettings::DEFAULT_PRIMARY;
+
+    public string $ui_secondary_color_1 = SystemUiSettings::DEFAULT_SECONDARY_1;
+
+    public string $ui_secondary_color_2 = SystemUiSettings::DEFAULT_SECONDARY_2;
 
     public string $email_from_name = '';
 
@@ -96,6 +104,9 @@ class BusinessSettings extends Component
         $this->address = $settings->address ?? '';
         $this->logo_path = $settings->logo_path;
         $this->logoUpload = null;
+        $this->ui_primary_color = SystemUiSettings::normalize($settings->ui_primary_color) ?? SystemUiSettings::DEFAULT_PRIMARY;
+        $this->ui_secondary_color_1 = SystemUiSettings::normalize($settings->ui_secondary_color_1) ?? SystemUiSettings::DEFAULT_SECONDARY_1;
+        $this->ui_secondary_color_2 = SystemUiSettings::normalize($settings->ui_secondary_color_2) ?? SystemUiSettings::DEFAULT_SECONDARY_2;
 
         $this->email_from_name = $settings->email_from_name ?? '';
         $this->email_from_address = $settings->email_from_address ?? '';
@@ -107,6 +118,21 @@ class BusinessSettings extends Component
         $this->tax_name = $settings->tax_name ?? 'VAT';
         $this->tax_rate = $settings->tax_rate !== null ? (float) $settings->tax_rate : 0;
 
+    }
+
+    public function updatedUiPrimaryColor(): void
+    {
+        $this->ui_primary_color = strtoupper($this->ui_primary_color);
+    }
+
+    public function updatedUiSecondaryColor1(): void
+    {
+        $this->ui_secondary_color_1 = strtoupper($this->ui_secondary_color_1);
+    }
+
+    public function updatedUiSecondaryColor2(): void
+    {
+        $this->ui_secondary_color_2 = strtoupper($this->ui_secondary_color_2);
     }
 
     public function saveBusinessSettings(): void
@@ -144,6 +170,8 @@ class BusinessSettings extends Component
         }
 
         $settings->update($data);
+        Cache::forget('layout:business-logo-url');
+        Cache::forget('layout:business-name');
         $this->settings = $settings->fresh();
         $this->fillFromModel($this->settings);
 
@@ -158,12 +186,53 @@ class BusinessSettings extends Component
         if ($settings->logo_path) {
             app(ImageUploadService::class)->deletePublic($settings->logo_path);
             $settings->update(['logo_path' => null]);
+            Cache::forget('layout:business-logo-url');
         }
 
         $this->settings = $settings->fresh();
         $this->fillFromModel($this->settings);
 
         session()->flash('success', 'Business logo removed.');
+    }
+
+    public function saveSystemUiSettings(): void
+    {
+        $this->authorize('settings.system-ui.update');
+
+        $this->validate($this->systemUiRules());
+
+        $settings = BusinessSetting::instance();
+        $settings->update([
+            'ui_primary_color' => SystemUiSettings::normalize($this->ui_primary_color),
+            'ui_secondary_color_1' => SystemUiSettings::normalize($this->ui_secondary_color_1),
+            'ui_secondary_color_2' => SystemUiSettings::normalize($this->ui_secondary_color_2),
+        ]);
+
+        SystemUiSettings::clearCache();
+
+        $this->settings = $settings->fresh();
+        $this->fillFromModel($this->settings);
+
+        session()->flash('success', 'System UI settings updated successfully.');
+    }
+
+    public function resetSystemUiSettings(): void
+    {
+        $this->authorize('settings.system-ui.update');
+
+        $settings = BusinessSetting::instance();
+        $settings->update([
+            'ui_primary_color' => SystemUiSettings::DEFAULT_PRIMARY,
+            'ui_secondary_color_1' => SystemUiSettings::DEFAULT_SECONDARY_1,
+            'ui_secondary_color_2' => SystemUiSettings::DEFAULT_SECONDARY_2,
+        ]);
+
+        SystemUiSettings::clearCache();
+
+        $this->settings = $settings->fresh();
+        $this->fillFromModel($this->settings);
+
+        session()->flash('success', 'System UI settings updated successfully.');
     }
 
     public function saveEmailSettings(): void
@@ -377,6 +446,17 @@ class BusinessSettings extends Component
     protected function isPesapalGatewayCode(): bool
     {
         return strtolower(trim($this->paymentMethodCode)) === 'pesapal';
+    }
+
+    protected function systemUiRules(): array
+    {
+        $hexRule = ['required', 'string', 'regex:/^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$/'];
+
+        return [
+            'ui_primary_color' => $hexRule,
+            'ui_secondary_color_1' => $hexRule,
+            'ui_secondary_color_2' => $hexRule,
+        ];
     }
 
     public function render()

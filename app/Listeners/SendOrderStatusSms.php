@@ -41,13 +41,14 @@ class SendOrderStatusSms
             $customerPhone = $order->customer?->phone;
             Log::debug('Order status SMS', ['order_id' => $order->id, 'has_phone' => ! empty($customerPhone)]);
 
-            // Generate message
-            $message = OrderSmsTemplates::statusChanged($order, $newStatus);
+            $templateCode = OrderSmsTemplates::templateCodeForStatus($newStatus);
+            $replacements = OrderSmsTemplates::replacementsForOrder($order);
+            $replacements['status'] = $event->newStatus->label();
 
-            // Send SMS (will log failure if phone is missing)
-            $this->smsService->sendIfPhonePresent(
+            $this->smsService->sendTemplate(
+                $templateCode,
                 $customerPhone,
-                $message,
+                $replacements,
                 $order,
                 $event->actor
             );

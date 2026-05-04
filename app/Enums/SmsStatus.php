@@ -7,6 +7,7 @@ enum SmsStatus: string
     case Queued = 'queued';
     case Sent = 'sent';
     case Failed = 'failed';
+    case Skipped = 'skipped';
 
     public function label(): string
     {
@@ -14,6 +15,7 @@ enum SmsStatus: string
             self::Queued => 'Queued',
             self::Sent => 'Sent',
             self::Failed => 'Failed',
+            self::Skipped => 'Skipped',
         };
     }
 
@@ -23,6 +25,7 @@ enum SmsStatus: string
             self::Queued => 'amber',
             self::Sent => 'green',
             self::Failed => 'red',
+            self::Skipped => 'zinc',
         };
     }
 

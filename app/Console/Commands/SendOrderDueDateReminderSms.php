@@ -3,7 +3,6 @@
 namespace App\Console\Commands;
 
 use App\Enums\OrderStatus;
-use App\Models\BeemConfig;
 use App\Models\Order;
 use App\Services\Sms\SmsService;
 use App\Services\Sms\Templates\OrderSmsTemplates;
@@ -22,15 +21,6 @@ class SendOrderDueDateReminderSms extends Command
         // Run synchronously so reminders are sent immediately (no queue jobs)
         $previousConnection = config('queue.default');
         config(['queue.default' => 'sync']);
-
-        $beemConfig = BeemConfig::instance();
-        if (! $beemConfig->sms_enabled) {
-            Log::info('Order due date reminders skipped - SMS disabled');
-            $this->info('SMS is disabled. Skipping due date reminders.');
-            config(['queue.default' => $previousConnection]);
-
-            return self::SUCCESS;
-        }
 
         $days = (int) $this->option('days');
         $start = now()->startOfDay();
@@ -59,8 +49,13 @@ class SendOrderDueDateReminderSms extends Command
                 continue;
             }
 
-            $message = OrderSmsTemplates::dueDateReminder($order);
-            $smsService->sendIfPhonePresent($phone, $message, $order, null);
+            $smsService->sendTemplate(
+                'order_due_date_reminder',
+                $phone,
+                OrderSmsTemplates::replacementsForOrder($order),
+                $order,
+                null
+            );
             $sent++;
         }
 

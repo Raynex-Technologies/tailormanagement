@@ -6,12 +6,13 @@ use App\Models\BeemConfig;
 use App\Models\Customer;
 use App\Models\SmsTemplate;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
 #[Layout('layouts.app.sidebar')]
-#[Title('Beem Configurations')]
+#[Title('SMS Settings')]
 class BeemConfigurations extends Component
 {
     use AuthorizesRequests;
@@ -26,6 +27,7 @@ class BeemConfigurations extends Component
 
     // Templates (key => body)
     public array $templates = [];
+    public array $templateEnabled = [];
 
     // Marketing
     public array $selectedCustomerIds = [];
@@ -33,7 +35,7 @@ class BeemConfigurations extends Component
 
     public function mount(): void
     {
-        $this->authorize('sms.templates.manage');
+        $this->authorize('sms-settings.view');
 
         $config = BeemConfig::instance();
         $this->sms_enabled = $config->sms_enabled;
@@ -43,11 +45,14 @@ class BeemConfigurations extends Component
 
         $smsTemplates = SmsTemplate::instance();
         $this->templates = SmsTemplate::normalizeTemplates($smsTemplates->templates ?? []);
+        $this->templateEnabled = collect(SmsTemplate::normalizeTemplateSettings($smsTemplates->template_settings ?? []))
+            ->map(fn (array $settings) => (bool) ($settings['sms_enabled'] ?? false))
+            ->all();
     }
 
     public function saveCredentials(): void
     {
-        $this->authorize('sms.templates.manage');
+        $this->authorize('sms-settings.update');
         $this->api_key = trim($this->api_key);
         $this->secret_key = trim($this->secret_key);
         $this->sender_name = trim($this->sender_name);
@@ -69,9 +74,39 @@ class BeemConfigurations extends Component
         session()->flash('success', __('Beem credentials saved.'));
     }
 
+    public function saveNotificationSettings(): void
+    {
+        $this->authorize('sms-settings.update');
+
+        $this->validate([
+            'sms_enabled' => 'boolean',
+            'templateEnabled' => 'array',
+            'templateEnabled.*' => 'boolean',
+        ]);
+
+        DB::transaction(function (): void {
+            BeemConfig::instance()->update([
+                'sms_enabled' => $this->sms_enabled,
+            ]);
+
+            $row = SmsTemplate::instance();
+            $settings = SmsTemplate::normalizeTemplateSettings($row->template_settings ?? []);
+
+            foreach ($settings as $code => $definition) {
+                $settings[$code]['sms_enabled'] = (bool) ($this->templateEnabled[$code] ?? false);
+            }
+
+            $row->update([
+                'template_settings' => $settings,
+            ]);
+        });
+
+        session()->flash('success', __('SMS notification settings updated successfully.'));
+    }
+
     public function saveTemplates(): void
     {
-        $this->authorize('sms.templates.manage');
+        $this->authorize('sms-templates.update');
         $this->validate([
             'templates' => 'array',
             'templates.*' => 'nullable|string|max:1000',
@@ -87,7 +122,7 @@ class BeemConfigurations extends Component
 
     public function sendMarketing(): void
     {
-        $this->authorize('sms.templates.manage');
+        $this->authorize('sms.send');
         $this->validate([
             'selectedCustomerIds' => 'required|array|min:1',
             'selectedCustomerIds.*' => 'exists:customers,id',
@@ -117,6 +152,7 @@ class BeemConfigurations extends Component
         return view('livewire.sms.beem-configurations', [
             'categoryLabels' => SmsTemplate::categoryLabels(),
             'categories' => SmsTemplate::CATEGORIES,
+            'templateSettings' => SmsTemplate::normalizeTemplateSettings(SmsTemplate::instance()->template_settings ?? []),
             'categoryVariables' => collect(SmsTemplate::CATEGORIES)
                 ->mapWithKeys(fn (string $category) => [$category => SmsTemplate::variablesForCategory($category)])
                 ->all(),

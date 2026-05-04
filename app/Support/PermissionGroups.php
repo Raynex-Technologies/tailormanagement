@@ -20,6 +20,8 @@ class PermissionGroups
             'users.view',
             'users.manage',
             'roles.manage',
+            'settings.system-ui.view',
+            'settings.system-ui.update',
             'branches.view',
             'branches.manage',
         ],
@@ -94,10 +96,32 @@ class PermissionGroups
             'sms.send',
             'sms.logs.view',
             'sms.templates.manage',
+            'sms-settings.view',
+            'sms-settings.update',
+            'sms-templates.view',
+            'sms-templates.update',
         ],
         'Todos' => [
             'todos.use',
             'todos.assign',
+        ],
+        'Online Bookings' => [
+            'online-bookings.view',
+            'online-bookings.manage',
+            'online-bookings.review',
+            'online-bookings.convert',
+            'online-bookings.delete',
+            'appointments.view',
+            'appointments.manage',
+            'appointments.approve',
+            'appointments.decline',
+            'appointments.reschedule',
+            'appointments.cancel',
+            'appointments.complete',
+            'availability.view',
+            'availability.manage',
+            'garment-options.view',
+            'garment-options.manage',
         ],
         'Storefront' => [
             'storefront.view',
@@ -151,6 +175,7 @@ class PermissionGroups
                 $names[] = $name;
             }
         }
+
         return array_values(array_unique($names));
     }
 }

@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use Illuminate\Database\Seeder;
-use Illuminate\Support\Facades\Log;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
 use Spatie\Permission\PermissionRegistrar;
@@ -130,6 +129,8 @@ class RolesAndPermissionsSeeder extends Seeder
             'users.view',
             'users.manage',
             'roles.manage',
+            'settings.system-ui.view',
+            'settings.system-ui.update',
 
             // Branch management
             'branches.view',
@@ -208,6 +209,24 @@ class RolesAndPermissionsSeeder extends Seeder
             'todos.use',
             'todos.assign',
 
+            // Online bookings and appointments
+            'online-bookings.view',
+            'online-bookings.manage',
+            'online-bookings.review',
+            'online-bookings.convert',
+            'online-bookings.delete',
+            'appointments.view',
+            'appointments.manage',
+            'appointments.approve',
+            'appointments.decline',
+            'appointments.reschedule',
+            'appointments.cancel',
+            'appointments.complete',
+            'availability.view',
+            'availability.manage',
+            'garment-options.view',
+            'garment-options.manage',
+
             // Storefront
             'storefront.view',
             'storefront.settings.manage',
@@ -221,13 +240,17 @@ class RolesAndPermissionsSeeder extends Seeder
             'sms.send',
             'sms.logs.view',
             'sms.templates.manage',
+            'sms-settings.view',
+            'sms-settings.update',
+            'sms-templates.view',
+            'sms-templates.update',
         ];
 
         foreach ($allPermissions as $permission) {
             Permission::firstOrCreate(['name' => $permission]);
         }
 
-        $this->command->info('✓ Created/verified ' . count($allPermissions) . ' permissions');
+        $this->command->info('✓ Created/verified '.count($allPermissions).' permissions');
 
         // ====================================================================
         // STEP 2: Define STRICT role-permission mappings
@@ -247,6 +270,8 @@ class RolesAndPermissionsSeeder extends Seeder
                 'users.view',
                 'users.manage',
                 'roles.manage',
+                'settings.system-ui.view',
+                'settings.system-ui.update',
                 'branches.view',
                 'branches.manage',
                 // Orders - FULL ACCESS
@@ -308,6 +333,23 @@ class RolesAndPermissionsSeeder extends Seeder
                 // Todos
                 'todos.use',
                 'todos.assign',
+                // Online bookings and appointments
+                'online-bookings.view',
+                'online-bookings.manage',
+                'online-bookings.review',
+                'online-bookings.convert',
+                'online-bookings.delete',
+                'appointments.view',
+                'appointments.manage',
+                'appointments.approve',
+                'appointments.decline',
+                'appointments.reschedule',
+                'appointments.cancel',
+                'appointments.complete',
+                'availability.view',
+                'availability.manage',
+                'garment-options.view',
+                'garment-options.manage',
                 // Storefront
                 'storefront.view',
                 'storefront.settings.manage',
@@ -320,6 +362,10 @@ class RolesAndPermissionsSeeder extends Seeder
                 'sms.send',
                 'sms.logs.view',
                 'sms.templates.manage',
+                'sms-settings.view',
+                'sms-settings.update',
+                'sms-templates.view',
+                'sms-templates.update',
             ],
 
             // -----------------------------------------------------------------
@@ -390,6 +436,22 @@ class RolesAndPermissionsSeeder extends Seeder
                 // Todos
                 'todos.use',
                 'todos.assign',
+                // Online bookings and appointments
+                'online-bookings.view',
+                'online-bookings.manage',
+                'online-bookings.review',
+                'online-bookings.convert',
+                'appointments.view',
+                'appointments.manage',
+                'appointments.approve',
+                'appointments.decline',
+                'appointments.reschedule',
+                'appointments.cancel',
+                'appointments.complete',
+                'availability.view',
+                'availability.manage',
+                'garment-options.view',
+                'garment-options.manage',
                 // Storefront
                 'storefront.view',
                 'storefront.settings.manage',
@@ -526,6 +588,10 @@ class RolesAndPermissionsSeeder extends Seeder
                 'installments.payments.record',
                 // Orders - VIEW ONLY
                 'orders.view',
+                // Online booking intake
+                'online-bookings.view',
+                'appointments.view',
+                'availability.view',
                 // Messaging
                 'messages.use',
                 // Todos
@@ -600,7 +666,7 @@ class RolesAndPermissionsSeeder extends Seeder
         if (empty($storekeeperIssues)) {
             $this->command->info('✓ Storekeeper: CLEAN (no forbidden permissions)');
         } else {
-            $this->command->error('✗ Storekeeper has forbidden permissions: ' . implode(', ', $storekeeperIssues));
+            $this->command->error('✗ Storekeeper has forbidden permissions: '.implode(', ', $storekeeperIssues));
         }
 
         // Verify accountant has expected permissions
@@ -616,7 +682,7 @@ class RolesAndPermissionsSeeder extends Seeder
         if (empty($accountantMissing)) {
             $this->command->info('✓ Accountant: OK (has required financial permissions)');
         } else {
-            $this->command->error('✗ Accountant missing: ' . implode(', ', $accountantMissing));
+            $this->command->error('✗ Accountant missing: '.implode(', ', $accountantMissing));
         }
 
         // Verify branch_manager has expected permissions
@@ -632,7 +698,7 @@ class RolesAndPermissionsSeeder extends Seeder
         if (empty($branchManagerMissing)) {
             $this->command->info('✓ Branch Manager: OK (has required admin permissions)');
         } else {
-            $this->command->error('✗ Branch Manager missing: ' . implode(', ', $branchManagerMissing));
+            $this->command->error('✗ Branch Manager missing: '.implode(', ', $branchManagerMissing));
         }
 
         $this->command->info('=================================');

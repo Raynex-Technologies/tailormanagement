@@ -100,6 +100,15 @@
             >
                 {{ __('Invoice Templates') }}
             </button>
+            @can('settings.system-ui.view')
+                <button
+                    type="button"
+                    wire:click="$set('tab', 'system_ui')"
+                    class="rounded-t-lg px-4 py-2.5 text-sm font-medium transition {{ $tab === 'system_ui' ? 'border-b-2 border-lime-500 bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-white' : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800' }}"
+                >
+                    {{ __('System UI Settings') }}
+                </button>
+            @endcan
         </div>
 
         @if ($tab === 'business')
@@ -175,6 +184,118 @@
                     </flux:button>
                 </div>
             </flux:card>
+        @endif
+
+        @if ($tab === 'system_ui')
+            @can('settings.system-ui.view')
+                @php
+                    $previewPrimary = \App\Support\SystemUiSettings::normalize($ui_primary_color) ?? \App\Support\SystemUiSettings::DEFAULT_PRIMARY;
+                    $previewSecondary = \App\Support\SystemUiSettings::normalize($ui_secondary_color_1) ?? \App\Support\SystemUiSettings::DEFAULT_SECONDARY_1;
+                    $previewAccent = \App\Support\SystemUiSettings::normalize($ui_secondary_color_2) ?? \App\Support\SystemUiSettings::DEFAULT_SECONDARY_2;
+                    $previewPrimaryText = \App\Support\SystemUiSettings::foreground($previewPrimary);
+                    $previewSecondaryText = \App\Support\SystemUiSettings::foreground($previewSecondary);
+                    $previewAccentText = \App\Support\SystemUiSettings::foreground($previewAccent);
+                @endphp
+
+                <flux:card class="mt-6 space-y-6">
+                    <div>
+                        <flux:heading size="lg">{{ __('System UI Settings') }}</flux:heading>
+                        <flux:text class="mt-1 text-zinc-500 dark:text-zinc-400">
+                            {{ __('Customize the main colors used across your TailorPro application.') }}
+                        </flux:text>
+                    </div>
+
+                    <div class="grid gap-5 lg:grid-cols-2">
+                        <div class="space-y-4">
+                            <div class="rounded-xl border border-zinc-200 p-4 dark:border-zinc-700">
+                                <div class="flex items-start justify-between gap-4">
+                                    <div>
+                                        <flux:label>{{ __('Primary Color') }}</flux:label>
+                                        <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{{ __('Used mainly for sidebar background and main brand areas.') }}</p>
+                                    </div>
+                                    <input type="color" wire:model.live="ui_primary_color" value="{{ $previewPrimary }}" class="h-10 w-14 rounded border border-zinc-300 bg-transparent p-1 dark:border-zinc-600" />
+                                </div>
+                                <input type="text" wire:model.live.debounce.300ms="ui_primary_color" placeholder="#111827" class="mt-3 block w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-600 dark:bg-zinc-900" />
+                                @error('ui_primary_color') <p class="mt-1 text-sm text-red-500">{{ $message }}</p> @enderror
+                            </div>
+
+                            <div class="rounded-xl border border-zinc-200 p-4 dark:border-zinc-700">
+                                <div class="flex items-start justify-between gap-4">
+                                    <div>
+                                        <flux:label>{{ __('Secondary Color 1') }}</flux:label>
+                                        <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{{ __('Used mainly for active buttons, active navigation items, and links.') }}</p>
+                                    </div>
+                                    <input type="color" wire:model.live="ui_secondary_color_1" value="{{ $previewSecondary }}" class="h-10 w-14 rounded border border-zinc-300 bg-transparent p-1 dark:border-zinc-600" />
+                                </div>
+                                <input type="text" wire:model.live.debounce.300ms="ui_secondary_color_1" placeholder="#2563EB" class="mt-3 block w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-600 dark:bg-zinc-900" />
+                                @error('ui_secondary_color_1') <p class="mt-1 text-sm text-red-500">{{ $message }}</p> @enderror
+                            </div>
+
+                            <div class="rounded-xl border border-zinc-200 p-4 dark:border-zinc-700">
+                                <div class="flex items-start justify-between gap-4">
+                                    <div>
+                                        <flux:label>{{ __('Secondary Color 2') }}</flux:label>
+                                        <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{{ __('Used for highlights, badges, secondary accents, and optional UI emphasis.') }}</p>
+                                    </div>
+                                    <input type="color" wire:model.live="ui_secondary_color_2" value="{{ $previewAccent }}" class="h-10 w-14 rounded border border-zinc-300 bg-transparent p-1 dark:border-zinc-600" />
+                                </div>
+                                <input type="text" wire:model.live.debounce.300ms="ui_secondary_color_2" placeholder="#F59E0B" class="mt-3 block w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-600 dark:bg-zinc-900" />
+                                @error('ui_secondary_color_2') <p class="mt-1 text-sm text-red-500">{{ $message }}</p> @enderror
+                            </div>
+                        </div>
+
+                        <div class="rounded-xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-800/40">
+                            <div class="mb-4 flex items-center justify-between">
+                                <div>
+                                    <h3 class="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{{ __('Live Preview') }}</h3>
+                                    <p class="text-xs text-zinc-500 dark:text-zinc-400">{{ __('Sidebar, active item, button, and accent badge.') }}</p>
+                                </div>
+                                <span class="rounded-full px-3 py-1 text-xs font-semibold" style="background-color: {{ $previewAccent }}; color: {{ $previewAccentText }};">{{ __('Accent') }}</span>
+                            </div>
+
+                            <div class="overflow-hidden rounded-xl shadow-sm">
+                                <div class="p-4" style="background-color: {{ $previewPrimary }}; color: {{ $previewPrimaryText }};">
+                                    <div class="mb-4 flex items-center gap-3">
+                                        <div class="flex size-9 items-center justify-center rounded-lg font-bold" style="background-color: {{ $previewAccent }}; color: {{ $previewAccentText }};">T</div>
+                                        <div class="font-semibold">{{ $business_name ?: __('TailorPro') }}</div>
+                                    </div>
+                                    <div class="space-y-2">
+                                        <div class="rounded-lg px-3 py-2 text-sm opacity-75">{{ __('Dashboard') }}</div>
+                                        <div class="rounded-lg px-3 py-2 text-sm font-semibold" style="background-color: {{ $previewSecondary }}; color: {{ $previewSecondaryText }};">{{ __('Active Menu Item') }}</div>
+                                        <div class="rounded-lg px-3 py-2 text-sm opacity-75">{{ __('Orders') }}</div>
+                                    </div>
+                                </div>
+                                <div class="space-y-4 bg-white p-4 dark:bg-zinc-900">
+                                    <button type="button" class="rounded-lg px-4 py-2 text-sm font-semibold shadow-sm transition hover:opacity-90" style="background-color: {{ $previewSecondary }}; color: {{ $previewSecondaryText }};">
+                                        {{ __('Primary Button') }}
+                                    </button>
+                                    <div class="rounded-lg border border-zinc-200 p-3 dark:border-zinc-700">
+                                        <div class="mb-2 h-2 w-24 rounded-full" style="background-color: {{ $previewAccent }};"></div>
+                                        <p class="text-sm text-zinc-600 dark:text-zinc-300">{{ __('Important action highlights and focus accents use the secondary accent color.') }}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    @can('settings.system-ui.update')
+                        <div class="flex flex-col gap-3 sm:flex-row sm:justify-end">
+                            <flux:button
+                                type="button"
+                                variant="ghost"
+                                wire:click="resetSystemUiSettings"
+                                wire:confirm="{{ __('Are you sure you want to reset the UI colors to the default TailorPro colors?') }}"
+                            >
+                                {{ __('Reset to Defaults') }}
+                            </flux:button>
+                            <flux:button type="button" variant="primary" wire:click="saveSystemUiSettings">
+                                <x-icon name="check" class="mr-1 size-4" />
+                                {{ __('Save Changes') }}
+                            </flux:button>
+                        </div>
+                    @endcan
+                </flux:card>
+            @endcan
         @endif
 
         @if ($tab === 'payment_methods')

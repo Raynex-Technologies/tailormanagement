@@ -122,6 +122,7 @@ class Index extends Component
             'sent' => SmsLog::where('status', SmsStatus::Sent)->count(),
             'failed' => SmsLog::where('status', SmsStatus::Failed)->count(),
             'queued' => SmsLog::where('status', SmsStatus::Queued)->count(),
+            'skipped' => SmsLog::where('status', SmsStatus::Skipped)->count(),
         ];
 
         return view('livewire.sms.logs.index', [

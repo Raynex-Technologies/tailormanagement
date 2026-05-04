@@ -28,7 +28,7 @@
         </div>
 
         {{-- Stats Cards --}}
-        <div class="mt-6 grid grid-cols-2 gap-4 md:grid-cols-4">
+        <div class="mt-6 grid grid-cols-2 gap-4 md:grid-cols-5">
             <div class="rounded-lg bg-zinc-50 p-4 dark:bg-zinc-800">
                 <flux:text class="text-sm text-zinc-500">{{ __('Total') }}</flux:text>
                 <flux:heading size="xl">{{ number_format($stats['total']) }}</flux:heading>
@@ -44,6 +44,10 @@
             <div class="rounded-lg bg-amber-50 p-4 dark:bg-amber-900/30">
                 <flux:text class="text-sm text-amber-600 dark:text-amber-400">{{ __('Queued') }}</flux:text>
                 <flux:heading size="xl" class="text-amber-700 dark:text-amber-300">{{ number_format($stats['queued']) }}</flux:heading>
+            </div>
+            <div class="rounded-lg bg-zinc-50 p-4 dark:bg-zinc-800">
+                <flux:text class="text-sm text-zinc-500">{{ __('Skipped') }}</flux:text>
+                <flux:heading size="xl">{{ number_format($stats['skipped']) }}</flux:heading>
             </div>
         </div>
     </flux:card>
@@ -200,6 +204,18 @@
                         <flux:label>{{ __('Provider') }}</flux:label>
                         <flux:text>{{ ucfirst($selectedLog->provider) }}</flux:text>
                     </div>
+                    @if ($selectedLog->template_code)
+                        <div>
+                            <flux:label>{{ __('Template') }}</flux:label>
+                            <flux:text class="font-mono text-sm">{{ $selectedLog->template_code }}</flux:text>
+                        </div>
+                    @endif
+                    @if ($selectedLog->skip_reason)
+                        <div>
+                            <flux:label>{{ __('Skip Reason') }}</flux:label>
+                            <flux:text class="font-mono text-sm">{{ $selectedLog->skip_reason }}</flux:text>
+                        </div>
+                    @endif
                     <div>
                         <flux:label>{{ __('Message ID') }}</flux:label>
                         <flux:text class="font-mono text-sm">{{ $selectedLog->provider_message_id ?? 'N/A' }}</flux:text>

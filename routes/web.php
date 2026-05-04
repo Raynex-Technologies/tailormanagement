@@ -54,6 +54,13 @@ Route::get('/', function () {
     return redirect()->route('storefront.home');
 })->name('home');
 
+Route::get('/booking', \App\Livewire\Public\OnlineBookingWizard::class)
+    ->middleware('throttle:web')
+    ->name('booking.public');
+
+Route::get('/book-appointment', fn () => redirect()->route('booking.public'))
+    ->name('booking.public.alias');
+
 Route::prefix('shop')
     ->middleware('storefront.enabled')
     ->name('storefront.')
@@ -217,6 +224,24 @@ Route::middleware(['auth', 'verified', 'branch.context'])->group(function () {
     Route::get('order-board', OrdersBoard::class)
         ->middleware('can:orders.view')
         ->name('orders.board');
+
+    Route::prefix('admin')->group(function () {
+        Route::get('/online-bookings', \App\Livewire\OnlineBookings\Index::class)
+            ->middleware('can:online-bookings.view')
+            ->name('admin.online-bookings.index');
+
+        Route::get('/appointments', \App\Livewire\Appointments\Index::class)
+            ->middleware('can:appointments.view')
+            ->name('admin.appointments.index');
+
+        Route::get('/settings/availability', \App\Livewire\Availability\Index::class)
+            ->middleware('can:availability.view')
+            ->name('admin.availability.index');
+
+        Route::get('/garment-options', \App\Livewire\GarmentOptions\Index::class)
+            ->middleware('can:garment-options.view')
+            ->name('admin.garment-options.index');
+    });
 
     // Payments Index
     Route::get('payments', PaymentsIndex::class)
@@ -465,7 +490,7 @@ Route::middleware(['auth', 'verified', 'branch.context'])->group(function () {
     */
     // Beem SMS Configurations (credentials, templates, marketing)
     Route::get('administration/beem-configurations', \App\Livewire\Sms\BeemConfigurations::class)
-        ->middleware('can:sms.templates.manage')
+        ->middleware('can:sms-settings.view')
         ->name('beem-configurations.index');
 
     Route::get('administration/settings', AdministrationBusinessSettings::class)

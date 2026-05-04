@@ -16,9 +16,11 @@ class SmsLog extends Model
     protected $fillable = [
         'branch_id',
         'provider',
+        'template_code',
         'to',
         'message',
         'status',
+        'skip_reason',
         'provider_message_id',
         'provider_response',
         'reference_type',

@@ -5,6 +5,7 @@ namespace App\Services\Sms;
 use App\Enums\SmsStatus;
 use App\Models\BeemConfig;
 use App\Models\SmsLog;
+use App\Models\SmsTemplate;
 use App\Models\User;
 use App\Support\BranchContext;
 use App\Support\Phone;
@@ -20,6 +21,22 @@ class SmsService
         $this->beemClient = $beemClient;
     }
 
+    public function sendTemplate(string $templateCode, ?string $to, array $data = [], ?Model $reference = null, ?User $actor = null): SmsLog
+    {
+        $gate = app(SmsNotificationGate::class);
+        $reason = $gate->reasonDisabled($templateCode);
+
+        $templates = SmsTemplate::instance();
+        $templateBody = $templates->templates[$templateCode] ?? '';
+        $message = app(SmsTemplateRenderer::class)->render($templateBody, $data);
+
+        if ($reason !== null) {
+            return $this->createSkippedLog($templateCode, $to, $message, $reason, $reference, $actor);
+        }
+
+        return $this->sendIfPhonePresent($to, $message, $reference, $actor, $templateCode);
+    }
+
     /**
      * Send an SMS message and log the attempt.
      *
@@ -29,7 +46,7 @@ class SmsService
      * @param  User|null  $actor  The user initiating the SMS (optional)
      * @return SmsLog The SMS log record
      */
-    public function send(string $to, string $message, ?Model $reference = null, ?User $actor = null): SmsLog
+    public function send(string $to, string $message, ?Model $reference = null, ?User $actor = null, ?string $templateCode = null): SmsLog
     {
         Log::debug('SmsService::send called', [
             'to_raw' => $to,
@@ -48,9 +65,11 @@ class SmsService
         $smsLog = SmsLog::create([
             'branch_id' => $branchId,
             'provider' => 'beem',
+            'template_code' => $templateCode,
             'to' => $normalizedPhone ?? $to, // Store normalized if available, original otherwise
             'message' => $message,
             'status' => SmsStatus::Queued,
+            'skip_reason' => null,
             'provider_message_id' => null,
             'provider_response' => null,
             'reference_type' => $reference ? $reference->getMorphClass() : null,
@@ -153,7 +172,7 @@ class SmsService
     /**
      * Send SMS if phone number is present, otherwise create failed log.
      */
-    public function sendIfPhonePresent(?string $to, string $message, ?Model $reference = null, ?User $actor = null): ?SmsLog
+    public function sendIfPhonePresent(?string $to, string $message, ?Model $reference = null, ?User $actor = null, ?string $templateCode = null): ?SmsLog
     {
         if (empty($to)) {
             Log::info('SMS skipped - no phone number', [
@@ -165,9 +184,11 @@ class SmsService
             return SmsLog::create([
                 'branch_id' => $branchId,
                 'provider' => 'beem',
+                'template_code' => $templateCode,
                 'to' => 'missing',
                 'message' => $message,
                 'status' => SmsStatus::Failed,
+                'skip_reason' => null,
                 'provider_message_id' => null,
                 'provider_response' => json_encode(['error' => 'Missing phone number']),
                 'reference_type' => $reference ? $reference->getMorphClass() : null,
@@ -176,6 +197,33 @@ class SmsService
             ]);
         }
 
-        return $this->send($to, $message, $reference, $actor);
+        return $this->send($to, $message, $reference, $actor, $templateCode);
+    }
+
+    protected function createSkippedLog(string $templateCode, ?string $to, string $message, string $reason, ?Model $reference = null, ?User $actor = null): SmsLog
+    {
+        $normalizedPhone = filled($to) ? Phone::toE164Tz($to) : null;
+        $branchId = $reference?->getAttribute('branch_id') ?? BranchContext::id();
+
+        Log::info('SMS skipped by notification gate', [
+            'template_code' => $templateCode,
+            'reason' => $reason,
+            'reference' => $reference ? $reference->getMorphClass() . '#' . $reference->getKey() : null,
+        ]);
+
+        return SmsLog::create([
+            'branch_id' => $branchId,
+            'provider' => 'beem',
+            'template_code' => $templateCode,
+            'to' => $normalizedPhone ?? $to ?? 'missing',
+            'message' => $message,
+            'status' => SmsStatus::Skipped,
+            'skip_reason' => $reason,
+            'provider_message_id' => null,
+            'provider_response' => json_encode(['skipped' => true, 'reason' => $reason]),
+            'reference_type' => $reference ? $reference->getMorphClass() : null,
+            'reference_id' => $reference ? $reference->id : null,
+            'created_by' => $actor?->id,
+        ]);
     }
 }

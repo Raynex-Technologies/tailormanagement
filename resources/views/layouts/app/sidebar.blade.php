@@ -10,13 +10,75 @@
     >
         @php
             $businessName = $businessName ?? 'Tailex';
+            $businessLogoUrl = $businessLogoUrl ?? null;
             $urgentOpenOrdersCount = (int) ($urgentOpenOrdersCount ?? 0);
             $calendarNavUrl = \Illuminate\Support\Facades\Route::has('calendar.index')
                 ? route('calendar.index')
                 : url('/calendar');
+            $systemUiCssVariables = $systemUiCssVariables ?? \App\Support\SystemUiSettings::cssVariables();
         @endphp
 
         <style>
+            :root {
+                {!! $systemUiCssVariables !!}
+            }
+
+            .app-layout a:not(.sidebar-header-link):not([class*="text-white"]):not([class*="text-zinc"]):hover {
+                color: var(--tailorpro-secondary);
+            }
+
+            .desktop-sidebar,
+            .app-mobile-sidebar {
+                background: linear-gradient(180deg, var(--tailorpro-primary) 0%, color-mix(in srgb, var(--tailorpro-primary) 88%, #ffffff 12%) 100%) !important;
+                color: var(--tailorpro-primary-foreground);
+            }
+
+            .desktop-sidebar-nav a.bg-lime-400,
+            .app-mobile-sidebar a.bg-lime-400 {
+                background: var(--tailorpro-secondary) !important;
+                color: var(--tailorpro-secondary-foreground) !important;
+                box-shadow: 0 4px 12px color-mix(in srgb, var(--tailorpro-secondary) 35%, transparent) !important;
+            }
+
+            .desktop-sidebar .sidebar-header-link > div,
+            .app-mobile-sidebar a[href="{{ route('dashboard') }}"] > div,
+            .app-ui-accent {
+                background: var(--tailorpro-secondary-2) !important;
+                color: var(--tailorpro-secondary-2-foreground) !important;
+            }
+
+            .app-layout button[data-flux-button][data-variant="primary"],
+            .app-layout a[data-flux-button][data-variant="primary"] {
+                background: var(--tailorpro-secondary) !important;
+                color: var(--tailorpro-secondary-foreground) !important;
+                border-color: var(--tailorpro-secondary) !important;
+            }
+
+            .app-layout button[data-flux-button][data-variant="primary"]:hover,
+            .app-layout a[data-flux-button][data-variant="primary"]:hover {
+                opacity: .9;
+            }
+
+            .app-layout .border-lime-500 {
+                border-color: var(--tailorpro-secondary) !important;
+            }
+
+            .app-layout .bg-lime-50,
+            .app-layout .bg-lime-100 {
+                background-color: color-mix(in srgb, var(--tailorpro-secondary) 14%, #ffffff 86%) !important;
+            }
+
+            .app-layout .text-lime-600,
+            .app-layout .text-lime-700,
+            .app-layout .hover\:text-lime-600:hover {
+                color: var(--tailorpro-secondary) !important;
+            }
+
+            .app-layout .focus\:ring-lime-500:focus,
+            .app-layout .focus-visible\:ring-lime-400\/70:focus-visible {
+                --tw-ring-color: var(--tailorpro-secondary) !important;
+            }
+
             .sidebar-nav-groups .nav-group + .nav-group::before {
                 content: '';
                 display: block;
@@ -161,9 +223,9 @@
                     display: flex;
                 }
 
-                .desktop-sidebar .nav-group.nav-group-active > h3 {
-                    color: rgba(190, 242, 100, 0.92);
-                    text-shadow: 0 0 12px rgba(190, 242, 100, 0.25);
+            .desktop-sidebar .nav-group.nav-group-active > h3 {
+                    color: var(--tailorpro-secondary-2);
+                    text-shadow: 0 0 12px color-mix(in srgb, var(--tailorpro-secondary-2) 35%, transparent);
                 }
             }
         </style>
@@ -172,7 +234,7 @@
         <aside 
             class="desktop-sidebar fixed left-4 top-4 bottom-4 z-50 hidden lg:flex flex-col overflow-hidden transition-[width] duration-300 ease-out"
             :class="desktopSidebarCollapsed ? 'is-collapsed w-20' : 'w-64'"
-            style="background: linear-gradient(180deg, #1E1F2E 0%, #252637 100%); border-radius: 1.5rem; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.05);"
+            style="border-radius: 1.5rem; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.05);"
         >
             {{-- Sidebar Header with Logo --}}
             <div class="relative p-5 border-b border-white/5">
@@ -186,9 +248,13 @@
                 </button>
 
                 <a href="{{ route('dashboard') }}" wire:navigate class="sidebar-header-link flex items-center gap-3 pr-10 transition-all duration-300">
-                    <div class="flex items-center justify-center size-10 rounded-xl" style="background: linear-gradient(135deg, #A3E635 0%, #84CC16 100%);">
-                        <x-app-logo-icon class="size-5 text-navy-900" />
-                    </div>
+                    @if ($businessLogoUrl)
+                        <img src="{{ $businessLogoUrl }}" alt="{{ $businessName }}" class="size-10 rounded-xl bg-white object-contain p-1 shadow-sm">
+                    @else
+                        <div class="flex items-center justify-center size-10 rounded-xl" style="background: linear-gradient(135deg, #A3E635 0%, #84CC16 100%);">
+                            <x-app-logo-icon class="size-5 text-navy-900" />
+                        </div>
+                    @endif
                     <span class="sidebar-brand-name text-lg font-semibold text-white whitespace-nowrap">{{ $businessName }}</span>
                 </a>
             </div>
@@ -291,6 +357,36 @@
                     >
                         <i class="fa-duotone fa-user size-5"></i>
                         {{ __('Customers') }}
+                    </a>
+                    @endcan
+                </div>
+                @endcanany
+
+                @canany(['online-bookings.view', 'appointments.view', 'availability.view', 'garment-options.view'])
+                <div class="nav-group">
+                    <h3 class="px-3 mb-2 text-[0.65rem] font-semibold uppercase tracking-wider text-white/35">{{ __('Bookings') }}</h3>
+                    @can('online-bookings.view')
+                    <a href="{{ route('admin.online-bookings.index') }}" wire:navigate class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('admin.online-bookings.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
+                        <i class="fa-duotone fa-calendar-plus size-5"></i>
+                        {{ __('Online Bookings') }}
+                    </a>
+                    @endcan
+                    @can('appointments.view')
+                    <a href="{{ route('admin.appointments.index') }}" wire:navigate class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('admin.appointments.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
+                        <i class="fa-duotone fa-calendar-check size-5"></i>
+                        {{ __('Appointments') }}
+                    </a>
+                    @endcan
+                    @can('availability.view')
+                    <a href="{{ route('admin.availability.index') }}" wire:navigate class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('admin.availability.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
+                        <i class="fa-duotone fa-clock size-5"></i>
+                        {{ __('Availability') }}
+                    </a>
+                    @endcan
+                    @can('garment-options.view')
+                    <a href="{{ route('admin.garment-options.index') }}" wire:navigate class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('admin.garment-options.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
+                        <i class="fa-duotone fa-shirt size-5"></i>
+                        {{ __('Garment Options') }}
                     </a>
                     @endcan
                 </div>
@@ -620,7 +716,7 @@
                 @endcan
 
                 {{-- Administration Group --}}
-                @canany(['branches.view', 'users.view', 'roles.manage', 'sms.logs.view', 'sms.templates.manage'])
+                @canany(['branches.view', 'users.view', 'roles.manage', 'sms.logs.view', 'sms-settings.view'])
                 <div class="nav-group">
                     <h3 class="px-3 mb-2 text-[0.65rem] font-semibold uppercase tracking-wider text-white/35">{{ __('Administration') }}</h3>
 
@@ -677,14 +773,14 @@
                     </a>
                     @endcan
 
-                    @can('sms.templates.manage')
+                    @can('sms-settings.view')
                     <a
                         href="{{ route('beem-configurations.index') }}"
                         wire:navigate
                         class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('beem-configurations.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}"
                     >
                         <i class="fa-duotone fa-sliders size-5"></i>
-                        {{ __('Beem Configurations') }}
+                        {{ __('SMS Settings') }}
                     </a>
                     @can('roles.manage')
                     <a
@@ -731,7 +827,7 @@
                 x-transition:leave-start="translate-x-0"
                 x-transition:leave-end="-translate-x-full"
                 class="app-mobile-sidebar fixed inset-y-3 left-3 right-3 z-50 flex flex-col overflow-hidden sm:inset-y-4 sm:left-4 sm:right-auto sm:w-64"
-                style="background: linear-gradient(180deg, #1E1F2E 0%, #252637 100%); border-radius: 1.5rem; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.05);"
+                style="border-radius: 1.5rem; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(255, 255, 255, 0.05);"
             >
                 {{-- Close button --}}
                 <button 
@@ -744,9 +840,13 @@
                 {{-- Mobile Sidebar Content --}}
                 <div class="p-5 border-b border-white/5">
                     <a href="{{ route('dashboard') }}" wire:navigate class="flex items-center gap-3">
-                        <div class="flex items-center justify-center size-10 rounded-xl" style="background: linear-gradient(135deg, #A3E635 0%, #84CC16 100%);">
-                            <x-app-logo-icon class="size-5 text-navy-900" />
-                        </div>
+                        @if ($businessLogoUrl)
+                            <img src="{{ $businessLogoUrl }}" alt="{{ $businessName }}" class="size-10 rounded-xl bg-white object-contain p-1 shadow-sm">
+                        @else
+                            <div class="flex items-center justify-center size-10 rounded-xl" style="background: linear-gradient(135deg, #A3E635 0%, #84CC16 100%);">
+                                <x-app-logo-icon class="size-5 text-navy-900" />
+                            </div>
+                        @endif
                         <span class="text-lg font-semibold text-white">{{ $businessName }}</span>
                     </a>
                 </div>
@@ -817,6 +917,40 @@
                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('customers.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
                             <i class="fa-duotone fa-user size-5"></i>
                             {{ __('Customers') }}
+                        </a>
+                        @endcan
+                    </div>
+                    @endcanany
+
+                    @canany(['online-bookings.view', 'appointments.view', 'availability.view', 'garment-options.view'])
+                    <div class="nav-group">
+                        <h3 class="px-3 mb-2 text-[0.65rem] font-semibold uppercase tracking-wider text-white/35">{{ __('Bookings') }}</h3>
+                        @can('online-bookings.view')
+                        <a href="{{ route('admin.online-bookings.index') }}" wire:navigate @click="sidebarOpen = false"
+                           class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('admin.online-bookings.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
+                            <i class="fa-duotone fa-calendar-plus size-5"></i>
+                            {{ __('Online Bookings') }}
+                        </a>
+                        @endcan
+                        @can('appointments.view')
+                        <a href="{{ route('admin.appointments.index') }}" wire:navigate @click="sidebarOpen = false"
+                           class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('admin.appointments.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
+                            <i class="fa-duotone fa-calendar-check size-5"></i>
+                            {{ __('Appointments') }}
+                        </a>
+                        @endcan
+                        @can('availability.view')
+                        <a href="{{ route('admin.availability.index') }}" wire:navigate @click="sidebarOpen = false"
+                           class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('admin.availability.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
+                            <i class="fa-duotone fa-clock size-5"></i>
+                            {{ __('Availability') }}
+                        </a>
+                        @endcan
+                        @can('garment-options.view')
+                        <a href="{{ route('admin.garment-options.index') }}" wire:navigate @click="sidebarOpen = false"
+                           class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('admin.garment-options.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
+                            <i class="fa-duotone fa-shirt size-5"></i>
+                            {{ __('Garment Options') }}
                         </a>
                         @endcan
                     </div>
@@ -944,11 +1078,11 @@
                             <i class="fa-duotone fa-gear size-5"></i>
                             {{ __('Settings') }}
                         </a>
-                        @can('sms.templates.manage')
+                        @can('sms-settings.view')
                         <a href="{{ route('beem-configurations.index') }}" wire:navigate @click="sidebarOpen = false"
                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('beem-configurations.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
                             <i class="fa-duotone fa-sliders size-5"></i>
-                            {{ __('Beem Configurations') }}
+                            {{ __('SMS Settings') }}
                         </a>
                         <a href="{{ route('administration.email-setup') }}" wire:navigate @click="sidebarOpen = false"
                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('administration.email-setup') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">

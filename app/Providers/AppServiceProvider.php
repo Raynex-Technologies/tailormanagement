@@ -3,6 +3,8 @@
 namespace App\Providers;
 
 use App\Http\Middleware\SetBranchContext;
+use App\Models\Appointment;
+use App\Models\AppointmentType;
 use App\Models\Branch;
 use App\Models\BusinessSetting;
 use App\Models\CapitalAllocation;
@@ -10,30 +12,40 @@ use App\Models\Conversation;
 use App\Models\DeliveryNote;
 use App\Models\Expense;
 use App\Models\ExpenseCategory;
+use App\Models\GarmentCategory;
+use App\Models\GarmentOption;
+use App\Models\GarmentOptionGroup;
 use App\Models\InstallmentPlan;
 use App\Models\InventoryCategory;
 use App\Models\InventoryItem;
 use App\Models\InventoryUnit;
 use App\Models\Invoice;
 use App\Models\Message;
+use App\Models\OfficeAvailabilityWindow;
+use App\Models\OfficeUnavailabilityPeriod;
+use App\Models\OnlineBooking;
 use App\Models\Order;
 use App\Models\OrderStockRequest;
 use App\Models\Package;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseRequest;
 use App\Models\User;
+use App\Policies\AppointmentPolicy;
+use App\Policies\AvailabilityPolicy;
 use App\Policies\BranchPolicy;
 use App\Policies\CapitalAllocationPolicy;
 use App\Policies\ConversationPolicy;
 use App\Policies\DeliveryNotePolicy;
 use App\Policies\ExpenseCategoryPolicy;
 use App\Policies\ExpensePolicy;
+use App\Policies\GarmentOptionPolicy;
 use App\Policies\InstallmentPlanPolicy;
 use App\Policies\InventoryCategoryPolicy;
 use App\Policies\InventoryItemPolicy;
 use App\Policies\InventoryUnitPolicy;
 use App\Policies\InvoicePolicy;
 use App\Policies\MessagePolicy;
+use App\Policies\OnlineBookingPolicy;
 use App\Policies\OrderPolicy;
 use App\Policies\OrderStockRequestPolicy;
 use App\Policies\PackagePolicy;
@@ -43,6 +55,7 @@ use App\Policies\PurchaseRequestPolicy;
 use App\Policies\UserPolicy;
 use App\Support\BranchContext;
 use App\Support\PrivateImage;
+use App\Support\SystemUiSettings;
 use Carbon\CarbonImmutable;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
@@ -67,17 +80,25 @@ class AppServiceProvider extends ServiceProvider
      */
     protected array $policies = [
         Branch::class => BranchPolicy::class,
+        Appointment::class => AppointmentPolicy::class,
+        AppointmentType::class => AvailabilityPolicy::class,
         CapitalAllocation::class => CapitalAllocationPolicy::class,
         Conversation::class => ConversationPolicy::class,
         DeliveryNote::class => DeliveryNotePolicy::class,
         Expense::class => ExpensePolicy::class,
         ExpenseCategory::class => ExpenseCategoryPolicy::class,
+        GarmentCategory::class => GarmentOptionPolicy::class,
+        GarmentOptionGroup::class => GarmentOptionPolicy::class,
+        GarmentOption::class => GarmentOptionPolicy::class,
         InventoryCategory::class => InventoryCategoryPolicy::class,
         InventoryItem::class => InventoryItemPolicy::class,
         InventoryUnit::class => InventoryUnitPolicy::class,
         Invoice::class => InvoicePolicy::class,
         InstallmentPlan::class => InstallmentPlanPolicy::class,
         Message::class => MessagePolicy::class,
+        OfficeAvailabilityWindow::class => AvailabilityPolicy::class,
+        OfficeUnavailabilityPeriod::class => AvailabilityPolicy::class,
+        OnlineBooking::class => OnlineBookingPolicy::class,
         Order::class => OrderPolicy::class,
         Package::class => PackagePolicy::class,
         OrderStockRequest::class => OrderStockRequestPolicy::class,
@@ -218,6 +239,10 @@ class AppServiceProvider extends ServiceProvider
                 return BusinessSetting::query()->value('business_name') ?: 'Tailex';
             });
 
+            $businessLogoUrl = Cache::remember('layout:business-logo-url', now()->addMinutes(10), function () {
+                return BusinessSetting::query()->first()?->logo_url;
+            });
+
             $urgentOpenOrdersCount = 0;
             $authUser = auth()->user();
 
@@ -242,7 +267,9 @@ class AppServiceProvider extends ServiceProvider
 
             $view->with([
                 'businessName' => $businessName,
+                'businessLogoUrl' => $businessLogoUrl,
                 'urgentOpenOrdersCount' => $urgentOpenOrdersCount,
+                'systemUiCssVariables' => SystemUiSettings::cssVariables(),
             ]);
         });
     }

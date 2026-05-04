@@ -4,7 +4,7 @@
         <flux:breadcrumbs>
             <flux:breadcrumbs.item href="{{ route('dashboard') }}" wire:navigate>{{ __('Dashboard') }}</flux:breadcrumbs.item>
             <flux:breadcrumbs.item>{{ __('Administration') }}</flux:breadcrumbs.item>
-            <flux:breadcrumbs.item>{{ __('Beem Configurations') }}</flux:breadcrumbs.item>
+            <flux:breadcrumbs.item>{{ __('SMS Settings') }}</flux:breadcrumbs.item>
         </flux:breadcrumbs>
 
         @if (session('success'))
@@ -20,8 +20,8 @@
         @endif
 
         {{-- Page title --}}
-        <flux:heading size="xl" class="mt-2">{{ __('Beem Configurations') }}</flux:heading>
-        <flux:text class="mt-1 text-zinc-500 dark:text-zinc-400">{{ __('Configure Beem SMS credentials, build message templates with quick-insert variables, and prepare marketing messages.') }}</flux:text>
+        <flux:heading size="xl" class="mt-2">{{ __('SMS Settings') }}</flux:heading>
+        <flux:text class="mt-1 text-zinc-500 dark:text-zinc-400">{{ __('Configure Beem credentials, control SMS notification sending, build templates, and prepare marketing messages.') }}</flux:text>
 
         {{-- Tab navigation (sidenav-style) --}}
         <div class="mt-6 flex flex-wrap gap-2 border-b border-zinc-200 dark:border-zinc-700">
@@ -31,6 +31,13 @@
                 class="rounded-t-lg px-4 py-2.5 text-sm font-medium transition {{ $tab === 'credentials' ? 'border-b-2 border-lime-500 bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-white' : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800' }}"
             >
                 {{ __('Credentials') }}
+            </button>
+            <button
+                type="button"
+                wire:click="$set('tab', 'notifications')"
+                class="rounded-t-lg px-4 py-2.5 text-sm font-medium transition {{ $tab === 'notifications' ? 'border-b-2 border-lime-500 bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-white' : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800' }}"
+            >
+                {{ __('SMS Settings') }}
             </button>
             <button
                 type="button"
@@ -85,6 +92,72 @@
                     </flux:button>
                 </div>
             </flux:card>
+        @endif
+
+        @if ($tab === 'notifications')
+            <form wire:submit="saveNotificationSettings" class="mt-6 space-y-6">
+                <flux:card>
+                    <div class="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                        <div>
+                            <flux:heading size="lg">{{ __('SMS Notification Settings') }}</flux:heading>
+                            <flux:text class="mt-1 block text-sm text-zinc-500 dark:text-zinc-400">
+                                {{ __('Control whether TailorPro sends SMS notifications and choose which notification types are allowed.') }}
+                            </flux:text>
+                        </div>
+                        <span class="inline-flex w-fit rounded-full px-3 py-1 text-xs font-semibold {{ $sms_enabled ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300' }}">
+                            {{ $sms_enabled ? __('SMS Enabled') : __('SMS Disabled') }}
+                        </span>
+                    </div>
+
+                    <div class="mt-5 flex items-center justify-between rounded-lg border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-800/60">
+                        <div class="pr-4">
+                            <div class="text-sm font-semibold text-zinc-900 dark:text-white">{{ __('Enable SMS Sending') }}</div>
+                            <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">{{ __('When turned off, the system will not send any SMS notifications, even if individual templates are enabled.') }}</p>
+                        </div>
+                        <flux:switch wire:model.live="sms_enabled" />
+                    </div>
+                </flux:card>
+
+                @unless ($sms_enabled)
+                    <flux:callout variant="warning" icon="exclamation-triangle">
+                        {{ __('SMS sending is disabled globally. Template settings can still be updated, but no automated SMS will be sent until SMS sending is enabled.') }}
+                    </flux:callout>
+                @endunless
+
+                @foreach (collect($templateSettings)->groupBy('category') as $group => $settings)
+                    <flux:card>
+                        <div class="mb-4 flex items-center justify-between">
+                            <flux:heading size="lg">{{ __($group) }}</flux:heading>
+                            <span class="rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                                {{ trans_choice(':count type|:count types', count($settings), ['count' => count($settings)]) }}
+                            </span>
+                        </div>
+
+                        <div class="divide-y divide-zinc-200 dark:divide-zinc-700">
+                            @foreach ($settings as $code => $setting)
+                                <div class="flex flex-col gap-3 py-4 md:flex-row md:items-center md:justify-between">
+                                    <div class="min-w-0">
+                                        <div class="flex flex-wrap items-center gap-2">
+                                            <h3 class="text-sm font-semibold text-zinc-900 dark:text-white">{{ $categoryLabels[$code] ?? \Illuminate\Support\Str::headline($code) }}</h3>
+                                            <span class="rounded-full px-2 py-0.5 text-[11px] font-semibold {{ !empty($templateEnabled[$code]) ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300' : 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300' }}">
+                                                {{ !empty($templateEnabled[$code]) ? __('Enabled') : __('Disabled') }}
+                                            </span>
+                                        </div>
+                                        <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">{{ $setting['description'] ?? __('SMS notification template.') }}</p>
+                                        <code class="mt-2 inline-block rounded bg-zinc-100 px-2 py-1 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">{{ $code }}</code>
+                                    </div>
+                                    <flux:switch wire:model.live="templateEnabled.{{ $code }}" />
+                                </div>
+                            @endforeach
+                        </div>
+                    </flux:card>
+                @endforeach
+
+                <flux:button type="submit" variant="primary" wire:loading.attr="disabled">
+                    <x-icon name="check" class="mr-1 size-4" />
+                    {{ __('Save Changes') }}
+                </flux:button>
+            </form>
         @endif
 
         {{-- Tab: SMS Templates --}}

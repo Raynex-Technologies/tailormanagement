@@ -25,11 +25,16 @@ class SendOrderDueDateChangedSms
                 'has_phone' => ! empty($customerPhone),
             ]);
 
-            $message = OrderSmsTemplates::dueDateChanged($order, $event->oldDueDate, $event->newDueDate);
+            $replacements = OrderSmsTemplates::replacementsForOrder($order);
+            $replacements['old_due_date'] = OrderSmsTemplates::formatDateValue($event->oldDueDate);
+            $replacements['new_due_date'] = OrderSmsTemplates::formatDateValue($event->newDueDate);
+            $replacements['due_date'] = $replacements['new_due_date'];
+            $replacements['expected_delivery_date'] = $replacements['new_due_date'];
 
-            $this->smsService->sendIfPhonePresent(
+            $this->smsService->sendTemplate(
+                'order_delivery_date_change',
                 $customerPhone,
-                $message,
+                $replacements,
                 $order,
                 $event->actor
             );

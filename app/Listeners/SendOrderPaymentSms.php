@@ -31,13 +31,10 @@ class SendOrderPaymentSms
             $customerPhone = $order->customer?->phone;
             Log::debug('Order payment SMS', ['order_id' => $order->id, 'has_phone' => ! empty($customerPhone)]);
 
-            // Generate message
-            $message = OrderSmsTemplates::paymentReceived($order, $payment);
-
-            // Send SMS (will log failure if phone is missing)
-            $this->smsService->sendIfPhonePresent(
+            $this->smsService->sendTemplate(
+                'order_payment',
                 $customerPhone,
-                $message,
+                OrderSmsTemplates::replacementsForOrder($order, $payment),
                 $order,
                 $event->actor
             );

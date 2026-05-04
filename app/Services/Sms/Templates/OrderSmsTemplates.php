@@ -6,6 +6,7 @@ use App\Enums\OrderStatus;
 use App\Models\Order;
 use App\Models\OrderPayment;
 use App\Models\SmsTemplate;
+use App\Services\Sms\SmsTemplateRenderer;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
 
@@ -24,11 +25,7 @@ class OrderSmsTemplates
             return self::fallbackMessage($category, $replacements);
         }
 
-        foreach ($replacements as $key => $value) {
-            $body = str_replace('{' . $key . '}', (string) $value, $body);
-        }
-
-        return $body;
+        return app(SmsTemplateRenderer::class)->render($body, $replacements);
     }
 
     /**
@@ -112,10 +109,11 @@ class OrderSmsTemplates
         $replacements['status'] = self::getStatusLabel($newStatus);
 
         $category = match ($newStatus) {
-            OrderStatus::Ready->value => 'order_ready',
-            OrderStatus::Delivered->value => 'order_delivered',
-            OrderStatus::Cancelled->value => 'order_cancelled',
-            default => 'order_status_change',
+            OrderStatus::Ready->value => self::templateCodeForStatus($newStatus),
+            OrderStatus::Delivered->value => self::templateCodeForStatus($newStatus),
+            OrderStatus::Completed->value => self::templateCodeForStatus($newStatus),
+            OrderStatus::Cancelled->value => self::templateCodeForStatus($newStatus),
+            default => self::templateCodeForStatus($newStatus),
         };
 
         return self::resolveTemplate($category, $replacements);
@@ -139,6 +137,17 @@ class OrderSmsTemplates
         $replacements = self::replacementsForOrder($order);
 
         return self::resolveTemplate('order_due_date_reminder', $replacements);
+    }
+
+    public static function templateCodeForStatus(string $newStatus): string
+    {
+        return match ($newStatus) {
+            OrderStatus::Ready->value => 'order_ready',
+            OrderStatus::Delivered->value => 'order_delivered',
+            OrderStatus::Completed->value => 'order_completed',
+            OrderStatus::Cancelled->value => 'order_cancelled',
+            default => 'order_status_change',
+        };
     }
 
     public static function dueDateChanged(Order $order, ?string $oldDueDate, string $newDueDate): string
@@ -184,7 +193,7 @@ class OrderSmsTemplates
         return in_array($status, self::getNotifiableStatuses());
     }
 
-    protected static function formatDateValue(null|string|CarbonInterface $value): string
+    public static function formatDateValue(null|string|CarbonInterface $value): string
     {
         if ($value instanceof CarbonInterface) {
             return $value->format('M d, Y');
