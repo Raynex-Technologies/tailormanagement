@@ -3,7 +3,6 @@
     $labelBase = 'pointer-events-none absolute left-4 top-1.5 bg-white px-1 text-xs text-zinc-500 transition-all peer-placeholder-shown:top-4 peer-placeholder-shown:text-sm peer-placeholder-shown:text-zinc-400 peer-focus:top-1.5 peer-focus:text-xs';
     $errorClass = 'border-red-300 focus:border-red-500 focus:ring-red-100';
     $normalClass = 'border-zinc-300 focus:border-blue-600 focus:ring-blue-100';
-    $stepLabels = collect($this->steps())->pluck('label', 'number');
     $bookingLabel = $this->bookingTypes()[$booking_type]['label'] ?? str($booking_type)->replace('_', ' ')->headline();
     $selectedSlotLabel = collect($availableSlots)->firstWhere('start_at', $selectedSlot)['label'] ?? null;
 @endphp
@@ -14,16 +13,12 @@
 >
     <div class="w-full max-w-6xl overflow-hidden rounded-3xl bg-white shadow-2xl ring-1 ring-black/10">
         <div class="border-b border-zinc-200 bg-white px-5 py-5 sm:px-8">
-            <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                <div>
-                    <p class="text-xs font-semibold uppercase tracking-[0.22em]" style="color: var(--tailorpro-secondary, #2563EB);">TailorPro Booking</p>
-                    <h1 class="mt-2 text-2xl font-semibold tracking-tight text-zinc-950 sm:text-3xl">Book Tailoring Service</h1>
-                    <p class="mt-2 max-w-2xl text-sm text-zinc-600">Choose a service, share your details, and we will confirm your request.</p>
-                </div>
+            <div class="flex flex-col items-center gap-4 text-center">
+                <h1 class="text-2xl font-semibold tracking-tight text-zinc-950 sm:text-3xl">Book a Service</h1>
 
-                @if ($step < 6)
+                @if ($step < 7)
                     <div class="overflow-x-auto pb-1">
-                        <div class="flex min-w-max items-center gap-2">
+                        <div class="flex min-w-max items-center justify-center gap-2">
                             @foreach ($this->steps() as $wizardStep)
                                 @php
                                     $number = $wizardStep['number'];
@@ -40,7 +35,7 @@
                                                 style="background-color: var(--tailorpro-secondary-2, #F59E0B); color: var(--tailorpro-secondary-2-foreground, #111827);"
                                             @endif
                                         >
-                                            {{ $isComplete ? '✓' : $number }}
+                                            {{ $isComplete ? 'OK' : $number }}
                                         </span>
                                         <span class="text-sm font-medium {{ $isActive ? 'text-zinc-950' : 'text-zinc-500' }}">{{ $wizardStep['label'] }}</span>
                                     </div>
@@ -56,7 +51,7 @@
         </div>
 
         <div class="px-5 py-6 sm:px-8 sm:py-8">
-            @if ($errors->any() && $step < 6)
+            @if ($errors->any() && $step < 7)
                 <div class="mb-6 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                     Please check the highlighted fields before continuing.
                 </div>
@@ -80,7 +75,7 @@
                                 </span>
                             </div>
                             @if ($selected)
-                                <span class="absolute right-4 top-4 flex size-6 items-center justify-center rounded-full text-xs font-bold" style="background-color: var(--tailorpro-secondary-2, #F59E0B); color: var(--tailorpro-secondary-2-foreground, #111827);">✓</span>
+                                <span class="absolute right-4 top-4 flex size-6 items-center justify-center rounded-full text-xs font-bold" style="background-color: var(--tailorpro-secondary-2, #F59E0B); color: var(--tailorpro-secondary-2-foreground, #111827);">OK</span>
                             @endif
                         </button>
                     @endforeach
@@ -397,6 +392,83 @@
                     @endif
                 </section>
             @elseif ($step === 5)
+                <section
+                    class="mx-auto max-w-xl"
+                    x-data="{
+                        now: Math.floor(Date.now() / 1000),
+                        expiresAt: @js($verificationExpiresAt ?? now()->timestamp),
+                        retryAt: @js($verificationRetryAt ?? now()->timestamp),
+                        timer: null,
+                        format(seconds) {
+                            seconds = Math.max(0, seconds);
+                            const minutes = Math.floor(seconds / 60).toString().padStart(2, '0');
+                            const remainder = (seconds % 60).toString().padStart(2, '0');
+                            return `${minutes}:${remainder}`;
+                        }
+                    }"
+                    x-init="timer = setInterval(() => now = Math.floor(Date.now() / 1000), 1000)"
+                >
+                    <div class="text-center">
+                        <h2 class="text-xl font-semibold text-zinc-950">Verify Your Booking</h2>
+                        <p class="mt-2 text-sm text-zinc-600">
+                            We sent a 6-digit verification code to
+                            <span class="font-semibold text-zinc-950">{{ $verificationTarget ?: ($verificationChannel === 'email' ? $customer_email : $customer_phone) }}</span>.
+                        </p>
+                    </div>
+
+                    <div class="mt-6 rounded-2xl border border-zinc-200 bg-zinc-50 p-5">
+                        <div class="relative">
+                            <input
+                                id="verification_code"
+                                wire:model.blur="verification_code"
+                                inputmode="numeric"
+                                maxlength="6"
+                                placeholder=" "
+                                class="{{ $fieldBase }} @error('verification_code') {{ $errorClass }} @else {{ $normalClass }} @enderror text-center font-mono text-lg tracking-[0.45em]"
+                            />
+                            <label for="verification_code" class="{{ $labelBase }}">Verification code</label>
+                            @error('verification_code') <p class="mt-2 text-sm text-red-600">{{ $message }}</p> @enderror
+                        </div>
+
+                        <div class="mt-5 grid gap-3 text-center sm:grid-cols-2">
+                            <div class="rounded-2xl bg-white px-4 py-3 ring-1 ring-zinc-200">
+                                <p class="text-xs font-semibold uppercase tracking-wide text-zinc-500">Code expires in</p>
+                                <p class="mt-1 font-mono text-xl font-semibold text-zinc-950" x-text="format(expiresAt - now)">10:00</p>
+                            </div>
+                            <div class="rounded-2xl bg-white px-4 py-3 ring-1 ring-zinc-200">
+                                <p class="text-xs font-semibold uppercase tracking-wide text-zinc-500">Retry available in</p>
+                                <p class="mt-1 font-mono text-xl font-semibold text-zinc-950" x-text="format(retryAt - now)">10:00</p>
+                            </div>
+                        </div>
+
+                        <div class="mt-5 flex flex-col gap-3 sm:flex-row sm:justify-between">
+                            <button type="button" wire:click="cancelVerification" class="inline-flex items-center justify-center rounded-2xl border border-zinc-300 bg-white px-5 py-3 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50">
+                                Cancel
+                            </button>
+                            <div class="flex flex-col gap-3 sm:flex-row">
+                                <button
+                                    type="button"
+                                    wire:click="retryVerificationCode"
+                                    :disabled="retryAt > now"
+                                    class="inline-flex items-center justify-center rounded-2xl border border-zinc-300 bg-white px-5 py-3 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-50"
+                                >
+                                    Retry
+                                </button>
+                                <button
+                                    type="button"
+                                    wire:click="verifyCode"
+                                    wire:loading.attr="disabled"
+                                    class="inline-flex items-center justify-center rounded-2xl px-5 py-3 text-sm font-semibold shadow-sm transition hover:opacity-90 disabled:opacity-50"
+                                    style="background-color: var(--tailorpro-secondary, #2563EB); color: var(--tailorpro-secondary-foreground, #ffffff);"
+                                >
+                                    <span wire:loading.remove wire:target="verifyCode">Verify Code</span>
+                                    <span wire:loading wire:target="verifyCode">Checking...</span>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            @elseif ($step === 6)
                 <section>
                     <h2 class="text-xl font-semibold text-zinc-950">Review and Submit</h2>
                     <div class="mt-5 grid gap-4 lg:grid-cols-2">
@@ -431,7 +503,7 @@
                 </section>
             @else
                 <section class="mx-auto max-w-xl py-8 text-center">
-                    <div class="mx-auto flex size-16 items-center justify-center rounded-full text-2xl font-bold" style="background-color: var(--tailorpro-secondary-2, #F59E0B); color: var(--tailorpro-secondary-2-foreground, #111827);">✓</div>
+                    <div class="mx-auto flex size-16 items-center justify-center rounded-full text-2xl font-bold" style="background-color: var(--tailorpro-secondary-2, #F59E0B); color: var(--tailorpro-secondary-2-foreground, #111827);">OK</div>
                     <h2 class="mt-5 text-2xl font-semibold text-zinc-950">Booking received</h2>
                     <p class="mt-3 text-zinc-600">{{ $confirmationMessage }}</p>
                     <div class="mx-auto mt-5 w-fit rounded-2xl bg-zinc-100 px-5 py-3 font-mono text-lg font-semibold text-zinc-950">{{ $confirmationNumber }}</div>
@@ -439,7 +511,7 @@
                 </section>
             @endif
 
-            @if ($step > 1 && $step < 6)
+            @if ($step > 1 && $step < 7)
                 <div class="mt-8 flex flex-col-reverse gap-3 border-t border-zinc-200 pt-5 sm:flex-row sm:items-center sm:justify-between">
                     <button type="button" wire:click="back" class="inline-flex items-center justify-center rounded-2xl border border-zinc-300 bg-white px-5 py-3 text-sm font-semibold text-zinc-700 transition hover:bg-zinc-50">
                         Back

@@ -13,6 +13,9 @@ use App\Models\MeasurementField;
 use App\Models\OnlineBooking;
 use App\Models\Order;
 use App\Services\Appointments\AppointmentAvailabilityService;
+use App\Services\Sms\SmsService;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
@@ -89,6 +92,13 @@ class OnlineBookingWizard extends Component
     public string $appointment_date = '';
     public string $selectedSlot = '';
     public array $availableSlots = [];
+    public string $verification_code = '';
+    public bool $verificationSent = false;
+    public bool $verificationVerified = false;
+    public ?int $verificationExpiresAt = null;
+    public ?int $verificationRetryAt = null;
+    public string $verificationChannel = 'sms';
+    public string $verificationTarget = '';
 
     public function mount(): void
     {
@@ -113,13 +123,119 @@ class OnlineBookingWizard extends Component
         if ($this->step === 2) {
             $this->findMatchingOrders();
         }
-        $this->step = min(5, $this->step + 1);
+
+        if ($this->step === 4) {
+            $this->sendVerificationCode();
+        }
+
+        $this->step = min(6, $this->step + 1);
         $this->refreshSlots();
     }
 
     public function back(): void
     {
         $this->step = max(1, $this->step - 1);
+    }
+
+    public function sendVerificationCode(): void
+    {
+        $this->validate(array_merge($this->rulesForStep(), [
+            'customer_email' => ['nullable', 'email', 'max:191'],
+            'customer_phone' => ['required', 'string', 'max:40'],
+        ]));
+
+        if ($this->requiresAppointment() && ! $this->selectedSlotData()) {
+            throw ValidationException::withMessages([
+                'selectedSlot' => __('That appointment slot is no longer available. Please choose another time.'),
+            ]);
+        }
+
+        $state = $this->verificationSessionState();
+        $now = now()->timestamp;
+
+        if ($state && ($state['retry_at'] ?? 0) > $now) {
+            $this->hydrateVerificationState($state);
+            return;
+        }
+
+        $pin = (string) random_int(100000, 999999);
+        $target = $this->verificationDestination();
+        $message = "Your booking verification Code is {$pin}. This code is valid for 10 Minutes";
+
+        if ($target['channel'] === 'email') {
+            Mail::raw($message, function ($mail) use ($target): void {
+                $mail->to($target['value'])->subject('Booking verification code');
+            });
+        } else {
+            $smsReference = new OnlineBooking(['branch_id' => $this->branch_id]);
+
+            app(SmsService::class)->send($target['value'], $message, $smsReference, null, 'booking_verification');
+        }
+
+        $state = [
+            'hash' => Hash::make($pin),
+            'expires_at' => now()->addMinutes(10)->timestamp,
+            'retry_at' => now()->addMinutes(10)->timestamp,
+            'channel' => $target['channel'],
+            'target' => $target['value'],
+            'verified' => false,
+        ];
+
+        session()->put($this->verificationSessionKey(), $state);
+        $this->hydrateVerificationState($state);
+        $this->verification_code = '';
+    }
+
+    public function retryVerificationCode(): void
+    {
+        $state = $this->verificationSessionState();
+
+        if ($state && ($state['retry_at'] ?? 0) > now()->timestamp) {
+            $this->hydrateVerificationState($state);
+            return;
+        }
+
+        session()->forget($this->verificationSessionKey());
+        $this->sendVerificationCode();
+    }
+
+    public function verifyCode(): void
+    {
+        $this->validate([
+            'verification_code' => ['required', 'digits:6'],
+        ]);
+
+        $state = $this->verificationSessionState();
+
+        if (! $state) {
+            throw ValidationException::withMessages([
+                'verification_code' => __('Please request a new verification code.'),
+            ]);
+        }
+
+        if (($state['expires_at'] ?? 0) < now()->timestamp) {
+            throw ValidationException::withMessages([
+                'verification_code' => __('This verification code has expired. Please request a new one.'),
+            ]);
+        }
+
+        if (! Hash::check($this->verification_code, (string) ($state['hash'] ?? ''))) {
+            throw ValidationException::withMessages([
+                'verification_code' => __('The verification code is incorrect.'),
+            ]);
+        }
+
+        $state['verified'] = true;
+        session()->put($this->verificationSessionKey(), $state);
+        $this->hydrateVerificationState($state);
+        $this->step = 6;
+    }
+
+    public function cancelVerification(): void
+    {
+        $this->verificationSent = false;
+        $this->verification_code = '';
+        $this->step = 2;
     }
 
     public function updatedAppointmentDate(): void
@@ -156,6 +272,13 @@ class OnlineBookingWizard extends Component
     public function submit(CreateOnlineBookingAction $action): void
     {
         $this->validate($this->rulesForSubmit());
+
+        if (! $this->verificationVerified) {
+            throw ValidationException::withMessages([
+                'verification_code' => __('Please verify your booking code before submitting.'),
+            ]);
+        }
+
         $slot = $this->selectedSlotData();
 
         if ($this->requiresAppointment() && ! $slot) {
@@ -197,7 +320,8 @@ class OnlineBookingWizard extends Component
         $this->confirmationMessage = $booking->appointment?->status === 'confirmed'
             ? __('Your appointment is confirmed. We will contact you through your preferred channel.')
             : __('Your appointment request is pending confirmation. We will contact you through your preferred channel.');
-        $this->step = 6;
+        session()->forget($this->verificationSessionKey());
+        $this->step = 7;
     }
 
     public function render()
@@ -295,7 +419,8 @@ class OnlineBookingWizard extends Component
             ['number' => 2, 'label' => __('Customer')],
             ['number' => 3, 'label' => __('Details')],
             ['number' => 4, 'label' => __('Schedule')],
-            ['number' => 5, 'label' => __('Review')],
+            ['number' => 5, 'label' => __('Verify')],
+            ['number' => 6, 'label' => __('Review')],
         ];
     }
 
@@ -477,5 +602,38 @@ class OnlineBookingWizard extends Component
                 'status' => $order->status?->value ?? (string) $order->status,
             ])
             ->all();
+    }
+
+    protected function verificationDestination(): array
+    {
+        if (filled($this->customer_email)) {
+            return ['channel' => 'email', 'value' => strtolower(trim($this->customer_email))];
+        }
+
+        return ['channel' => 'sms', 'value' => trim($this->customer_phone)];
+    }
+
+    protected function verificationSessionKey(): string
+    {
+        $destination = $this->verificationDestination();
+
+        return 'booking_verification.'.sha1($destination['channel'].'|'.$destination['value']);
+    }
+
+    protected function verificationSessionState(): ?array
+    {
+        $state = session()->get($this->verificationSessionKey());
+
+        return is_array($state) ? $state : null;
+    }
+
+    protected function hydrateVerificationState(array $state): void
+    {
+        $this->verificationSent = true;
+        $this->verificationVerified = (bool) ($state['verified'] ?? false);
+        $this->verificationExpiresAt = (int) ($state['expires_at'] ?? now()->timestamp);
+        $this->verificationRetryAt = (int) ($state['retry_at'] ?? now()->timestamp);
+        $this->verificationChannel = (string) ($state['channel'] ?? 'sms');
+        $this->verificationTarget = (string) ($state['target'] ?? '');
     }
 }
