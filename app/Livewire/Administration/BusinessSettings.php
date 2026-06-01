@@ -59,6 +59,8 @@ class BusinessSettings extends Component
 
     public ?float $tax_rate = 0;
 
+    public bool $allow_order_dates_flexibility = false;
+
     public ?int $editingPaymentMethodId = null;
 
     public string $paymentMethodName = '';
@@ -117,6 +119,7 @@ class BusinessSettings extends Component
         $this->tax_enabled = (bool) $settings->tax_enabled;
         $this->tax_name = $settings->tax_name ?? 'VAT';
         $this->tax_rate = $settings->tax_rate !== null ? (float) $settings->tax_rate : 0;
+        $this->allow_order_dates_flexibility = (bool) $settings->allow_order_dates_flexibility;
 
     }
 
@@ -279,6 +282,25 @@ class BusinessSettings extends Component
         $this->fillFromModel($this->settings);
 
         session()->flash('success', 'Invoice template updated successfully.');
+    }
+
+    public function saveOrderSettings(): void
+    {
+        $this->authorize('roles.manage');
+
+        $this->validate([
+            'allow_order_dates_flexibility' => ['boolean'],
+        ]);
+
+        $settings = BusinessSetting::instance();
+        $settings->update([
+            'allow_order_dates_flexibility' => (bool) $this->allow_order_dates_flexibility,
+        ]);
+
+        $this->settings = $settings->fresh();
+        $this->fillFromModel($this->settings);
+
+        session()->flash('success', 'Order settings updated successfully.');
     }
 
     public function savePaymentMethod(): void

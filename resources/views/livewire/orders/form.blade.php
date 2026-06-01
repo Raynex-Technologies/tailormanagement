@@ -200,20 +200,37 @@
                 <flux:heading size="lg" class="mb-4">Order Details</flux:heading>
 
                 <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    <flux:input
-                        wire:model="order_date"
-                        type="date"
-                        label="Order Date"
-                        :max="date('Y-m-d')"
-                        required
-                    />
+                    @if ($allowOrderDatesFlexibility)
+                        <flux:input
+                            wire:model="order_date"
+                            type="date"
+                            label="Order Date"
+                            required
+                        />
+                    @else
+                        <flux:input
+                            wire:model="order_date"
+                            type="date"
+                            label="Order Date"
+                            min="{{ date('Y-m-d') }}"
+                            required
+                        />
+                    @endif
 
-                    <flux:input
-                        wire:model="due_date"
-                        type="date"
-                        label="Due Date"
-                        :min="date('Y-m-d')"
-                    />
+                    @if ($allowOrderDatesFlexibility)
+                        <flux:input
+                            wire:model="due_date"
+                            type="date"
+                            label="Due Date"
+                        />
+                    @else
+                        <flux:input
+                            wire:model="due_date"
+                            type="date"
+                            label="Due Date"
+                            min="{{ date('Y-m-d') }}"
+                        />
+                    @endif
 
                     <flux:select wire:model="priority" label="Priority">
                         @foreach ($priorities as $p)

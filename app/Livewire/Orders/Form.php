@@ -8,6 +8,7 @@ use App\Events\OrderCreated;
 use App\Events\OrderPaymentRecorded;
 use App\Enums\Priority;
 use App\Models\Branch;
+use App\Models\BusinessSetting;
 use App\Models\Customer;
 use App\Models\Invoice;
 use App\Models\Order;
@@ -56,10 +57,10 @@ class Form extends Component
     public string $newCustomerAddress = '';
 
     // Order details
-    #[Validate('required|date|before_or_equal:today', as: 'order date')]
+    #[Validate('required|date', as: 'order date')]
     public string $order_date = '';
 
-    #[Validate('nullable|date|after_or_equal:today', as: 'due date')]
+    #[Validate('nullable|date', as: 'due date')]
     public ?string $due_date = null;
 
     public string $priority = 'normal';
@@ -693,9 +694,17 @@ class Form extends Component
         $this->syncOrderExpensesWithSelectedTailors();
 
         // Build validation rules
+        $orderDateRules = ['required', 'date'];
+        $dueDateRules = ['nullable', 'date'];
+
+        if (! $this->allowsOrderDatesFlexibility()) {
+            $orderDateRules[] = 'after_or_equal:today';
+            $dueDateRules[] = 'after_or_equal:today';
+        }
+
         $rules = [
-            'order_date' => ['required', 'date', 'before_or_equal:today'],
-            'due_date' => ['nullable', 'date'],
+            'order_date' => $orderDateRules,
+            'due_date' => $dueDateRules,
             'notes' => ['nullable', 'max:1000'],
             'discount' => ['nullable', 'numeric', 'min:0'],
             'deposit_payment_method_id' => ['nullable', 'integer', 'exists:payment_methods,id'],
@@ -967,6 +976,11 @@ class Form extends Component
         }
     }
 
+    protected function allowsOrderDatesFlexibility(): bool
+    {
+        return (bool) BusinessSetting::instance()->allow_order_dates_flexibility;
+    }
+
     public function render()
     {
         $customers = [];
@@ -1012,6 +1026,7 @@ class Form extends Component
             'priorities' => $priorities,
             'branches' => $branches,
             'paymentMethods' => $paymentMethods,
+            'allowOrderDatesFlexibility' => $this->allowsOrderDatesFlexibility(),
         ])->title($this->getTitle());
     }
 }

@@ -6,6 +6,7 @@ use App\Enums\OrderStatus;
 use App\Enums\StorefrontFulfillmentStatus;
 use App\Events\OrderDueDateChanged;
 use App\Events\OrderStatusChanged;
+use App\Models\BusinessSetting;
 use App\Models\CustomOrderProgressUpdate;
 use App\Models\DeliveryNote;
 use App\Models\Order;
@@ -16,6 +17,8 @@ use App\Notifications\StorefrontOrderStatusUpdatedNotification;
 use App\Notifications\StorefrontShipmentUpdatedNotification;
 use App\Models\User;
 use App\Services\Orders\OrderDeletionService;
+use App\Services\Sms\SmsService;
+use App\Services\Sms\Templates\OrderSmsTemplates;
 use App\Support\DocNumber;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
@@ -305,7 +308,7 @@ class Show extends Component
         $this->authorize('update', $this->order);
 
         $this->resetErrorBag('updatedDueDate');
-        $this->updatedDueDate = $this->order->due_date?->isBefore(today())
+        $this->updatedDueDate = (! $this->allowsOrderDatesFlexibility() && $this->order->due_date?->isBefore(today()))
             ? today()->toDateString()
             : ($this->order->due_date?->toDateString() ?? today()->toDateString());
         $this->showDueDateModal = true;
@@ -315,8 +318,13 @@ class Show extends Component
     {
         $this->authorize('update', $this->order);
 
+        $rules = ['required', 'date'];
+        if (! $this->allowsOrderDatesFlexibility()) {
+            $rules[] = 'after_or_equal:today';
+        }
+
         $validated = $this->validate([
-            'updatedDueDate' => ['required', 'date', 'after_or_equal:today'],
+            'updatedDueDate' => $rules,
         ]);
 
         $oldDueDate = $this->order->due_date?->toDateString();
@@ -532,12 +540,24 @@ class Show extends Component
             'updated_by' => auth()->id(),
         ]);
 
-        $this->notifyCustomer(
-            new CustomOrderProgressUpdatedNotification(
-                $this->order->fresh(),
-                $update
-            )
-        );
+        $orderForNotification = $this->order->fresh(['customer', 'lines']);
+
+        if ($update->is_customer_visible) {
+            $this->notifyCustomer(
+                new CustomOrderProgressUpdatedNotification(
+                    $orderForNotification,
+                    $update
+                )
+            );
+
+            app(SmsService::class)->sendTemplate(
+                'custom_order_progress_update',
+                $orderForNotification->customer?->phone ?: $orderForNotification->checkout_phone,
+                OrderSmsTemplates::replacementsForCustomProgressUpdate($orderForNotification, $update),
+                $orderForNotification,
+                auth()->user()
+            );
+        }
 
         $this->customStageLabel = '';
         $this->customProgressNote = '';
@@ -673,6 +693,11 @@ class Show extends Component
         abort_unless(auth()->user()?->can('storefront.orders.manage'), 403);
     }
 
+    protected function allowsOrderDatesFlexibility(): bool
+    {
+        return (bool) BusinessSetting::instance()->allow_order_dates_flexibility;
+    }
+
     protected function notifyCustomer(Notification $notification): void
     {
         $this->order->loadMissing('customer.user');
@@ -749,6 +774,7 @@ class Show extends Component
             // Materials data for storekeeper
             'materials' => $this->materials,
             'stockRequests' => $this->stockRequests,
+            'allowOrderDatesFlexibility' => $this->allowsOrderDatesFlexibility(),
         ])->title($this->getTitle());
     }
 }

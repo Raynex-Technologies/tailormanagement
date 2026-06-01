@@ -160,7 +160,7 @@ class OnlineBookingWizard extends Component
 
         $pin = (string) random_int(100000, 999999);
         $target = $this->verificationDestination();
-        $message = "Your booking verification Code is {$pin}. This code is valid for 10 Minutes";
+        $message = __('Your booking verification Code is :pin. This code is valid for 10 Minutes', ['pin' => $pin]);
 
         if ($target['channel'] === 'email') {
             Mail::raw($message, function ($mail) use ($target): void {
@@ -169,7 +169,12 @@ class OnlineBookingWizard extends Component
         } else {
             $smsReference = new OnlineBooking(['branch_id' => $this->branch_id]);
 
-            app(SmsService::class)->send($target['value'], $message, $smsReference, null, 'booking_verification');
+            app(SmsService::class)->sendTemplate(
+                'booking_verification',
+                $target['value'],
+                ['verification_code' => $pin],
+                $smsReference
+            );
         }
 
         $state = [

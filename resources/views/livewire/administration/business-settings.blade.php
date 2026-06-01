@@ -68,35 +68,42 @@
             <button
                 type="button"
                 wire:click="$set('tab', 'business')"
-                class="rounded-t-lg px-4 py-2.5 text-sm font-medium transition {{ $tab === 'business' ? 'border-b-2 border-lime-500 bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-white' : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800' }}"
+                class="shrink-0 whitespace-nowrap rounded-t-lg px-4 py-2.5 text-sm font-medium transition {{ $tab === 'business' ? 'border-b-2 border-lime-500 bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-white' : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800' }}"
             >
                 {{ __('Business Settings') }}
             </button>
             <button
                 type="button"
                 wire:click="$set('tab', 'email')"
-                class="rounded-t-lg px-4 py-2.5 text-sm font-medium transition {{ $tab === 'email' ? 'border-b-2 border-lime-500 bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-white' : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800' }}"
+                class="shrink-0 whitespace-nowrap rounded-t-lg px-4 py-2.5 text-sm font-medium transition {{ $tab === 'email' ? 'border-b-2 border-lime-500 bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-white' : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800' }}"
             >
                 {{ __('Email Settings') }}
             </button>
             <button
                 type="button"
+                wire:click="$set('tab', 'orders')"
+                class="shrink-0 whitespace-nowrap rounded-t-lg px-4 py-2.5 text-sm font-medium transition {{ $tab === 'orders' ? 'border-b-2 border-lime-500 bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-white' : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800' }}"
+            >
+                {{ __('Order Settings') }}
+            </button>
+            <button
+                type="button"
                 wire:click="$set('tab', 'payment_methods')"
-                class="rounded-t-lg px-4 py-2.5 text-sm font-medium transition {{ $tab === 'payment_methods' ? 'border-b-2 border-lime-500 bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-white' : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800' }}"
+                class="shrink-0 whitespace-nowrap rounded-t-lg px-4 py-2.5 text-sm font-medium transition {{ $tab === 'payment_methods' ? 'border-b-2 border-lime-500 bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-white' : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800' }}"
             >
                 {{ __('Payment Methods') }}
             </button>
             <button
                 type="button"
                 wire:click="$set('tab', 'tax')"
-                class="rounded-t-lg px-4 py-2.5 text-sm font-medium transition {{ $tab === 'tax' ? 'border-b-2 border-lime-500 bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-white' : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800' }}"
+                class="shrink-0 whitespace-nowrap rounded-t-lg px-4 py-2.5 text-sm font-medium transition {{ $tab === 'tax' ? 'border-b-2 border-lime-500 bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-white' : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800' }}"
             >
                 {{ __('Tax Settings') }}
             </button>
             <button
                 type="button"
                 wire:click="$set('tab', 'invoice_templates')"
-                class="rounded-t-lg px-4 py-2.5 text-sm font-medium transition {{ $tab === 'invoice_templates' ? 'border-b-2 border-lime-500 bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-white' : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800' }}"
+                class="shrink-0 whitespace-nowrap rounded-t-lg px-4 py-2.5 text-sm font-medium transition {{ $tab === 'invoice_templates' ? 'border-b-2 border-lime-500 bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-white' : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800' }}"
             >
                 {{ __('Invoice Templates') }}
             </button>
@@ -104,11 +111,12 @@
                 <button
                     type="button"
                     wire:click="$set('tab', 'system_ui')"
-                    class="rounded-t-lg px-4 py-2.5 text-sm font-medium transition {{ $tab === 'system_ui' ? 'border-b-2 border-lime-500 bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-white' : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800' }}"
+                    class="shrink-0 whitespace-nowrap rounded-t-lg px-4 py-2.5 text-sm font-medium transition {{ $tab === 'system_ui' ? 'border-b-2 border-lime-500 bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-white' : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800' }}"
                 >
                     {{ __('System UI Settings') }}
                 </button>
             @endcan
+            </div>
         </div>
 
         @if ($tab === 'business')
@@ -181,6 +189,38 @@
                     <flux:button type="button" variant="primary" wire:click="saveEmailSettings">
                         <x-icon name="check" class="mr-1 size-4" />
                         {{ __('Save Email Settings') }}
+                    </flux:button>
+                </div>
+            </flux:card>
+        @endif
+
+        @if ($tab === 'orders')
+            <flux:card class="mt-6 space-y-6">
+                <div>
+                    <flux:heading size="lg">{{ __('Order Settings') }}</flux:heading>
+                    <flux:text class="mt-1 text-zinc-500 dark:text-zinc-400">
+                        {{ __('Control how dates are handled when orders are created or edited.') }}
+                    </flux:text>
+                </div>
+
+                <label class="flex flex-col gap-3 rounded-xl border border-zinc-200 p-4 dark:border-zinc-700 sm:flex-row sm:items-center sm:justify-between">
+                    <span>
+                        <span class="block text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ __('Allow Order Dates Flexibility') }}</span>
+                        <span class="mt-1 block text-sm text-zinc-500 dark:text-zinc-400">
+                            {{ __('When enabled, order date and due date may be earlier than today. When disabled, both dates must be today or later.') }}
+                        </span>
+                    </span>
+                    <input
+                        type="checkbox"
+                        wire:model="allow_order_dates_flexibility"
+                        class="size-5 rounded border-zinc-300 text-lime-600 focus:ring-lime-500"
+                    />
+                </label>
+
+                <div class="flex justify-end">
+                    <flux:button type="button" variant="primary" wire:click="saveOrderSettings">
+                        <x-icon name="check" class="mr-1 size-4" />
+                        {{ __('Save Order Settings') }}
                     </flux:button>
                 </div>
             </flux:card>
@@ -317,7 +357,7 @@
                     </flux:button>
                 </div>
 
-                <div class="rounded-xl border border-zinc-200 dark:border-zinc-700">
+                <div class="overflow-x-auto rounded-xl border border-zinc-200 dark:border-zinc-700">
                     <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
                         <thead class="bg-zinc-50 dark:bg-zinc-800">
                             <tr class="text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">

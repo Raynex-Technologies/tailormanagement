@@ -3,6 +3,7 @@
 namespace App\Services\Sms\Templates;
 
 use App\Enums\OrderStatus;
+use App\Models\CustomOrderProgressUpdate;
 use App\Models\Order;
 use App\Models\OrderPayment;
 use App\Models\SmsTemplate;
@@ -137,6 +138,24 @@ class OrderSmsTemplates
         $replacements = self::replacementsForOrder($order);
 
         return self::resolveTemplate('order_due_date_reminder', $replacements);
+    }
+
+    public static function replacementsForCustomProgressUpdate(Order $order, CustomOrderProgressUpdate $progressUpdate): array
+    {
+        $replacements = self::replacementsForOrder($order);
+        $requestedPaymentAmount = $progressUpdate->requested_payment_amount
+            ? money_currency($progressUpdate->requested_payment_amount, $order->currency ?: 'TZS')
+            : '';
+
+        $replacements['stage_label'] = $progressUpdate->stage_label;
+        $replacements['progress_note'] = trim((string) $progressUpdate->note);
+        $replacements['requested_payment_amount'] = $requestedPaymentAmount;
+        $replacements['requested_payment_note'] = trim((string) $progressUpdate->requested_payment_note);
+        $replacements['requested_payment_text'] = $requestedPaymentAmount !== ''
+            ? trim('Payment requested: '.$requestedPaymentAmount.'. '.$replacements['requested_payment_note'])
+            : '';
+
+        return $replacements;
     }
 
     public static function templateCodeForStatus(string $newStatus): string

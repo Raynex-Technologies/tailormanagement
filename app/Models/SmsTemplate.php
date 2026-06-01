@@ -44,6 +44,8 @@ class SmsTemplate extends Model
         'installment_payment_reminder',
         'installment_payment_received',
         'installment_completed',
+        'booking_verification',
+        'custom_order_progress_update',
     ];
 
     /** Human labels for each category */
@@ -76,6 +78,8 @@ class SmsTemplate extends Model
             'installment_payment_reminder' => __('Installment Payment Reminder'),
             'installment_payment_received' => __('Installment Payment Received'),
             'installment_completed' => __('Installment Plan Completed'),
+            'booking_verification' => __('Booking Verification'),
+            'custom_order_progress_update' => __('Custom Order Progress Update'),
         ];
     }
 
@@ -108,6 +112,8 @@ class SmsTemplate extends Model
             'installment_payment_reminder' => 'Hello {customer_name}, reminder: installment {installment_number}/{total_installments} for package {package_name} is due on {due_date}. Amount due: {installment_amount}. Remaining balance: {remaining_balance}.',
             'installment_payment_received' => 'Hello {customer_name}, we received {payment_amount} for package {package_name} under plan {plan_number}. Remaining balance: {remaining_balance}. Next due date: {next_due_date}.',
             'installment_completed' => 'Hello {customer_name}, congratulations. Your installment plan {plan_number} for package {package_name} is fully paid and completed.',
+            'booking_verification' => 'Your booking verification Code is {verification_code}. This code is valid for 10 Minutes',
+            'custom_order_progress_update' => 'Hello {customer_name}, your custom order #{order_number} has a new progress update: {stage_label}. {progress_note} {requested_payment_text}',
         ];
     }
 
@@ -140,6 +146,8 @@ class SmsTemplate extends Model
             'installment_payment_reminder' => ['category' => 'Payments', 'description' => __('Sent before an installment payment is due.'), 'enabled' => true],
             'installment_payment_received' => ['category' => 'Payments', 'description' => __('Sent when an installment payment is received.'), 'enabled' => true],
             'installment_completed' => ['category' => 'Payments', 'description' => __('Sent when an installment plan is fully paid.'), 'enabled' => true],
+            'booking_verification' => ['category' => 'Bookings', 'description' => __('Sent with the verification code for public online bookings.'), 'enabled' => true],
+            'custom_order_progress_update' => ['category' => 'Orders', 'description' => __('Sent when a customer-visible custom order progress update is published.'), 'enabled' => true],
         ];
     }
 
@@ -238,6 +246,30 @@ class SmsTemplate extends Model
                 'label' => __('Next Due Date'),
                 'description' => __('The next outstanding installment due date.'),
             ],
+            'verification_code' => [
+                'label' => __('Verification Code'),
+                'description' => __('The one-time booking verification code.'),
+            ],
+            'stage_label' => [
+                'label' => __('Progress Stage'),
+                'description' => __('The published progress stage label.'),
+            ],
+            'progress_note' => [
+                'label' => __('Progress Note'),
+                'description' => __('The note added to the progress update.'),
+            ],
+            'requested_payment_amount' => [
+                'label' => __('Requested Payment Amount'),
+                'description' => __('The payment amount requested with the progress update.'),
+            ],
+            'requested_payment_note' => [
+                'label' => __('Requested Payment Note'),
+                'description' => __('The payment note added to the progress update.'),
+            ],
+            'requested_payment_text' => [
+                'label' => __('Requested Payment Text'),
+                'description' => __('A ready-to-send payment request sentence when an amount is requested.'),
+            ],
         ];
     }
 
@@ -306,6 +338,8 @@ class SmsTemplate extends Model
             'installment_payment_reminder' => ['customer_name', 'package_name', 'plan_number', 'installment_number', 'total_installments', 'installment_amount', 'due_date', 'remaining_balance'],
             'installment_payment_received' => ['customer_name', 'package_name', 'plan_number', 'payment_amount', 'remaining_balance', 'next_due_date'],
             'installment_completed' => ['customer_name', 'package_name', 'plan_number'],
+            'booking_verification' => ['verification_code'],
+            'custom_order_progress_update' => ['customer_name', 'order_number', 'stage_label', 'progress_note', 'requested_payment_amount', 'requested_payment_note', 'requested_payment_text'],
             default => $common,
         };
     }

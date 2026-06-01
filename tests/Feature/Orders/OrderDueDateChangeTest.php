@@ -6,8 +6,10 @@ use App\Enums\OrderStatus;
 use App\Enums\PaymentStatus;
 use App\Events\OrderDueDateChanged;
 use App\Livewire\Orders\Show as OrderShow;
+use App\Models\BusinessSetting;
 use App\Models\Customer;
 use App\Models\Order;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Event;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -82,5 +84,51 @@ class OrderDueDateChangeTest extends TestCase
             ->assertHasErrors(['updatedDueDate' => 'after_or_equal']);
 
         Event::assertNotDispatched(OrderDueDateChanged::class);
+    }
+
+    public function test_due_date_change_allows_past_dates_when_order_dates_flexibility_is_enabled(): void
+    {
+        Event::fake([OrderDueDateChanged::class]);
+
+        DB::table('business_settings')->updateOrInsert(
+            ['id' => 1],
+            [
+                'allow_order_dates_flexibility' => true,
+                'created_at' => now(),
+                'updated_at' => now(),
+            ]
+        );
+
+        $this->assertTrue((bool) BusinessSetting::instance()->fresh()->allow_order_dates_flexibility);
+
+        $user = $this->actingAsRole('branch_manager', $this->branch);
+        $customer = Customer::factory()->create(['branch_id' => $this->branch->id]);
+        $newDueDate = now()->subDays(3)->toDateString();
+
+        $order = Order::create([
+            'branch_id' => $this->branch->id,
+            'customer_id' => $customer->id,
+            'status' => OrderStatus::New,
+            'order_date' => now()->toDateString(),
+            'due_date' => now()->addDays(2)->toDateString(),
+            'subtotal' => 40000,
+            'discount' => 0,
+            'total' => 40000,
+            'payment_status' => PaymentStatus::Unpaid,
+            'created_by' => $user->id,
+        ]);
+
+        Livewire::test(OrderShow::class, ['order' => $order])
+            ->call('openDueDateModal')
+            ->set('updatedDueDate', $newDueDate)
+            ->call('updateDueDate')
+            ->assertHasNoErrors();
+
+        $this->assertDatabaseHas('orders', [
+            'id' => $order->id,
+            'due_date' => $newDueDate,
+        ]);
+
+        Event::assertDispatched(OrderDueDateChanged::class);
     }
 }

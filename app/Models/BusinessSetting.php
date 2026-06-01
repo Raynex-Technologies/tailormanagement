@@ -23,6 +23,7 @@ class BusinessSetting extends Model
         'ui_primary_color',
         'ui_secondary_color_1',
         'ui_secondary_color_2',
+        'allow_order_dates_flexibility',
         'invoice_template_id',
         'email_from_name',
         'email_from_address',
@@ -70,6 +71,7 @@ class BusinessSetting extends Model
     {
         return [
             'tax_enabled' => 'boolean',
+            'allow_order_dates_flexibility' => 'boolean',
             'tax_rate' => 'decimal:2',
             'storefront_enabled' => 'boolean',
             'storefront_catalog_mode' => 'boolean',
@@ -106,6 +108,7 @@ class BusinessSetting extends Model
             [
                 'business_name' => config('app.name', 'Tailoring Business'),
                 'tax_enabled' => false,
+                'allow_order_dates_flexibility' => false,
                 'tax_name' => 'VAT',
                 'tax_rate' => 0,
                 'storefront_enabled' => false,

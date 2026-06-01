@@ -235,7 +235,7 @@
                         <i class="fa-duotone fa-flag size-5 text-blue-500"></i>
                     </div>
                     <div class="mt-3">
-                        <flux:badge color="{{ $order->priority->color() }}" size="lg">
+                        <flux:badge color="{{ $order->priority?->color() ?? 'zinc' }}" size="lg">
                             {{ $order->priority?->label() ?? 'N/A' }}
                         </flux:badge>
                         <p class="mt-1.5 text-sm text-zinc-500 dark:text-zinc-400">Priority</p>
@@ -696,7 +696,7 @@
                                 Priority
                             </dt>
                             <dd>
-                                <flux:badge color="{{ $order->priority->color() }}" size="sm">
+                                <flux:badge color="{{ $order->priority?->color() ?? 'zinc' }}" size="sm">
                                     {{ $order->priority?->label() ?? 'N/A' }}
                                 </flux:badge>
                             </dd>
@@ -868,7 +868,9 @@
             <div class="space-y-4">
                 <flux:heading size="lg">Update Due Date</flux:heading>
                 <flux:text class="text-zinc-600 dark:text-zinc-400">
-                    Choose a new due date for this order. The date must be today or later.
+                    {{ $allowOrderDatesFlexibility
+                        ? __('Choose a new due date for this order. Past dates are allowed.')
+                        : __('Choose a new due date for this order. The date must be today or later.') }}
                 </flux:text>
 
                 <div class="rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-sm dark:border-zinc-700 dark:bg-zinc-800/50">
@@ -878,12 +880,20 @@
                     </div>
                 </div>
 
-                <flux:input
-                    wire:model="updatedDueDate"
-                    type="date"
-                    label="New Due Date"
-                    min="{{ now()->toDateString() }}"
-                />
+                @if ($allowOrderDatesFlexibility)
+                    <flux:input
+                        wire:model="updatedDueDate"
+                        type="date"
+                        label="New Due Date"
+                    />
+                @else
+                    <flux:input
+                        wire:model="updatedDueDate"
+                        type="date"
+                        label="New Due Date"
+                        min="{{ now()->toDateString() }}"
+                    />
+                @endif
 
                 @error('updatedDueDate')
                     <p class="text-sm text-red-600">{{ $message }}</p>

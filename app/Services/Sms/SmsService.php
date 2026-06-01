@@ -48,6 +48,14 @@ class SmsService
      */
     public function send(string $to, string $message, ?Model $reference = null, ?User $actor = null, ?string $templateCode = null): SmsLog
     {
+        if ($templateCode !== null) {
+            $reason = app(SmsNotificationGate::class)->reasonDisabled($templateCode);
+
+            if ($reason !== null) {
+                return $this->createSkippedLog($templateCode, $to, $message, $reason, $reference, $actor);
+            }
+        }
+
         Log::debug('SmsService::send called', [
             'to_raw' => $to,
             'message_length' => strlen($message),
@@ -77,9 +85,9 @@ class SmsService
             'created_by' => $actor?->id,
         ]);
 
-        // Check if SMS is enabled (DB config takes precedence; fallback to env)
+        // Check if SMS is enabled. The database setting is the operator-controlled source of truth.
         $beemConfig = BeemConfig::instance();
-        $smsEnabled = $beemConfig->sms_enabled || config('beem.enabled', false);
+        $smsEnabled = (bool) $beemConfig->sms_enabled;
         Log::info('SMS enabled check', [
             'beem_config_sms_enabled' => $beemConfig->sms_enabled,
             'env_beem_enabled' => config('beem.enabled', false),

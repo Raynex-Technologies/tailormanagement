@@ -5,7 +5,9 @@ namespace Tests\Unit\Sms;
 use App\Enums\SmsStatus;
 use App\Models\BeemConfig;
 use App\Models\SmsLog;
+use App\Models\SmsTemplate;
 use App\Services\Sms\BeemSmsClient;
+use App\Services\Sms\SmsNotificationGate;
 use App\Services\Sms\SmsService;
 use Mockery;
 use Tests\TestCase;
@@ -203,5 +205,38 @@ class SmsServiceTest extends TestCase
 
         $this->assertEquals(SmsStatus::Failed, $log->status);
         $this->assertStringContainsString('Invalid sender', $log->provider_response ?? '');
+    }
+
+    public function test_direct_send_with_template_code_respects_template_switch(): void
+    {
+        $this->setBranchContext();
+        BeemConfig::query()->delete();
+        BeemConfig::create([
+            'api_key' => 'test-key',
+            'secret_key' => 'test-secret',
+            'sender_name' => 'TEST',
+            'sms_enabled' => true,
+        ]);
+
+        $row = SmsTemplate::instance();
+        $settings = SmsTemplate::normalizeTemplateSettings($row->template_settings ?? []);
+        $settings['booking_verification']['sms_enabled'] = false;
+        $row->update(['template_settings' => $settings]);
+
+        $mock = Mockery::mock(BeemSmsClient::class);
+        $mock->shouldNotReceive('isConfigured');
+        $mock->shouldNotReceive('send');
+        $this->app->instance(BeemSmsClient::class, $mock);
+
+        $log = app(SmsService::class)->send(
+            '0712345678',
+            'Your booking verification Code is 123456. This code is valid for 10 Minutes',
+            null,
+            null,
+            'booking_verification'
+        );
+
+        $this->assertEquals(SmsStatus::Skipped, $log->status);
+        $this->assertSame(SmsNotificationGate::TEMPLATE_SMS_DISABLED, $log->skip_reason);
     }
 }
