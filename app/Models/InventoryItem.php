@@ -86,6 +86,11 @@ class InventoryItem extends Model
         return $this->hasMany(InventoryTransaction::class);
     }
 
+    public function posSaleItems(): HasMany
+    {
+        return $this->hasMany(PosSaleItem::class);
+    }
+
     public function media(): HasMany
     {
         return $this->hasMany(InventoryItemMedia::class)->orderBy('sort_order');

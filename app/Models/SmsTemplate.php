@@ -46,6 +46,7 @@ class SmsTemplate extends Model
         'installment_completed',
         'booking_verification',
         'custom_order_progress_update',
+        'pos_sale_completed',
     ];
 
     /** Human labels for each category */
@@ -80,6 +81,7 @@ class SmsTemplate extends Model
             'installment_completed' => __('Installment Plan Completed'),
             'booking_verification' => __('Booking Verification'),
             'custom_order_progress_update' => __('Custom Order Progress Update'),
+            'pos_sale_completed' => __('POS Sale Completed'),
         ];
     }
 
@@ -114,6 +116,7 @@ class SmsTemplate extends Model
             'installment_completed' => 'Hello {customer_name}, congratulations. Your installment plan {plan_number} for package {package_name} is fully paid and completed.',
             'booking_verification' => 'Your booking verification Code is {verification_code}. This code is valid for 10 Minutes',
             'custom_order_progress_update' => 'Hello {customer_name}, your custom order #{order_number} has a new progress update: {stage_label}. {progress_note} {requested_payment_text}',
+            'pos_sale_completed' => 'Hello {customer_name}, receipt {sale_number} is complete. Items: {items}. Total: {total_amount}. Paid: {amount_paid}. Change: {change_amount}. Thank you for shopping with {business_name}.',
         ];
     }
 
@@ -148,6 +151,7 @@ class SmsTemplate extends Model
             'installment_completed' => ['category' => 'Payments', 'description' => __('Sent when an installment plan is fully paid.'), 'enabled' => true],
             'booking_verification' => ['category' => 'Bookings', 'description' => __('Sent with the verification code for public online bookings.'), 'enabled' => true],
             'custom_order_progress_update' => ['category' => 'Orders', 'description' => __('Sent when a customer-visible custom order progress update is published.'), 'enabled' => true],
+            'pos_sale_completed' => ['category' => 'Point of Sale', 'description' => __('Sent to the selected customer when a POS sale is completed.'), 'enabled' => true],
         ];
     }
 
@@ -270,6 +274,42 @@ class SmsTemplate extends Model
                 'label' => __('Requested Payment Text'),
                 'description' => __('A ready-to-send payment request sentence when an amount is requested.'),
             ],
+            'sale_number' => [
+                'label' => __('POS Sale Number'),
+                'description' => __('The POS sale receipt number.'),
+            ],
+            'items' => [
+                'label' => __('Items Sold'),
+                'description' => __('A comma-separated list of item names and quantities sold.'),
+            ],
+            'subtotal' => [
+                'label' => __('Subtotal'),
+                'description' => __('The POS sale subtotal before sale-level discount and tax.'),
+            ],
+            'discount_amount' => [
+                'label' => __('Discount Amount'),
+                'description' => __('The sale-level discount amount.'),
+            ],
+            'tax_amount' => [
+                'label' => __('Tax Amount'),
+                'description' => __('The sale tax amount.'),
+            ],
+            'change_amount' => [
+                'label' => __('Change Amount'),
+                'description' => __('The change due to the customer.'),
+            ],
+            'payment_method' => [
+                'label' => __('Payment Method'),
+                'description' => __('The payment method used for the POS sale.'),
+            ],
+            'cashier_name' => [
+                'label' => __('Cashier Name'),
+                'description' => __('The staff user who completed the POS sale.'),
+            ],
+            'business_name' => [
+                'label' => __('Business Name'),
+                'description' => __('The configured business name.'),
+            ],
         ];
     }
 
@@ -340,6 +380,7 @@ class SmsTemplate extends Model
             'installment_completed' => ['customer_name', 'package_name', 'plan_number'],
             'booking_verification' => ['verification_code'],
             'custom_order_progress_update' => ['customer_name', 'order_number', 'stage_label', 'progress_note', 'requested_payment_amount', 'requested_payment_note', 'requested_payment_text'],
+            'pos_sale_completed' => ['customer_name', 'sale_number', 'items', 'subtotal', 'discount_amount', 'tax_amount', 'total_amount', 'amount_paid', 'change_amount', 'payment_method', 'cashier_name', 'business_name'],
             default => $common,
         };
     }

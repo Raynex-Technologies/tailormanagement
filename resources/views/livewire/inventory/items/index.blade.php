@@ -75,6 +75,7 @@
                     <thead>
                         <tr class="text-left text-sm font-semibold text-zinc-900 dark:text-white">
                             <th class="px-4 py-3">{{ __('SKU') }}</th>
+                            <th class="px-4 py-3">{{ __('Image') }}</th>
                             <th class="px-4 py-3">{{ __('Name') }}</th>
                             <th class="px-4 py-3">{{ __('Category') }}</th>
                             <th class="px-4 py-3">{{ __('Unit') }}</th>
@@ -95,6 +96,28 @@
                                     <code class="rounded bg-zinc-100 px-2 py-1 text-xs font-medium dark:bg-zinc-700">
                                         {{ $item->sku }}
                                     </code>
+                                </td>
+                                <td class="px-4 py-3">
+                                    <div class="flex items-center gap-3">
+                                        @if ($item->featured_image_url)
+                                            <img src="{{ $item->featured_image_url }}" alt="{{ $item->name }}" class="size-12 rounded-lg border border-zinc-200 object-cover dark:border-zinc-700">
+                                        @else
+                                            <div class="flex size-12 items-center justify-center rounded-lg border border-dashed border-zinc-300 bg-zinc-100 text-zinc-400 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-500">
+                                                <i class="fa-duotone fa-box-open-full"></i>
+                                            </div>
+                                        @endif
+
+                                        @can('inventory.items.manage')
+                                            <label class="inline-flex cursor-pointer items-center rounded-lg border border-zinc-200 px-3 py-2 text-xs font-medium text-zinc-700 transition hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-800">
+                                                <input type="file" class="sr-only" wire:model="itemImages.{{ $item->id }}" accept="image/jpeg,image/png,image/webp">
+                                                {{ __('Upload') }}
+                                            </label>
+                                        @endcan
+                                    </div>
+                                    <div wire:loading wire:target="itemImages.{{ $item->id }}" class="mt-1 text-xs text-zinc-500">
+                                        {{ __('Uploading...') }}
+                                    </div>
+                                    @error('itemImages.'.$item->id) <p class="mt-1 text-xs text-red-600 dark:text-red-400">{{ $message }}</p> @enderror
                                 </td>
                                 <td class="px-4 py-3 font-medium">
                                     {{ $item->name }}
@@ -166,7 +189,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="7" class="px-4 py-12 text-center">
+                                <td colspan="8" class="px-4 py-12 text-center">
                                     <div class="flex flex-col items-center gap-2">
                                         <x-icon name="inventory_2" class="size-12 text-zinc-300 dark:text-zinc-600" />
                                         <flux:text class="text-zinc-500 dark:text-zinc-400">

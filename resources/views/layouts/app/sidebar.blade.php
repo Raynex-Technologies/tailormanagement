@@ -455,9 +455,22 @@
                 @endcanany
 
                 {{-- Inventory Group (Permission-based) --}}
-                @can('inventory.view')
+                @canany(['inventory.view', 'pos.view'])
                 <div class="nav-group">
                     <h3 class="px-3 mb-2 text-[0.65rem] font-semibold uppercase tracking-wider text-white/35">{{ __('Inventory') }}</h3>
+
+                    @can('pos.view')
+                    <a
+                        href="{{ route('pos.index') }}"
+                        wire:navigate
+                        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('pos.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}"
+                    >
+                        <i class="fa-duotone fa-cash-register size-5"></i>
+                        {{ __('POS') }}
+                    </a>
+                    @endcan
+
+                    @can('inventory.view')
                     
                     <a 
                         href="{{ route('inventory.stock') }}" 
@@ -512,8 +525,9 @@
                         <i class="fa-duotone fa-cart-flatbed-boxes size-5"></i>
                         {{ __('Transactions') }}
                     </a>
+                    @endcan
                 </div>
-                @endcan
+                @endcanany
 
                 {{-- Installments Group --}}
                 @can('installments.view')
@@ -1002,9 +1016,19 @@
                     </div>
                     @endcanany
 
-                    @can('inventory.view')
+                    @canany(['inventory.view', 'pos.view'])
                     <div class="nav-group">
                         <h3 class="px-3 mb-2 text-[0.65rem] font-semibold uppercase tracking-wider text-white/35">{{ __('Inventory') }}</h3>
+
+                        @can('pos.view')
+                        <a href="{{ route('pos.index') }}" wire:navigate @click="sidebarOpen = false"
+                           class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('pos.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
+                            <i class="fa-duotone fa-cash-register size-5"></i>
+                            {{ __('POS') }}
+                        </a>
+                        @endcan
+
+                        @can('inventory.view')
 
                         <a href="{{ route('inventory.stock') }}" wire:navigate @click="sidebarOpen = false"
                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('inventory.stock') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
@@ -1036,8 +1060,9 @@
                             <i class="fa-duotone fa-cart-flatbed-boxes size-5"></i>
                             {{ __('Transactions') }}
                         </a>
+                        @endcan
                     </div>
-                    @endcan
+                    @endcanany
 
                     @can('installments.view')
                     <div class="nav-group">

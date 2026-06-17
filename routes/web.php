@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Media\PrivateImageController;
+use App\Http\Controllers\PosSaleController;
 use App\Http\Controllers\Storefront\AccountController as StorefrontAccountController;
 use App\Http\Controllers\Storefront\CartController as StorefrontCartController;
 use App\Http\Controllers\Storefront\CatalogController as StorefrontCatalogController;
@@ -33,6 +34,7 @@ use App\Livewire\Orders\Index as OrdersIndex;
 use App\Livewire\Orders\Show as OrdersShow;
 use App\Livewire\Orders\StockRequests\Index as OrderStockRequestsIndex;
 use App\Livewire\Payments\Index as PaymentsIndex;
+use App\Livewire\Pos\PosTerminal;
 use App\Livewire\Store\StockRequests\Index as StoreStockRequestsIndex;
 use App\Livewire\Store\StockRequests\Show as StoreStockRequestShow;
 use App\Livewire\Storefront\Admin\CategoryManager as StorefrontCategoryManager;
@@ -370,6 +372,14 @@ Route::middleware(['auth', 'verified', 'branch.context'])->group(function () {
 
         // Transaction History
         Route::get('transactions', TransactionsIndex::class)->name('inventory.transactions.index');
+    });
+
+    Route::prefix('pos')->middleware('can:pos.view')->group(function () {
+        Route::get('/', PosTerminal::class)->name('pos.index');
+        Route::post('/sales', [PosSaleController::class, 'store'])
+            ->middleware('can:pos.sell')
+            ->name('pos.sales.store');
+        Route::get('/sales/{sale}', [PosSaleController::class, 'show'])->name('pos.sales.show');
     });
 
     /*

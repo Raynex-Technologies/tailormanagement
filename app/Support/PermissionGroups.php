@@ -49,6 +49,10 @@ class PermissionGroups
             'payments.create',
             'payments.refund',
         ],
+        'Point of Sale' => [
+            'pos.view',
+            'pos.sell',
+        ],
         'Inventory' => [
             'inventory.view',
             'inventory.items.manage',

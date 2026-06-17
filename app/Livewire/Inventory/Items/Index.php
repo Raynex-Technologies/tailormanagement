@@ -7,6 +7,7 @@ use App\Models\InventoryCategory;
 use App\Models\InventoryItem;
 use App\Models\InventoryUnit;
 use App\Services\Inventory\StockMovementService;
+use App\Services\Media\ImageUploadService;
 use App\Support\BranchContext;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -14,13 +15,14 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
 use Livewire\Component;
+use Livewire\WithFileUploads;
 use Livewire\WithPagination;
 
 #[Layout('layouts.app.sidebar')]
 #[Title('Inventory Items')]
 class Index extends Component
 {
-    use WithPagination;
+    use WithFileUploads, WithPagination;
 
     #[Url]
     public string $search = '';
@@ -51,6 +53,8 @@ class Index extends Component
     public ?float $default_buy_price = null;
     public ?float $default_sell_price = null;
     public bool $is_active = true;
+
+    public array $itemImages = [];
 
     // Receive Stock Modal
     public bool $showReceiveModal = false;
@@ -301,6 +305,36 @@ class Index extends Component
         $item->update(['is_active' => ! $item->is_active]);
 
         session()->flash('success', $item->is_active ? 'Item activated.' : 'Item deactivated.');
+    }
+
+    public function updatedItemImages(mixed $upload, string|int $itemId): void
+    {
+        $this->authorize('inventory.items.manage');
+
+        $item = InventoryItem::query()->findOrFail((int) $itemId);
+
+        $this->validate([
+            "itemImages.{$itemId}" => ['required', 'image', 'mimes:jpg,jpeg,png,webp', 'max:4096'],
+        ]);
+
+        try {
+            $stored = app(ImageUploadService::class)->replacePublic(
+                upload: $upload,
+                existingPath: $item->featured_image_path,
+                directory: 'inventory/items'
+            );
+
+            $item->update([
+                'featured_image_path' => $stored->path,
+            ]);
+
+            unset($this->itemImages[$itemId]);
+            session()->flash('success', "Image updated for {$item->name}.");
+        } catch (ValidationException $e) {
+            foreach ($e->errors() as $field => $messages) {
+                $this->addError($field, $messages[0]);
+            }
+        }
     }
 
     // === RECEIVE STOCK ===

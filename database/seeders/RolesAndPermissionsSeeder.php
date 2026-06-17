@@ -162,6 +162,10 @@ class RolesAndPermissionsSeeder extends Seeder
             'payments.create',
             'payments.refund',
 
+            // Point of Sale
+            'pos.view',
+            'pos.sell',
+
             // Inventory
             'inventory.view',
             'inventory.items.manage',
@@ -295,6 +299,9 @@ class RolesAndPermissionsSeeder extends Seeder
                 'payments.view',
                 'payments.create',
                 'payments.refund',
+                // Point of Sale
+                'pos.view',
+                'pos.sell',
                 // Inventory - FULL ACCESS
                 'inventory.view',
                 'inventory.items.manage',
@@ -398,6 +405,9 @@ class RolesAndPermissionsSeeder extends Seeder
                 // Payments - View & Create (no refund)
                 'payments.view',
                 'payments.create',
+                // Point of Sale
+                'pos.view',
+                'pos.sell',
                 // Inventory - FULL ACCESS
                 'inventory.view',
                 'inventory.items.manage',
@@ -481,6 +491,9 @@ class RolesAndPermissionsSeeder extends Seeder
                 // Payments - View & Create
                 'payments.view',
                 'payments.create',
+                // Point of Sale
+                'pos.view',
+                'pos.sell',
                 // Inventory - VIEW ONLY
                 'inventory.view',
                 // Capital - VIEW ONLY (admin assigns allocations)
@@ -592,6 +605,9 @@ class RolesAndPermissionsSeeder extends Seeder
                 'online-bookings.view',
                 'appointments.view',
                 'availability.view',
+                // Point of Sale
+                'pos.view',
+                'pos.sell',
                 // Messaging
                 'messages.use',
                 // Todos
