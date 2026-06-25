@@ -1,119 +1,94 @@
-<x-layouts::app :title="__('POS Receipt')">
-    <flux:main class="mx-auto max-w-3xl space-y-6">
-        <flux:breadcrumbs>
-            <flux:breadcrumbs.item :href="route('dashboard')" icon="home" wire:navigate />
-            <flux:breadcrumbs.item :href="route('pos.index')" wire:navigate>{{ __('POS') }}</flux:breadcrumbs.item>
-            <flux:breadcrumbs.item>{{ $sale->sale_number }}</flux:breadcrumbs.item>
-        </flux:breadcrumbs>
-
-        @if (session('success'))
-            <flux:callout variant="success" icon="check-circle">
-                {{ session('success') }}
-            </flux:callout>
-        @endif
-
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-                <flux:heading size="xl">{{ __('Receipt') }} {{ $sale->sale_number }}</flux:heading>
-                <flux:text class="text-zinc-500">{{ $sale->sold_at?->format('M d, Y H:i') }}</flux:text>
-            </div>
-            <div class="flex gap-2">
-                <flux:button :href="route('pos.index')" wire:navigate icon="arrow-left">{{ __('Back to POS') }}</flux:button>
-                <flux:button variant="primary" icon="printer" onclick="window.print()">{{ __('Print') }}</flux:button>
-            </div>
-        </div>
-
-        <flux:card>
-            <div class="receipt-print space-y-6">
-                <div class="border-b border-zinc-200 pb-4 text-center dark:border-zinc-700">
-                    <h2 class="text-xl font-bold text-zinc-900 dark:text-white">{{ $settings->business_name ?? config('app.name') }}</h2>
-                    @if ($settings->address)
-                        <p class="text-sm text-zinc-500">{{ $settings->address }}</p>
-                    @endif
-                    @if ($settings->phone)
-                        <p class="text-sm text-zinc-500">{{ $settings->phone }}</p>
-                    @endif
+<!DOCTYPE html>
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+    <head>
+        @include('partials.head')
+        <title>{{ __('POS Receipt') }}</title>
+    </head>
+    <body class="min-h-screen bg-zinc-100 text-zinc-950 antialiased dark:bg-zinc-950 dark:text-zinc-50">
+        <main class="mx-auto max-w-3xl space-y-6 px-4 py-6">
+            <div class="pos-receipt-actions flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <h1 class="text-2xl font-bold tracking-tight">{{ __('Receipt') }} {{ $sale->sale_number }}</h1>
+                    <p class="text-sm text-zinc-500">{{ $sale->sold_at?->format('M d, Y H:i') }}</p>
                 </div>
-
-                <div class="grid gap-3 text-sm sm:grid-cols-2">
-                    <div>
-                        <p class="text-zinc-500">{{ __('Sale Number') }}</p>
-                        <p class="font-semibold text-zinc-900 dark:text-white">{{ $sale->sale_number }}</p>
-                    </div>
-                    <div>
-                        <p class="text-zinc-500">{{ __('Cashier') }}</p>
-                        <p class="font-semibold text-zinc-900 dark:text-white">{{ $sale->user?->name ?? '-' }}</p>
-                    </div>
-                    <div>
-                        <p class="text-zinc-500">{{ __('Customer') }}</p>
-                        <p class="font-semibold text-zinc-900 dark:text-white">{{ $sale->customer?->name ?? __('Walk-in Customer') }}</p>
-                    </div>
-                    <div>
-                        <p class="text-zinc-500">{{ __('Payment') }}</p>
-                        <p class="font-semibold text-zinc-900 dark:text-white">
-                            {{ str($sale->payment_method)->replace('_', ' ')->title() }}
-                            @if ($sale->payment_reference)
-                                <span class="text-zinc-500">({{ $sale->payment_reference }})</span>
-                            @endif
-                        </p>
-                    </div>
-                </div>
-
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-zinc-200 text-sm dark:divide-zinc-700">
-                        <thead>
-                            <tr class="text-left text-xs font-semibold uppercase tracking-wider text-zinc-500">
-                                <th class="py-3">{{ __('Item') }}</th>
-                                <th class="py-3 text-right">{{ __('Qty') }}</th>
-                                <th class="py-3 text-right">{{ __('Unit') }}</th>
-                                <th class="py-3 text-right">{{ __('Total') }}</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-zinc-200 dark:divide-zinc-700">
-                            @foreach ($sale->items as $item)
-                                <tr>
-                                    <td class="py-3">
-                                        <p class="font-medium text-zinc-900 dark:text-white">{{ $item->item_name }}</p>
-                                        <p class="text-xs text-zinc-500">{{ $item->sku }}</p>
-                                    </td>
-                                    <td class="py-3 text-right">{{ number_format((float) $item->quantity, 2) }}</td>
-                                    <td class="py-3 text-right">{{ money_tzs($item->unit_price) }}</td>
-                                    <td class="py-3 text-right font-mono">{{ money_tzs($item->line_total) }}</td>
-                                </tr>
-                            @endforeach
-                        </tbody>
-                    </table>
-                </div>
-
-                <div class="ml-auto max-w-sm space-y-2 text-sm">
-                    <div class="flex justify-between"><span class="text-zinc-500">{{ __('Subtotal') }}</span><span class="font-mono">{{ money_tzs($sale->subtotal) }}</span></div>
-                    <div class="flex justify-between"><span class="text-zinc-500">{{ __('Discount') }}</span><span class="font-mono">-{{ money_tzs($sale->discount_amount) }}</span></div>
-                    <div class="flex justify-between"><span class="text-zinc-500">{{ __('Tax') }}</span><span class="font-mono">{{ money_tzs($sale->tax_amount) }}</span></div>
-                    <div class="flex justify-between border-t border-zinc-200 pt-2 text-base font-bold dark:border-zinc-700"><span>{{ __('Total') }}</span><span class="font-mono">{{ money_tzs($sale->total_amount) }}</span></div>
-                    <div class="flex justify-between"><span class="text-zinc-500">{{ __('Amount Paid') }}</span><span class="font-mono">{{ money_tzs($sale->amount_paid) }}</span></div>
-                    <div class="flex justify-between"><span class="text-zinc-500">{{ __('Change') }}</span><span class="font-mono">{{ money_tzs($sale->change_amount) }}</span></div>
+                <div class="flex gap-2">
+                    @unless ($publicReceipt ?? false)
+                        <a href="{{ route('pos.index') }}" class="inline-flex items-center rounded-lg border border-zinc-300 bg-white px-4 py-2 text-sm font-medium text-zinc-700 shadow-sm hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200 dark:hover:bg-zinc-800">
+                            {{ __('Back to POS') }}
+                        </a>
+                    @endunless
+                    <button type="button" onclick="window.print()" class="inline-flex items-center rounded-lg bg-zinc-950 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-zinc-800 dark:bg-lime-400 dark:text-zinc-950 dark:hover:bg-lime-300">
+                        {{ __('Print') }}
+                    </button>
                 </div>
             </div>
-        </flux:card>
-    </flux:main>
 
-    <style>
-        @media print {
-            .desktop-sidebar,
-            .top-frosted-nav,
-            flux\:breadcrumbs,
-            button,
-            a[data-flux-button] {
-                display: none !important;
+            <div class="pos-receipt-page-shell">
+                @include('pos.partials.receipt-slip', [
+                    'sale' => $sale,
+                    'settings' => $settings,
+                    'receiptUrl' => $receiptUrl,
+                    'receiptQrCodeSvg' => $receiptQrCodeSvg,
+                ])
+            </div>
+        </main>
+
+        <style>
+            .pos-receipt-page-shell {
+                display: flex;
+                justify-content: center;
+                padding: 2rem 1rem;
+                border-radius: 0.75rem;
+                background: #ece7df;
             }
 
-            .app-main-shell {
-                margin-left: 0 !important;
+            .pos-receipt-slip {
+                width: min(100%, 23rem);
+                color: #18181b;
+                filter: drop-shadow(0 12px 18px rgb(0 0 0 / 0.18));
             }
 
-            .app-page-content {
-                padding: 0 !important;
+            .pos-receipt-edge {
+                height: 14px;
+                background:
+                    linear-gradient(135deg, transparent 8px, #fff 0) top left,
+                    linear-gradient(225deg, transparent 8px, #fff 0) top right;
+                background-size: 16px 14px;
+                background-repeat: repeat-x;
             }
-        }
-    </style>
-</x-layouts::app>
+
+            .pos-receipt-edge-bottom {
+                transform: rotate(180deg);
+            }
+
+            .pos-receipt-body {
+                background: #fff;
+                padding: 2rem 2.25rem;
+            }
+
+            .pos-receipt-slip svg {
+                width: 100%;
+                height: 100%;
+            }
+
+            @media print {
+                .pos-receipt-actions {
+                    display: none !important;
+                }
+
+                body,
+                main,
+                .pos-receipt-page-shell {
+                    margin: 0 !important;
+                    padding: 0 !important;
+                    background: #fff !important;
+                }
+
+                .pos-receipt-slip {
+                    width: 80mm;
+                    filter: none;
+                }
+            }
+        </style>
+    </body>
+</html>

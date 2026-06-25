@@ -45,7 +45,7 @@ class BeemConfigurations extends Component
 
         $smsTemplates = SmsTemplate::instance();
         $this->templates = SmsTemplate::normalizeTemplates($smsTemplates->templates ?? []);
-        $this->templateEnabled = collect(SmsTemplate::normalizeTemplateSettings($smsTemplates->template_settings ?? []))
+        $this->templateEnabled = collect(SmsTemplate::normalizeTemplateSettings($this->templateSettingsFrom($smsTemplates)))
             ->map(fn (array $settings) => (bool) ($settings['sms_enabled'] ?? false))
             ->all();
     }
@@ -90,15 +90,17 @@ class BeemConfigurations extends Component
             ]);
 
             $row = SmsTemplate::instance();
-            $settings = SmsTemplate::normalizeTemplateSettings($row->template_settings ?? []);
+            $settings = SmsTemplate::normalizeTemplateSettings($this->templateSettingsFrom($row));
 
             foreach ($settings as $code => $definition) {
                 $settings[$code]['sms_enabled'] = (bool) ($this->templateEnabled[$code] ?? false);
             }
 
-            $row->update([
-                'template_settings' => $settings,
-            ]);
+            if (SmsTemplate::supportsTemplateSettings()) {
+                $row->update([
+                    'template_settings' => $settings,
+                ]);
+            }
         });
 
         session()->flash('success', __('SMS notification settings updated successfully.'));
@@ -152,11 +154,16 @@ class BeemConfigurations extends Component
         return view('livewire.sms.beem-configurations', [
             'categoryLabels' => SmsTemplate::categoryLabels(),
             'categories' => SmsTemplate::CATEGORIES,
-            'templateSettings' => SmsTemplate::normalizeTemplateSettings(SmsTemplate::instance()->template_settings ?? []),
+            'templateSettings' => SmsTemplate::normalizeTemplateSettings($this->templateSettingsFrom(SmsTemplate::instance())),
             'categoryVariables' => collect(SmsTemplate::CATEGORIES)
                 ->mapWithKeys(fn (string $category) => [$category => SmsTemplate::variablesForCategory($category)])
                 ->all(),
             'variableDefinitions' => SmsTemplate::variableDefinitions(),
         ]);
+    }
+
+    protected function templateSettingsFrom(SmsTemplate $smsTemplates): array
+    {
+        return SmsTemplate::supportsTemplateSettings() ? ($smsTemplates->template_settings ?? []) : [];
     }
 }

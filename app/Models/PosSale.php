@@ -15,6 +15,7 @@ class PosSale extends Model
     protected $fillable = [
         'branch_id',
         'sale_number',
+        'receipt_token',
         'customer_id',
         'user_id',
         'subtotal',
@@ -56,5 +57,12 @@ class PosSale extends Model
     public function items(): HasMany
     {
         return $this->hasMany(PosSaleItem::class);
+    }
+
+    public function getPublicReceiptUrlAttribute(): ?string
+    {
+        return $this->receipt_token
+            ? route('receipts.public.show', ['token' => $this->receipt_token])
+            : null;
     }
 }

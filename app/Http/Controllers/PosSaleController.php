@@ -5,6 +5,10 @@ namespace App\Http\Controllers;
 use App\Models\BusinessSetting;
 use App\Models\PosSale;
 use App\Services\Pos\PosSaleService;
+use BaconQrCode\Renderer\Image\SvgImageBackEnd;
+use BaconQrCode\Renderer\ImageRenderer;
+use BaconQrCode\Renderer\RendererStyle\RendererStyle;
+use BaconQrCode\Writer;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
@@ -53,6 +57,38 @@ class PosSaleController extends Controller
         return view('pos.receipt', [
             'sale' => $sale->load(['items.inventoryItem', 'customer', 'user', 'branch']),
             'settings' => BusinessSetting::instance(),
+            'receiptUrl' => $sale->public_receipt_url,
+            'receiptQrCodeSvg' => $this->receiptQrCodeSvg($sale->public_receipt_url),
         ]);
+    }
+
+    public function publicShow(string $token): View
+    {
+        $sale = PosSale::query()
+            ->where('receipt_token', $token)
+            ->with(['items.inventoryItem', 'customer', 'user', 'branch'])
+            ->firstOrFail();
+
+        return view('pos.receipt', [
+            'sale' => $sale,
+            'settings' => BusinessSetting::instance(),
+            'receiptUrl' => $sale->public_receipt_url,
+            'receiptQrCodeSvg' => $this->receiptQrCodeSvg($sale->public_receipt_url),
+            'publicReceipt' => true,
+        ]);
+    }
+
+    protected function receiptQrCodeSvg(?string $url): ?string
+    {
+        if (! $url) {
+            return null;
+        }
+
+        $renderer = new ImageRenderer(
+            new RendererStyle(150),
+            new SvgImageBackEnd
+        );
+
+        return (new Writer($renderer))->writeString($url);
     }
 }

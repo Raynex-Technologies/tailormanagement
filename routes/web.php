@@ -53,18 +53,25 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
-    return redirect()->route('storefront.home');
+    return module_enabled('storefront')
+        ? redirect()->route('storefront.home')
+        : redirect()->route('dashboard');
 })->name('home');
 
 Route::get('/booking', \App\Livewire\Public\OnlineBookingWizard::class)
-    ->middleware('throttle:web')
+    ->middleware(['module.enabled:bookings', 'throttle:web'])
     ->name('booking.public');
 
 Route::get('/book-appointment', fn () => redirect()->route('booking.public'))
+    ->middleware('module.enabled:bookings')
     ->name('booking.public.alias');
 
+Route::get('/receipts/{token}', [PosSaleController::class, 'publicShow'])
+    ->where('token', '[A-Za-z0-9]{32,80}')
+    ->name('receipts.public.show');
+
 Route::prefix('shop')
-    ->middleware('storefront.enabled')
+    ->middleware(['module.enabled:storefront', 'storefront.enabled'])
     ->name('storefront.')
     ->group(function () {
         Route::get('/', StorefrontHomeController::class)->name('home');
@@ -86,7 +93,7 @@ Route::prefix('shop')
     });
 
 Route::prefix('storefront/payments/pesapal')
-    ->middleware('throttle:storefront-payments')
+    ->middleware(['module.enabled:storefront', 'throttle:storefront-payments'])
     ->name('storefront.payments.')
     ->group(function () {
         Route::get('/callback', [StorefrontPaymentController::class, 'callback'])->name('callback');
@@ -100,6 +107,7 @@ Route::middleware(['auth', 'verified'])
 
 Route::middleware(['auth', 'verified'])
     ->prefix('account')
+    ->middleware('module.enabled:storefront')
     ->name('storefront.account.')
     ->group(function () {
         Route::get('/', [StorefrontAccountController::class, 'dashboard'])->name('dashboard');
@@ -209,7 +217,7 @@ Route::middleware(['auth', 'verified', 'branch.context'])->group(function () {
     | Orders Module (Phase 4)
     |--------------------------------------------------------------------------
     */
-    Route::prefix('orders')->middleware('can:orders.view')->group(function () {
+    Route::prefix('orders')->middleware(['module.enabled:orders', 'can:orders.view'])->group(function () {
         // Orders Management
         Route::get('/', OrdersIndex::class)->name('orders.index');
         Route::get('/create', OrdersForm::class)->middleware('can:orders.create')->name('orders.create');
@@ -224,10 +232,10 @@ Route::middleware(['auth', 'verified', 'branch.context'])->group(function () {
 
     // Order Board (Sales/Receptionist view)
     Route::get('order-board', OrdersBoard::class)
-        ->middleware('can:orders.view')
+        ->middleware(['module.enabled:orders', 'can:orders.view'])
         ->name('orders.board');
 
-    Route::prefix('admin')->group(function () {
+    Route::prefix('admin')->middleware('module.enabled:bookings')->group(function () {
         Route::get('/online-bookings', \App\Livewire\OnlineBookings\Index::class)
             ->middleware('can:online-bookings.view')
             ->name('admin.online-bookings.index');
@@ -247,7 +255,7 @@ Route::middleware(['auth', 'verified', 'branch.context'])->group(function () {
 
     // Payments Index
     Route::get('payments', PaymentsIndex::class)
-        ->middleware('can:payments.view')
+        ->middleware(['module.enabled:orders', 'can:payments.view'])
         ->name('payments.index');
 
     /*
@@ -255,7 +263,7 @@ Route::middleware(['auth', 'verified', 'branch.context'])->group(function () {
     | Invoices
     |--------------------------------------------------------------------------
     */
-    Route::prefix('invoices')->middleware('can:orders.view')->group(function () {
+    Route::prefix('invoices')->middleware(['module.enabled:orders', 'can:orders.view'])->group(function () {
         $invoiceDocumentData = function (Invoice $invoice): array {
             $settings = BusinessSetting::instance();
 
@@ -303,7 +311,7 @@ Route::middleware(['auth', 'verified', 'branch.context'])->group(function () {
     | Delivery Notes (Phase 4)
     |--------------------------------------------------------------------------
     */
-    Route::prefix('delivery-notes')->group(function () {
+    Route::prefix('delivery-notes')->middleware('module.enabled:orders')->group(function () {
         Route::get('/{deliveryNote}', DeliveryNoteShow::class)
             ->middleware('can:delivery_notes.view')
             ->name('delivery-notes.show');
@@ -328,7 +336,7 @@ Route::middleware(['auth', 'verified', 'branch.context'])->group(function () {
     | Store Module - Stock Requests (Phase 5)
     |--------------------------------------------------------------------------
     */
-    Route::prefix('store')->group(function () {
+    Route::prefix('store')->middleware('module.enabled:orders')->group(function () {
         Route::get('/stock-requests', StoreStockRequestsIndex::class)
             ->middleware('can:stock_requests.view')
             ->name('store.stock-requests.index');
@@ -354,7 +362,7 @@ Route::middleware(['auth', 'verified', 'branch.context'])->group(function () {
     | Inventory Module (Phase 3)
     |--------------------------------------------------------------------------
     */
-    Route::prefix('inventory')->middleware('can:inventory.view')->group(function () {
+    Route::prefix('inventory')->middleware(['module.enabled:inventory', 'can:inventory.view'])->group(function () {
         // Stock Dashboard
         Route::get('stock', StockIndex::class)->name('inventory.stock');
 
@@ -387,7 +395,7 @@ Route::middleware(['auth', 'verified', 'branch.context'])->group(function () {
     | Installments Module
     |--------------------------------------------------------------------------
     */
-    Route::prefix('installments')->middleware('can:installments.view')->group(function () {
+    Route::prefix('installments')->middleware(['module.enabled:installments', 'can:installments.view'])->group(function () {
         Route::get('/', InstallmentsDashboard::class)->name('installments.dashboard');
         Route::get('/plans', InstallmentPlansIndex::class)->name('installments.plans.index');
         Route::get('/plans/create', InstallmentPlansForm::class)
@@ -503,6 +511,10 @@ Route::middleware(['auth', 'verified', 'branch.context'])->group(function () {
         ->middleware('can:sms-settings.view')
         ->name('beem-configurations.index');
 
+    Route::get('administration/whatsapp-configurations', \App\Livewire\Sms\WhatsappConfigurations::class)
+        ->middleware('can:sms-settings.view')
+        ->name('whatsapp-configurations.index');
+
     Route::get('administration/settings', AdministrationBusinessSettings::class)
         ->middleware('can:roles.manage')
         ->name('administration.settings');
@@ -511,7 +523,7 @@ Route::middleware(['auth', 'verified', 'branch.context'])->group(function () {
         ->middleware('can:roles.manage')
         ->name('administration.email-setup');
 
-    Route::prefix('administration/storefront')->group(function () {
+    Route::prefix('administration/storefront')->middleware('module.enabled:storefront')->group(function () {
         Route::get('/settings', StorefrontSettingsManager::class)
             ->middleware('can:storefront.settings.manage')
             ->name('administration.storefront.settings');

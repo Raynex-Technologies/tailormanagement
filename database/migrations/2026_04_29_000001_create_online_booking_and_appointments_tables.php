@@ -24,7 +24,7 @@ return new class extends Migration
         if (! Schema::hasTable('garment_option_groups')) {
             Schema::create('garment_option_groups', function (Blueprint $table) {
                 $table->id();
-                $table->foreignId('garment_category_id')->nullable()->constrained()->nullOnDelete();
+                $table->unsignedBigInteger('garment_category_id')->nullable()->index();
                 $table->string('name');
                 $table->string('slug');
                 $table->text('description')->nullable();
@@ -40,7 +40,7 @@ return new class extends Migration
         if (! Schema::hasTable('garment_options')) {
             Schema::create('garment_options', function (Blueprint $table) {
                 $table->id();
-                $table->foreignId('garment_option_group_id')->constrained()->cascadeOnDelete();
+                $table->unsignedBigInteger('garment_option_group_id')->index();
                 $table->string('label');
                 $table->string('value');
                 $table->text('description')->nullable();
@@ -55,7 +55,7 @@ return new class extends Migration
         if (! Schema::hasTable('measurement_fields')) {
             Schema::create('measurement_fields', function (Blueprint $table) {
                 $table->id();
-                $table->foreignId('garment_category_id')->nullable()->constrained()->nullOnDelete();
+                $table->unsignedBigInteger('garment_category_id')->nullable()->index();
                 $table->string('name');
                 $table->string('slug');
                 $table->string('unit')->default('cm');
@@ -70,7 +70,7 @@ return new class extends Migration
         if (! Schema::hasTable('measurement_profiles')) {
             Schema::create('measurement_profiles', function (Blueprint $table) {
                 $table->id();
-                $table->foreignId('customer_id')->nullable()->constrained()->nullOnDelete();
+                $table->unsignedBigInteger('customer_id')->nullable()->index();
                 $table->string('profile_name')->default('Default');
                 $table->string('gender_scope')->nullable();
                 $table->text('notes')->nullable();
@@ -81,8 +81,8 @@ return new class extends Migration
         if (! Schema::hasTable('measurement_values')) {
             Schema::create('measurement_values', function (Blueprint $table) {
                 $table->id();
-                $table->foreignId('measurement_profile_id')->constrained()->cascadeOnDelete();
-                $table->foreignId('measurement_field_id')->constrained()->cascadeOnDelete();
+                $table->unsignedBigInteger('measurement_profile_id');
+                $table->unsignedBigInteger('measurement_field_id');
                 $table->decimal('value', 10, 2)->nullable();
                 $table->string('unit')->default('cm');
                 $table->text('note')->nullable();
@@ -115,8 +115,8 @@ return new class extends Migration
         if (! Schema::hasTable('office_availability_windows')) {
             Schema::create('office_availability_windows', function (Blueprint $table) {
                 $table->id();
-                $table->foreignId('branch_id')->nullable()->constrained()->nullOnDelete();
-                $table->foreignId('appointment_type_id')->nullable()->constrained()->nullOnDelete();
+                $table->unsignedBigInteger('branch_id')->nullable();
+                $table->unsignedBigInteger('appointment_type_id')->nullable();
                 $table->unsignedTinyInteger('day_of_week');
                 $table->time('start_time');
                 $table->time('end_time');
@@ -136,8 +136,8 @@ return new class extends Migration
         if (! Schema::hasTable('office_unavailability_periods')) {
             Schema::create('office_unavailability_periods', function (Blueprint $table) {
                 $table->id();
-                $table->foreignId('branch_id')->nullable()->constrained()->nullOnDelete();
-                $table->foreignId('appointment_type_id')->nullable()->constrained()->nullOnDelete();
+                $table->unsignedBigInteger('branch_id')->nullable();
+                $table->unsignedBigInteger('appointment_type_id')->nullable();
                 $table->string('title');
                 $table->text('reason')->nullable();
                 $table->dateTime('starts_at')->index();
@@ -155,8 +155,8 @@ return new class extends Migration
             Schema::create('online_bookings', function (Blueprint $table) {
                 $table->id();
                 $table->string('booking_number')->unique();
-                $table->foreignId('customer_id')->nullable()->constrained()->nullOnDelete();
-                $table->foreignId('branch_id')->nullable()->constrained()->nullOnDelete();
+                $table->unsignedBigInteger('customer_id')->nullable()->index();
+                $table->unsignedBigInteger('branch_id')->nullable();
                 $table->string('booking_type')->index();
                 $table->string('status')->default('submitted')->index();
                 $table->string('customer_name');
@@ -174,9 +174,9 @@ return new class extends Migration
                 $table->unsignedBigInteger('reviewed_by')->nullable()->index();
                 $table->timestamp('reviewed_at')->nullable();
                 $table->text('decline_reason')->nullable();
-                $table->foreignId('converted_order_id')->nullable()->constrained('orders')->nullOnDelete();
+                $table->unsignedBigInteger('converted_order_id')->nullable()->index();
                 $table->string('measurement_option')->nullable();
-                $table->foreignId('measurement_profile_id')->nullable()->constrained()->nullOnDelete();
+                $table->unsignedBigInteger('measurement_profile_id')->nullable()->index();
                 $table->json('payload')->nullable();
                 $table->text('internal_note')->nullable();
                 $table->timestamps();
@@ -189,8 +189,8 @@ return new class extends Migration
         if (! Schema::hasTable('online_booking_items')) {
             Schema::create('online_booking_items', function (Blueprint $table) {
                 $table->id();
-                $table->foreignId('online_booking_id')->constrained()->cascadeOnDelete();
-                $table->foreignId('garment_category_id')->nullable()->constrained()->nullOnDelete();
+                $table->unsignedBigInteger('online_booking_id')->index();
+                $table->unsignedBigInteger('garment_category_id')->nullable()->index();
                 $table->string('garment_name')->nullable();
                 $table->unsignedInteger('quantity')->default(1);
                 $table->string('fabric_source')->nullable();
@@ -210,9 +210,9 @@ return new class extends Migration
         if (! Schema::hasTable('online_booking_item_options')) {
             Schema::create('online_booking_item_options', function (Blueprint $table) {
                 $table->id();
-                $table->foreignId('online_booking_item_id')->constrained()->cascadeOnDelete();
-                $table->foreignId('garment_option_group_id')->constrained()->cascadeOnDelete();
-                $table->foreignId('garment_option_id')->nullable()->constrained()->nullOnDelete();
+                $table->unsignedBigInteger('online_booking_item_id')->index();
+                $table->unsignedBigInteger('garment_option_group_id')->index();
+                $table->unsignedBigInteger('garment_option_id')->nullable()->index();
                 $table->text('custom_value')->nullable();
                 $table->timestamps();
             });
@@ -221,8 +221,8 @@ return new class extends Migration
         if (! Schema::hasTable('online_booking_images')) {
             Schema::create('online_booking_images', function (Blueprint $table) {
                 $table->id();
-                $table->foreignId('online_booking_id')->constrained()->cascadeOnDelete();
-                $table->foreignId('online_booking_item_id')->nullable()->constrained()->cascadeOnDelete();
+                $table->unsignedBigInteger('online_booking_id')->index();
+                $table->unsignedBigInteger('online_booking_item_id')->nullable()->index();
                 $table->string('uploaded_by_type')->nullable();
                 $table->string('path');
                 $table->string('disk')->default('public_uploads');
@@ -238,10 +238,10 @@ return new class extends Migration
             Schema::create('appointments', function (Blueprint $table) {
                 $table->id();
                 $table->string('appointment_number')->unique();
-                $table->foreignId('online_booking_id')->nullable()->constrained()->nullOnDelete();
-                $table->foreignId('customer_id')->nullable()->constrained()->nullOnDelete();
-                $table->foreignId('branch_id')->nullable()->constrained()->nullOnDelete();
-                $table->foreignId('appointment_type_id')->constrained()->restrictOnDelete();
+                $table->unsignedBigInteger('online_booking_id')->nullable()->index();
+                $table->unsignedBigInteger('customer_id')->nullable()->index();
+                $table->unsignedBigInteger('branch_id')->nullable();
+                $table->unsignedBigInteger('appointment_type_id');
                 $table->dateTime('scheduled_start_at')->index();
                 $table->dateTime('scheduled_end_at')->index();
                 $table->string('status')->default('pending_approval')->index();
@@ -269,7 +269,7 @@ return new class extends Migration
         if (! Schema::hasTable('appointment_reschedule_requests')) {
             Schema::create('appointment_reschedule_requests', function (Blueprint $table) {
                 $table->id();
-                $table->foreignId('appointment_id')->constrained()->cascadeOnDelete();
+                $table->unsignedBigInteger('appointment_id')->index();
                 $table->dateTime('requested_start_at');
                 $table->dateTime('requested_end_at');
                 $table->text('reason')->nullable();
@@ -286,7 +286,7 @@ return new class extends Migration
         if (! Schema::hasTable('appointment_status_histories')) {
             Schema::create('appointment_status_histories', function (Blueprint $table) {
                 $table->id();
-                $table->foreignId('appointment_id')->constrained()->cascadeOnDelete();
+                $table->unsignedBigInteger('appointment_id')->index();
                 $table->string('old_status')->nullable();
                 $table->string('new_status');
                 $table->unsignedBigInteger('changed_by')->nullable()->index();
