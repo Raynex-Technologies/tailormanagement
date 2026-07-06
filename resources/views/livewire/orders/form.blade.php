@@ -323,7 +323,7 @@
                                     required
                                 />
                                 <flux:input
-                                    wire:model.live="lines.{{ $index }}.unit_price"
+                                    wire:model.blur="lines.{{ $index }}.unit_price"
                                     type="number"
                                     step="1"
                                     min="0"

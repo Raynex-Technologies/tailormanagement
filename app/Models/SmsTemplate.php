@@ -3,15 +3,17 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Schema;
 
 class SmsTemplate extends Model
 {
-    protected $fillable = ['templates', 'template_settings'];
+    protected $fillable = ['templates', 'whatsapp_templates', 'template_settings'];
 
     protected function casts(): array
     {
         return [
             'templates' => 'array',
+            'whatsapp_templates' => 'array',
             'template_settings' => 'array',
         ];
     }
@@ -160,6 +162,13 @@ class SmsTemplate extends Model
         return collect(self::templateDefinitions())
             ->map(fn (array $definition) => [
                 'sms_enabled' => (bool) $definition['enabled'],
+                'whatsapp_enabled' => false,
+                'whatsapp_status' => 'not_submitted',
+                'twilio_content_sid' => null,
+                'twilio_approval_request_sid' => null,
+                'twilio_template_name' => null,
+                'twilio_category' => 'UTILITY',
+                'twilio_rejection_reason' => null,
                 'is_active' => true,
                 'category' => $definition['category'],
                 'description' => $definition['description'],
@@ -329,6 +338,13 @@ class SmsTemplate extends Model
 
             $normalized[$code] = array_replace($normalized[$code], [
                 'sms_enabled' => array_key_exists('sms_enabled', $values) ? (bool) $values['sms_enabled'] : $normalized[$code]['sms_enabled'],
+                'whatsapp_enabled' => array_key_exists('whatsapp_enabled', $values) ? (bool) $values['whatsapp_enabled'] : $normalized[$code]['whatsapp_enabled'],
+                'whatsapp_status' => in_array(($values['whatsapp_status'] ?? null), ['not_submitted', 'pending', 'approved', 'rejected'], true) ? $values['whatsapp_status'] : $normalized[$code]['whatsapp_status'],
+                'twilio_content_sid' => $values['twilio_content_sid'] ?? $normalized[$code]['twilio_content_sid'],
+                'twilio_approval_request_sid' => $values['twilio_approval_request_sid'] ?? $normalized[$code]['twilio_approval_request_sid'],
+                'twilio_template_name' => $values['twilio_template_name'] ?? $normalized[$code]['twilio_template_name'],
+                'twilio_category' => $values['twilio_category'] ?? $normalized[$code]['twilio_category'],
+                'twilio_rejection_reason' => $values['twilio_rejection_reason'] ?? $normalized[$code]['twilio_rejection_reason'],
                 'is_active' => array_key_exists('is_active', $values) ? (bool) $values['is_active'] : $normalized[$code]['is_active'],
                 'category' => $values['category'] ?? $normalized[$code]['category'],
                 'description' => $values['description'] ?? $normalized[$code]['description'],
@@ -340,7 +356,7 @@ class SmsTemplate extends Model
 
     public function settingsFor(string $code): ?array
     {
-        $settings = self::normalizeTemplateSettings($this->template_settings ?? []);
+        $settings = self::normalizeTemplateSettings($this->supportsTemplateSettings() ? ($this->template_settings ?? []) : []);
 
         return $settings[$code] ?? null;
     }
@@ -352,6 +368,16 @@ class SmsTemplate extends Model
         return $settings !== null
             && (bool) ($settings['is_active'] ?? false)
             && (bool) ($settings['sms_enabled'] ?? false);
+    }
+
+    public function isWhatsappEnabledFor(string $code): bool
+    {
+        $settings = $this->settingsFor($code);
+
+        return $settings !== null
+            && (bool) ($settings['is_active'] ?? false)
+            && (bool) ($settings['whatsapp_enabled'] ?? false)
+            && ($settings['whatsapp_status'] ?? null) === 'approved';
     }
 
     /** Variables available per category (for UI hints) */
@@ -392,23 +418,61 @@ class SmsTemplate extends Model
     {
         $row = self::first();
         if (! $row) {
-            $row = self::create([
+            $attributes = [
                 'templates' => self::defaultTemplates(),
-                'template_settings' => self::defaultTemplateSettings(),
-            ]);
+            ];
+
+            if (self::supportsWhatsappTemplates()) {
+                $attributes['whatsapp_templates'] = self::defaultTemplates();
+            }
+
+            if (self::supportsTemplateSettings()) {
+                $attributes['template_settings'] = self::defaultTemplateSettings();
+            }
+
+            $row = self::create($attributes);
         } else {
             $normalized = self::normalizeTemplates($row->templates);
-            $normalizedSettings = self::normalizeTemplateSettings($row->template_settings);
+            $updates = [];
 
-            if ($normalized !== ($row->templates ?? []) || $normalizedSettings !== ($row->template_settings ?? [])) {
-                $row->update([
-                    'templates' => $normalized,
-                    'template_settings' => $normalizedSettings,
-                ]);
+            if ($normalized !== ($row->templates ?? [])) {
+                $updates['templates'] = $normalized;
+            }
+
+            if (self::supportsWhatsappTemplates()) {
+                $normalizedWhatsappTemplates = self::normalizeTemplates($row->whatsapp_templates ?? $row->templates);
+
+                if ($normalizedWhatsappTemplates !== ($row->whatsapp_templates ?? [])) {
+                    $updates['whatsapp_templates'] = $normalizedWhatsappTemplates;
+                }
+            }
+
+            if (self::supportsTemplateSettings()) {
+                $normalizedSettings = self::normalizeTemplateSettings($row->template_settings);
+
+                if ($normalizedSettings !== ($row->template_settings ?? [])) {
+                    $updates['template_settings'] = $normalizedSettings;
+                }
+            }
+
+            if ($updates !== []) {
+                $row->update($updates);
                 $row->refresh();
             }
         }
 
         return $row;
+    }
+
+    public static function supportsTemplateSettings(): bool
+    {
+        return Schema::hasTable('sms_templates')
+            && Schema::hasColumn('sms_templates', 'template_settings');
+    }
+
+    public static function supportsWhatsappTemplates(): bool
+    {
+        return Schema::hasTable('sms_templates')
+            && Schema::hasColumn('sms_templates', 'whatsapp_templates');
     }
 }

@@ -2,10 +2,16 @@
 
 namespace App\Livewire\Pos;
 
+use App\Models\BusinessSetting;
 use App\Models\Customer;
 use App\Models\InventoryItem;
+use App\Models\PosSale;
 use App\Services\Pos\PosSaleService;
 use App\Support\BranchContext;
+use BaconQrCode\Renderer\Image\SvgImageBackEnd;
+use BaconQrCode\Renderer\ImageRenderer;
+use BaconQrCode\Renderer\RendererStyle\RendererStyle;
+use BaconQrCode\Writer;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -18,25 +24,41 @@ class PosTerminal extends Component
     use AuthorizesRequests;
 
     public string $itemSearch = '';
+
     public string $customerSearch = '';
+
     public ?int $customerId = null;
+
     public string $selectedCustomerName = '';
 
     /** @var array<int, array{id:int, sku:?string, name:string, price:float, quantity:float, stock:float, discount_amount:float}> */
     public array $cart = [];
 
     public float $discountAmount = 0;
+
     public float $taxAmount = 0;
+
     public float $amountPaid = 0;
+
     public string $paymentMethod = 'cash';
+
     public string $paymentReference = '';
+
     public string $notes = '';
 
     public bool $showCustomerModal = false;
+
     public string $newCustomerName = '';
+
     public ?string $newCustomerPhone = null;
+
     public ?string $newCustomerEmail = null;
+
     public ?string $newCustomerAddress = null;
+
+    public bool $showReceiptModal = false;
+
+    public ?int $completedSaleId = null;
 
     public function mount(): void
     {
@@ -244,7 +266,11 @@ class PosTerminal extends Component
 
         session()->flash('success', "Sale {$sale->sale_number} completed.");
 
-        return $this->redirectRoute('pos.sales.show', ['sale' => $sale->id], navigate: true);
+        $this->completedSaleId = $sale->id;
+        $this->showReceiptModal = true;
+        $this->resetSaleForm();
+
+        return null;
     }
 
     public function getSubtotalProperty(): float
@@ -259,7 +285,9 @@ class PosTerminal extends Component
 
     public function getChangeDueProperty(): float
     {
-        return max(0, $this->amountPaid - $this->total);
+        $amountPaid = (float) (get_object_vars($this)['amountPaid'] ?? 0);
+
+        return max(0, $amountPaid - $this->total);
     }
 
     public function render()
@@ -279,6 +307,9 @@ class PosTerminal extends Component
         return view('livewire.pos.pos-terminal', [
             'items' => $items,
             'customers' => $customers,
+            'completedSale' => $this->completedSale(),
+            'businessSettings' => BusinessSetting::instance(),
+            'receiptQrCodeSvg' => $this->receiptQrCodeSvg(),
         ]);
     }
 
@@ -304,5 +335,49 @@ class PosTerminal extends Component
     {
         $this->reset(['newCustomerName', 'newCustomerPhone', 'newCustomerEmail', 'newCustomerAddress']);
         $this->resetValidation();
+    }
+
+    protected function resetSaleForm(): void
+    {
+        $this->cart = [];
+        $this->customerId = null;
+        $this->selectedCustomerName = '';
+        $this->customerSearch = '';
+        $this->itemSearch = '';
+        $this->discountAmount = 0;
+        $this->taxAmount = 0;
+        $this->amountPaid = 0;
+        $this->paymentMethod = 'cash';
+        $this->paymentReference = '';
+        $this->notes = '';
+        $this->resetErrorBag();
+    }
+
+    protected function completedSale(): ?PosSale
+    {
+        if (! $this->completedSaleId) {
+            return null;
+        }
+
+        return PosSale::query()
+            ->with(['items.inventoryItem', 'customer', 'user', 'branch'])
+            ->find($this->completedSaleId);
+    }
+
+    protected function receiptQrCodeSvg(): ?string
+    {
+        $sale = $this->completedSale();
+        $url = $sale?->public_receipt_url;
+
+        if (! $url) {
+            return null;
+        }
+
+        $renderer = new ImageRenderer(
+            new RendererStyle(150),
+            new SvgImageBackEnd
+        );
+
+        return (new Writer($renderer))->writeString($url);
     }
 }

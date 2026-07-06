@@ -45,6 +45,18 @@ class SmsNotificationSettingsTest extends TestCase
         $this->assertFalse($settings['order_status_change']['sms_enabled']);
     }
 
+    public function test_notification_template_toggles_render_with_stable_unique_keys(): void
+    {
+        $this->actingAsRole('admin');
+
+        Livewire::test(BeemConfigurations::class)
+            ->set('tab', 'notifications')
+            ->assertSee('sms-template-toggle-pos_sale_completed', false)
+            ->assertSee('sms-template-toggle-booking_verification', false)
+            ->assertSee('sms-template-toggle-custom_campaign', false)
+            ->assertSee('sms-template-toggle-promotional_message', false);
+    }
+
     public function test_unauthorized_user_cannot_update_sms_notification_settings(): void
     {
         $this->actingAsRole('sales');

@@ -4,7 +4,9 @@ namespace App\Livewire\Sms\Logs;
 
 use App\Enums\SmsStatus;
 use App\Models\SmsLog;
+use App\Services\Sms\SmsService;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Support\Carbon;
 use Livewire\Component;
 use Livewire\WithPagination;
 
@@ -13,13 +15,25 @@ class Index extends Component
     use AuthorizesRequests, WithPagination;
 
     public string $search = '';
+
     public ?string $statusFilter = null;
+
     public ?string $dateFrom = null;
+
     public ?string $dateTo = null;
+
+    public bool $includeResolvedFailures = false;
 
     // Detail modal
     public bool $showDetailModal = false;
+
     public ?SmsLog $selectedLog = null;
+
+    public bool $showRetryModal = false;
+
+    public ?string $retryDateFrom = null;
+
+    public ?string $retryDateTo = null;
 
     protected string $paginationTheme = 'tailwind';
 
@@ -28,6 +42,7 @@ class Index extends Component
         'statusFilter' => ['except' => null],
         'dateFrom' => ['except' => null],
         'dateTo' => ['except' => null],
+        'includeResolvedFailures' => ['except' => false],
     ];
 
     public function mount(): void
@@ -41,6 +56,11 @@ class Index extends Component
     }
 
     public function updatingStatusFilter(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatingIncludeResolvedFailures(): void
     {
         $this->resetPage();
     }
@@ -62,6 +82,7 @@ class Index extends Component
         $this->statusFilter = null;
         $this->dateFrom = null;
         $this->dateTo = null;
+        $this->includeResolvedFailures = false;
         $this->resetPage();
     }
 
@@ -77,6 +98,61 @@ class Index extends Component
         $this->selectedLog = null;
     }
 
+    public function openRetryModal(): void
+    {
+        $this->authorize('sms.send');
+
+        $this->retryDateFrom = $this->dateFrom ?: now()->toDateString();
+        $this->retryDateTo = $this->dateTo ?: now()->toDateString();
+        $this->showRetryModal = true;
+    }
+
+    public function retryFailedMessages(SmsService $smsService): void
+    {
+        $this->authorize('sms.send');
+
+        $this->validate([
+            'retryDateFrom' => ['required', 'date'],
+            'retryDateTo' => ['required', 'date', 'after_or_equal:retryDateFrom'],
+        ]);
+
+        $from = Carbon::parse($this->retryDateFrom)->startOfDay();
+        $to = Carbon::parse($this->retryDateTo)->endOfDay();
+
+        $failedLogs = SmsLog::query()
+            ->with('reference')
+            ->unresolvedFailedRetries()
+            ->whereBetween('created_at', [$from, $to])
+            ->oldest()
+            ->get();
+
+        $retried = 0;
+        $resolved = 0;
+
+        foreach ($failedLogs as $log) {
+            $retryLog = $smsService->retryFailedLog($log, auth()->user());
+            $retried++;
+
+            if ($retryLog->status === SmsStatus::Sent) {
+                $resolved++;
+            }
+        }
+
+        $this->showRetryModal = false;
+        $this->resetPage();
+
+        session()->flash(
+            $retried > 0 ? 'success' : 'error',
+            $retried > 0
+                ? trans_choice(
+                    'Retried :count failed message; :resolved was sent successfully and is now hidden from unresolved failures.|Retried :count failed messages; :resolved were sent successfully and are now hidden from unresolved failures.',
+                    $retried,
+                    ['count' => $retried, 'resolved' => $resolved]
+                )
+                : __('No failed messages were found in the selected date range.')
+        );
+    }
+
     public function getSmsStatusesProperty(): array
     {
         return SmsStatus::cases();
@@ -87,6 +163,10 @@ class Index extends Component
         $query = SmsLog::query()
             ->with(['reference', 'creator'])
             ->latest();
+
+        if (! $this->includeResolvedFailures) {
+            $query->withoutResolvedFailedRetries();
+        }
 
         // Search filter
         if ($this->search) {
@@ -117,10 +197,16 @@ class Index extends Component
         $logs = $query->paginate(20);
 
         // Aggregate stats
+        $totalQuery = SmsLog::query();
+        if (! $this->includeResolvedFailures) {
+            $totalQuery->withoutResolvedFailedRetries();
+        }
+
         $stats = [
-            'total' => SmsLog::count(),
+            'total' => $totalQuery->count(),
             'sent' => SmsLog::where('status', SmsStatus::Sent)->count(),
-            'failed' => SmsLog::where('status', SmsStatus::Failed)->count(),
+            'failed' => SmsLog::query()->unresolvedFailedRetries()->count(),
+            'resolved' => SmsLog::query()->resolvedFailedRetries()->count(),
             'queued' => SmsLog::where('status', SmsStatus::Queued)->count(),
             'skipped' => SmsLog::where('status', SmsStatus::Skipped)->count(),
         ];

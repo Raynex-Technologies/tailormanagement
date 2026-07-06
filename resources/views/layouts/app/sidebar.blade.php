@@ -16,6 +16,11 @@
                 ? route('calendar.index')
                 : url('/calendar');
             $systemUiCssVariables = $systemUiCssVariables ?? \App\Support\SystemUiSettings::cssVariables();
+            $storefrontModuleEnabled = module_enabled('storefront');
+            $bookingsModuleEnabled = module_enabled('bookings');
+            $ordersModuleEnabled = module_enabled('orders');
+            $inventoryModuleEnabled = module_enabled('inventory');
+            $installmentsModuleEnabled = module_enabled('installments');
         @endphp
 
         <style>
@@ -294,6 +299,7 @@
                 </div>
 
                 {{-- Orders Group (Permission-based) --}}
+                @if ($ordersModuleEnabled)
                 @canany(['orders.view', 'users.view'])
                 <div class="nav-group">
                     <h3 class="px-3 mb-2 text-[0.65rem] font-semibold uppercase tracking-wider text-white/35">{{ __('Orders') }}</h3>
@@ -361,7 +367,9 @@
                     @endcan
                 </div>
                 @endcanany
+                @endif
 
+                @if ($bookingsModuleEnabled)
                 @canany(['online-bookings.view', 'appointments.view', 'availability.view', 'garment-options.view'])
                 <div class="nav-group">
                     <h3 class="px-3 mb-2 text-[0.65rem] font-semibold uppercase tracking-wider text-white/35">{{ __('Bookings') }}</h3>
@@ -391,8 +399,10 @@
                     @endcan
                 </div>
                 @endcanany
+                @endif
 
                 {{-- Storefront Group --}}
+                @if ($storefrontModuleEnabled)
                 @canany(['storefront.settings.manage', 'storefront.catalog.manage', 'storefront.cms.manage', 'storefront.shipping.manage', 'storefront.orders.manage', 'storefront.payments.manage'])
                 <div class="nav-group">
                     <h3 class="px-3 mb-2 text-[0.65rem] font-semibold uppercase tracking-wider text-white/35">{{ __('Storefront') }}</h3>
@@ -453,8 +463,10 @@
                     @endcan
                 </div>
                 @endcanany
+                @endif
 
                 {{-- Inventory Group (Permission-based) --}}
+                @if ($inventoryModuleEnabled)
                 @canany(['inventory.view', 'pos.view'])
                 <div class="nav-group">
                     <h3 class="px-3 mb-2 text-[0.65rem] font-semibold uppercase tracking-wider text-white/35">{{ __('Inventory') }}</h3>
@@ -528,8 +540,10 @@
                     @endcan
                 </div>
                 @endcanany
+                @endif
 
                 {{-- Installments Group --}}
+                @if ($installmentsModuleEnabled)
                 @can('installments.view')
                 <div class="nav-group">
                     <h3 class="px-3 mb-2 text-[0.65rem] font-semibold uppercase tracking-wider text-white/35">{{ __('Installments') }}</h3>
@@ -575,8 +589,10 @@
                     @endcan
                 </div>
                 @endcan
+                @endif
 
                 {{-- Store Group (for Storekeeper) --}}
+                @if ($ordersModuleEnabled)
                 @canany(['stock_requests.review', 'stock_requests.fulfill'])
                 <div class="nav-group">
                     <h3 class="px-3 mb-2 text-[0.65rem] font-semibold uppercase tracking-wider text-white/35">{{ __('Store') }}</h3>
@@ -591,6 +607,7 @@
                     </a>
                 </div>
                 @endcanany
+                @endif
 
                 {{-- Procurement Group --}}
                 @can('procurement.view')
@@ -796,6 +813,14 @@
                         <i class="fa-duotone fa-sliders size-5"></i>
                         {{ __('SMS Settings') }}
                     </a>
+                    <a
+                        href="{{ route('whatsapp-configurations.index') }}"
+                        wire:navigate
+                        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('whatsapp-configurations.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}"
+                    >
+                        <i class="fa-brands fa-whatsapp size-5"></i>
+                        {{ __('WhatsApp Settings') }}
+                    </a>
                     @can('roles.manage')
                     <a
                         href="{{ route('administration.email-setup') }}"
@@ -890,6 +915,7 @@
                         @endcan
                     </div>
 
+                    @if ($ordersModuleEnabled)
                     @canany(['orders.view', 'users.view'])
                     <div class="nav-group">
                         <h3 class="px-3 mb-2 text-[0.65rem] font-semibold uppercase tracking-wider text-white/35">{{ __('Orders') }}</h3>
@@ -935,7 +961,9 @@
                         @endcan
                     </div>
                     @endcanany
+                    @endif
 
+                    @if ($bookingsModuleEnabled)
                     @canany(['online-bookings.view', 'appointments.view', 'availability.view', 'garment-options.view'])
                     <div class="nav-group">
                         <h3 class="px-3 mb-2 text-[0.65rem] font-semibold uppercase tracking-wider text-white/35">{{ __('Bookings') }}</h3>
@@ -969,7 +997,9 @@
                         @endcan
                     </div>
                     @endcanany
+                    @endif
 
+                    @if ($storefrontModuleEnabled)
                     @canany(['storefront.settings.manage', 'storefront.catalog.manage', 'storefront.cms.manage', 'storefront.shipping.manage', 'storefront.orders.manage', 'storefront.payments.manage'])
                     <div class="nav-group">
                         <h3 class="px-3 mb-2 text-[0.65rem] font-semibold uppercase tracking-wider text-white/35">{{ __('Storefront') }}</h3>
@@ -1015,7 +1045,9 @@
                         @endcan
                     </div>
                     @endcanany
+                    @endif
 
+                    @if ($inventoryModuleEnabled)
                     @canany(['inventory.view', 'pos.view'])
                     <div class="nav-group">
                         <h3 class="px-3 mb-2 text-[0.65rem] font-semibold uppercase tracking-wider text-white/35">{{ __('Inventory') }}</h3>
@@ -1063,7 +1095,9 @@
                         @endcan
                     </div>
                     @endcanany
+                    @endif
 
+                    @if ($installmentsModuleEnabled)
                     @can('installments.view')
                     <div class="nav-group">
                         <h3 class="px-3 mb-2 text-[0.65rem] font-semibold uppercase tracking-wider text-white/35">{{ __('Installments') }}</h3>
@@ -1093,6 +1127,7 @@
                         @endcan
                     </div>
                     @endcan
+                    @endif
 
                     @can('roles.manage')
                     <div class="nav-group">
@@ -1108,6 +1143,11 @@
                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('beem-configurations.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
                             <i class="fa-duotone fa-sliders size-5"></i>
                             {{ __('SMS Settings') }}
+                        </a>
+                        <a href="{{ route('whatsapp-configurations.index') }}" wire:navigate @click="sidebarOpen = false"
+                           class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('whatsapp-configurations.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
+                            <i class="fa-brands fa-whatsapp size-5"></i>
+                            {{ __('WhatsApp Settings') }}
                         </a>
                         <a href="{{ route('administration.email-setup') }}" wire:navigate @click="sidebarOpen = false"
                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('administration.email-setup') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">

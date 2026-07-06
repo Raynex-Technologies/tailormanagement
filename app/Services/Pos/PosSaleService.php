@@ -2,8 +2,8 @@
 
 namespace App\Services\Pos;
 
-use App\Models\Customer;
 use App\Models\BusinessSetting;
+use App\Models\Customer;
 use App\Models\InventoryItem;
 use App\Models\PosSale;
 use App\Models\User;
@@ -131,6 +131,7 @@ class PosSaleService
             $sale = PosSale::create([
                 'branch_id' => $branchId,
                 'sale_number' => $this->nextSaleNumber(),
+                'receipt_token' => $this->newReceiptToken(),
                 'customer_id' => $customerId,
                 'user_id' => $cashier->id,
                 'subtotal' => $subtotal,
@@ -222,7 +223,7 @@ class PosSaleService
             ->where('sale_number', 'like', $pattern)
             ->pluck('sale_number')
             ->map(function ($number) use ($year) {
-                if (! is_string($number) || ! preg_match('/^POS-' . $year . '-(\d+)$/', $number, $matches)) {
+                if (! is_string($number) || ! preg_match('/^POS-'.$year.'-(\d+)$/', $number, $matches)) {
                     return 0;
                 }
 
@@ -236,5 +237,14 @@ class PosSaleService
         } while (DB::table('pos_sales')->where('sale_number', $candidate)->exists());
 
         return $candidate;
+    }
+
+    protected function newReceiptToken(): string
+    {
+        do {
+            $token = Str::random(48);
+        } while (DB::table('pos_sales')->where('receipt_token', $token)->exists());
+
+        return $token;
     }
 }

@@ -59,3 +59,10 @@ if (! function_exists('app_ui_color')) {
         return SystemUiSettings::color($key);
     }
 }
+
+if (! function_exists('module_enabled')) {
+    function module_enabled(string $module): bool
+    {
+        return (bool) config("modules.{$module}.enabled", true);
+    }
+}

@@ -25,10 +25,15 @@
                 <flux:heading size="xl">{{ __('SMS Logs') }}</flux:heading>
                 <flux:text class="text-zinc-500">{{ __('View all SMS messages sent from the system.') }}</flux:text>
             </div>
+            @can('sms.send')
+                <flux:button type="button" variant="primary" icon="arrow-path" wire:click="openRetryModal">
+                    {{ __('Retry Failed') }}
+                </flux:button>
+            @endcan
         </div>
 
         {{-- Stats Cards --}}
-        <div class="mt-6 grid grid-cols-2 gap-4 md:grid-cols-5">
+        <div class="mt-6 grid grid-cols-2 gap-4 md:grid-cols-6">
             <div class="rounded-lg bg-zinc-50 p-4 dark:bg-zinc-800">
                 <flux:text class="text-sm text-zinc-500">{{ __('Total') }}</flux:text>
                 <flux:heading size="xl">{{ number_format($stats['total']) }}</flux:heading>
@@ -40,6 +45,10 @@
             <div class="rounded-lg bg-red-50 p-4 dark:bg-red-900/30">
                 <flux:text class="text-sm text-red-600 dark:text-red-400">{{ __('Failed') }}</flux:text>
                 <flux:heading size="xl" class="text-red-700 dark:text-red-300">{{ number_format($stats['failed']) }}</flux:heading>
+            </div>
+            <div class="rounded-lg bg-blue-50 p-4 dark:bg-blue-900/30">
+                <flux:text class="text-sm text-blue-600 dark:text-blue-400">{{ __('Resolved') }}</flux:text>
+                <flux:heading size="xl" class="text-blue-700 dark:text-blue-300">{{ number_format($stats['resolved']) }}</flux:heading>
             </div>
             <div class="rounded-lg bg-amber-50 p-4 dark:bg-amber-900/30">
                 <flux:text class="text-sm text-amber-600 dark:text-amber-400">{{ __('Queued') }}</flux:text>
@@ -97,7 +106,13 @@
                 <flux:label for="dateTo">{{ __('To Date') }}</flux:label>
                 <flux:input type="date" id="dateTo" wire:model.blur="dateTo" />
             </div>
-            @if ($search || $statusFilter || $dateFrom || $dateTo)
+            <div class="w-full md:w-auto">
+                <flux:checkbox
+                    wire:model.live="includeResolvedFailures"
+                    label="{{ __('Include resolved failed attempts') }}"
+                />
+            </div>
+            @if ($search || $statusFilter || $dateFrom || $dateTo || $includeResolvedFailures)
                 <flux:button size="sm" variant="ghost" wire:click="clearFilters">
                     <x-icon name="close" class="mr-1 size-4" />
                     {{ __('Clear Filters') }}
@@ -269,5 +284,45 @@
                 </div>
             </div>
         @endif
+    </flux:modal>
+
+    <flux:modal wire:model="showRetryModal" class="w-full max-w-lg">
+        <form wire:submit="retryFailedMessages" class="space-y-5">
+            <div>
+                <flux:heading size="lg">{{ __('Retry Failed Messages') }}</flux:heading>
+                <flux:text class="mt-1 block text-sm text-zinc-500 dark:text-zinc-400">
+                    {{ __('Select a date range. Failed messages in that range will be sent again as new attempts.') }}
+                </flux:text>
+            </div>
+
+            <div class="grid gap-4 sm:grid-cols-2">
+                <div>
+                    <flux:input type="date" wire:model.blur="retryDateFrom" label="{{ __('From Date') }}" required />
+                    @error('retryDateFrom')
+                        <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+                    @enderror
+                </div>
+                <div>
+                    <flux:input type="date" wire:model.blur="retryDateTo" label="{{ __('To Date') }}" required />
+                    @error('retryDateTo')
+                        <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+                    @enderror
+                </div>
+            </div>
+
+            <flux:callout variant="warning" icon="exclamation-triangle">
+                {{ __('Original failed logs will remain unchanged. Successful retry attempts hide the original failures from unresolved failed logs by default.') }}
+            </flux:callout>
+
+            <div class="flex justify-end gap-3 pt-2">
+                <flux:button type="button" variant="ghost" wire:click="$set('showRetryModal', false)">
+                    {{ __('Cancel') }}
+                </flux:button>
+                <flux:button type="submit" variant="primary" icon="arrow-path" wire:loading.attr="disabled">
+                    <span wire:loading.remove wire:target="retryFailedMessages">{{ __('Retry Messages') }}</span>
+                    <span wire:loading wire:target="retryFailedMessages">{{ __('Retrying...') }}</span>
+                </flux:button>
+            </div>
+        </form>
     </flux:modal>
 </flux:main>

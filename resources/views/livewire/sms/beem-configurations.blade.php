@@ -124,8 +124,8 @@
                     </flux:callout>
                 @endunless
 
-                @foreach (collect($templateSettings)->groupBy('category') as $group => $settings)
-                    <flux:card>
+                @foreach (collect($templateSettings)->groupBy('category', preserveKeys: true) as $group => $settings)
+                    <flux:card wire:key="sms-template-group-{{ \Illuminate\Support\Str::slug($group) }}">
                         <div class="mb-4 flex items-center justify-between">
                             <flux:heading size="lg">{{ __($group) }}</flux:heading>
                             <span class="rounded-full bg-zinc-100 px-3 py-1 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
@@ -135,7 +135,7 @@
 
                         <div class="divide-y divide-zinc-200 dark:divide-zinc-700">
                             @foreach ($settings as $code => $setting)
-                                <div class="flex flex-col gap-3 py-4 md:flex-row md:items-center md:justify-between">
+                                <div wire:key="sms-template-toggle-row-{{ $code }}" class="flex flex-col gap-3 py-4 md:flex-row md:items-center md:justify-between">
                                     <div class="min-w-0">
                                         <div class="flex flex-wrap items-center gap-2">
                                             <h3 class="text-sm font-semibold text-zinc-900 dark:text-white">{{ $categoryLabels[$code] ?? \Illuminate\Support\Str::headline($code) }}</h3>
@@ -146,7 +146,12 @@
                                         <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">{{ $setting['description'] ?? __('SMS notification template.') }}</p>
                                         <code class="mt-2 inline-block rounded bg-zinc-100 px-2 py-1 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">{{ $code }}</code>
                                     </div>
-                                    <flux:switch wire:model.live="templateEnabled.{{ $code }}" />
+                                    <flux:switch
+                                        id="sms-template-toggle-{{ $code }}"
+                                        wire:key="sms-template-toggle-{{ $code }}"
+                                        wire:model.live="templateEnabled.{{ $code }}"
+                                        aria-label="{{ $categoryLabels[$code] ?? \Illuminate\Support\Str::headline($code) }}"
+                                    />
                                 </div>
                             @endforeach
                         </div>
