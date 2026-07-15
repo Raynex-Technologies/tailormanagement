@@ -165,6 +165,9 @@ class RolesAndPermissionsSeeder extends Seeder
             // Point of Sale
             'pos.view',
             'pos.sell',
+            'sales.view.own',
+            'sales.view.branch',
+            'sales.view.all',
 
             // Inventory
             'inventory.view',
@@ -302,6 +305,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 // Point of Sale
                 'pos.view',
                 'pos.sell',
+                'sales.view.branch',
                 // Inventory - FULL ACCESS
                 'inventory.view',
                 'inventory.items.manage',
@@ -408,6 +412,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 // Point of Sale
                 'pos.view',
                 'pos.sell',
+                'sales.view.branch',
                 // Inventory - FULL ACCESS
                 'inventory.view',
                 'inventory.items.manage',
@@ -494,6 +499,7 @@ class RolesAndPermissionsSeeder extends Seeder
                 // Point of Sale
                 'pos.view',
                 'pos.sell',
+                'sales.view.own',
                 // Inventory - VIEW ONLY
                 'inventory.view',
                 // Capital - VIEW ONLY (admin assigns allocations)

@@ -23,6 +23,28 @@
             @endcan
         </div>
 
+        {{-- Payments Card (show when user can create payments) --}}
+        @if ($canCreatePayments)
+            <div class="mb-6">
+                <flux:card>
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <flux:heading size="md">{{ __('Payments') }}</flux:heading>
+                            <flux:text class="text-zinc-500">{{ __('Record and view payments related to orders.') }}</flux:text>
+                        </div>
+
+                        @if ($canViewPayments)
+                            <div class="flex items-center gap-2">
+                                <flux:button variant="outline" :href="route('payments.index')" wire:navigate>
+                                    {{ __('View Payments') }}
+                                </flux:button>
+                            </div>
+                        @endif
+                    </div>
+                </flux:card>
+            </div>
+        @endif
+
         {{-- Flash Messages --}}
         @if (session('success'))
             <div class="mb-4 rounded-xl border border-green-200 bg-green-50 p-4 text-green-800 dark:border-green-800 dark:bg-green-900/20 dark:text-green-400">

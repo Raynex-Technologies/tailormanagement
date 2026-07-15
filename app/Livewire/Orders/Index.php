@@ -6,6 +6,7 @@ use App\Enums\OrderStatus;
 use App\Enums\Priority;
 use App\Models\Order;
 use App\Models\User;
+use App\Support\PaymentPermissions;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
@@ -125,6 +126,8 @@ class Index extends Component
             'priorities' => $priorities,
             'tailors' => $tailors,
             'canViewFinancials' => $canViewFinancials,
+            'canCreatePayments' => PaymentPermissions::canCreate($user),
+            'canViewPayments' => PaymentPermissions::canView($user),
         ]);
     }
 

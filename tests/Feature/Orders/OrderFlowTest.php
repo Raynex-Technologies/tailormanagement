@@ -7,15 +7,50 @@ use App\Enums\PaymentStatus;
 use App\Livewire\Orders\Form as OrderForm;
 use App\Livewire\Orders\Show as OrderShow;
 use App\Models\Customer;
+use App\Models\InventoryItem;
+use App\Models\InventoryTransaction;
 use App\Models\Order;
 use App\Models\OrderExpense;
 use App\Models\OrderLine;
 use App\Models\OrderPayment;
+use App\Models\PaymentMethod;
 use Livewire\Livewire;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class OrderFlowTest extends TestCase
 {
+    public function test_order_show_record_payment_panel_requires_create_not_view_permission(): void
+    {
+        PaymentMethod::query()->updateOrCreate(
+            ['id' => 1],
+            ['name' => 'Default']
+        );
+
+        $role = Role::create(['name' => 'payment_creator_only', 'guard_name' => 'web']);
+        $role->givePermissionTo(['orders.view', 'orders.view_financials', 'payments.create']);
+
+        $user = $this->createUserWithRole('payment_creator_only', $this->branch);
+        $this->actingAs($user);
+
+        $customer = Customer::factory()->create(['branch_id' => $this->branch->id]);
+        $order = Order::create([
+            'branch_id' => $this->branch->id,
+            'customer_id' => $customer->id,
+            'status' => OrderStatus::New,
+            'due_date' => now()->addDays(7),
+            'subtotal' => 50000,
+            'discount' => 0,
+            'total' => 50000,
+            'payment_status' => PaymentStatus::Unpaid,
+            'created_by' => $user->id,
+        ]);
+
+        Livewire::test(OrderShow::class, ['order' => $order])
+            ->assertSee('Record Payment')
+            ->assertDontSee('Payment History');
+    }
+
     public function test_order_creation_writes_totals_correctly(): void
     {
         $user = $this->actingAsRole('sales', $this->branch);
@@ -77,6 +112,84 @@ class OrderFlowTest extends TestCase
         ]);
 
         $this->assertEquals($this->branch->id, $order->branch_id);
+    }
+
+    public function test_create_order_can_attach_inventory_item_with_custom_price_and_decrease_stock(): void
+    {
+        $this->actingAsRole('branch_manager', $this->branch);
+        $customer = Customer::factory()->create(['branch_id' => $this->branch->id]);
+        $item = InventoryItem::factory()->create([
+            'branch_id' => $this->branch->id,
+            'name' => 'Premium Lining',
+            'default_sell_price' => 5000,
+        ]);
+        $item->stock()->update(['qty_on_hand' => 10, 'qty_reserved' => 0]);
+
+        Livewire::test(OrderForm::class)
+            ->set('customer_id', $customer->id)
+            ->call('addInventoryLine', $item->id)
+            ->set('lines.0.qty', 2)
+            ->set('lines.0.unit_price', 6500)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $order = Order::query()->with('lines')->latest('id')->first();
+
+        $this->assertNotNull($order);
+        $this->assertEquals(13000.0, (float) $order->subtotal);
+        $this->assertEquals(13000.0, (float) $order->total);
+
+        $line = $order->lines->first();
+        $this->assertSame($item->id, (int) $line->inventory_item_id);
+        $this->assertSame('Premium Lining', $line->item_name);
+        $this->assertEquals(6500.0, (float) $line->unit_price);
+        $this->assertEquals(2.0, (float) $line->qty);
+
+        $this->assertEquals(8.0, (float) $item->stock()->first()->qty_on_hand);
+        $this->assertDatabaseHas('inventory_transactions', [
+            'inventory_item_id' => $item->id,
+            'reference_type' => OrderLine::class,
+            'reference_id' => $line->id,
+            'type' => 'issue',
+            'qty' => -2,
+        ]);
+    }
+
+    public function test_edit_order_inventory_quantity_resyncs_stock_without_over_returning(): void
+    {
+        $this->actingAsRole('branch_manager', $this->branch);
+        $customer = Customer::factory()->create(['branch_id' => $this->branch->id]);
+        $item = InventoryItem::factory()->create([
+            'branch_id' => $this->branch->id,
+            'name' => 'Cotton Roll',
+            'default_sell_price' => 3000,
+        ]);
+        $item->stock()->update(['qty_on_hand' => 10, 'qty_reserved' => 0]);
+
+        Livewire::test(OrderForm::class)
+            ->set('customer_id', $customer->id)
+            ->call('addInventoryLine', $item->id)
+            ->set('lines.0.qty', 2)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $order = Order::query()->with('lines')->latest('id')->first();
+        $this->assertEquals(8.0, (float) $item->stock()->first()->qty_on_hand);
+
+        Livewire::test(OrderForm::class, ['order' => $order])
+            ->set('lines.0.qty', 4)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertEquals(6.0, (float) $item->stock()->first()->qty_on_hand);
+
+        $line = $order->lines()->first();
+        $netQty = InventoryTransaction::query()
+            ->where('reference_type', OrderLine::class)
+            ->where('reference_id', $line->id)
+            ->sum('qty');
+
+        $this->assertEquals(-4.0, (float) $netQty);
     }
 
     public function test_status_transitions_enforce_forward_only_rules(): void

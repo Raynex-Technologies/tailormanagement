@@ -12,6 +12,7 @@ use App\Models\InventoryStock;
 use App\Models\Order;
 use App\Models\OrderExpense;
 use App\Models\OrderPayment;
+use App\Models\PosSale;
 use App\Models\PurchaseRequest;
 use App\Models\User;
 use App\Support\BranchContext;
@@ -95,9 +96,20 @@ class DashboardStats
             ->whereBetween('paid_at', [$startOfMonth, $endOfMonth])
             ->sum('amount');
 
+        $posSalesThisMonth = (float) PosSale::query()
+            ->whereBetween('sold_at', [$startOfMonth, $endOfMonth])
+            ->sum('total_amount');
+
         $paymentsLastMonth = (float) OrderPayment::query()
             ->whereBetween('paid_at', [$startOfLastMonth, $endOfLastMonth])
             ->sum('amount');
+
+        $posSalesLastMonth = (float) PosSale::query()
+            ->whereBetween('sold_at', [$startOfLastMonth, $endOfLastMonth])
+            ->sum('total_amount');
+
+        $revenueThisMonth = $paymentsThisMonth + $posSalesThisMonth;
+        $revenueLastMonth = $paymentsLastMonth + $posSalesLastMonth;
 
         $storefrontPaymentsThisMonth = (float) OrderPayment::query()
             ->whereBetween('paid_at', [$startOfMonth, $endOfMonth])
@@ -110,10 +122,13 @@ class DashboardStats
             ->sum('amount');
 
         return [
-            'payments_today_sum' => (float) OrderPayment::whereDate('paid_at', $today)->sum('amount'),
-            'payments_month_sum' => $paymentsThisMonth,
-            'payments_last_month_sum' => $paymentsLastMonth,
-            'payments_month_change_pct' => $this->percentageChange($paymentsThisMonth, $paymentsLastMonth),
+            'payments_today_sum' => (float) OrderPayment::whereDate('paid_at', $today)->sum('amount')
+                + (float) PosSale::whereDate('sold_at', $today)->sum('total_amount'),
+            'payments_month_sum' => $revenueThisMonth,
+            'payments_last_month_sum' => $revenueLastMonth,
+            'payments_month_change_pct' => $this->percentageChange($revenueThisMonth, $revenueLastMonth),
+            'pos_sales_month_sum' => $posSalesThisMonth,
+            'pos_sales_last_month_sum' => $posSalesLastMonth,
             'storefront_payments_month_sum' => $storefrontPaymentsThisMonth,
             'storefront_payments_last_month_sum' => $storefrontPaymentsLastMonth,
             'storefront_payments_month_change_pct' => $this->percentageChange(
@@ -240,6 +255,8 @@ class DashboardStats
                 'payments_month_sum' => 0,
                 'payments_last_month_sum' => 0,
                 'payments_month_change_pct' => 0.0,
+                'pos_sales_month_sum' => 0,
+                'pos_sales_last_month_sum' => 0,
                 'storefront_payments_month_sum' => 0,
                 'storefront_payments_last_month_sum' => 0,
                 'storefront_payments_month_change_pct' => 0.0,

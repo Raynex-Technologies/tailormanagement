@@ -271,11 +271,72 @@
             <flux:card>
                 <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <flux:heading size="lg">Order Lines</flux:heading>
-                    <flux:button size="sm" variant="subtle" wire:click="addLine" type="button">
-                        <x-icon name="add" class="mr-1 size-4" />
-                        Add Item
-                    </flux:button>
+                    <div class="flex flex-wrap gap-2">
+                        <flux:button size="sm" variant="subtle" wire:click="toggleInventoryPicker" type="button">
+                            <x-icon name="inventory_2" class="mr-1 size-4" />
+                            Inventory Items
+                        </flux:button>
+                        <flux:button size="sm" variant="subtle" wire:click="addLine" type="button">
+                            <x-icon name="add" class="mr-1 size-4" />
+                            Add Item
+                        </flux:button>
+                    </div>
                 </div>
+
+                @if ($showInventoryPicker)
+                    <div class="mb-5 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-800">
+                        <div class="mb-3 grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
+                            <flux:input
+                                wire:model.live.debounce.300ms="inventorySearch"
+                                label="Inventory search"
+                                placeholder="Search inventory by name or SKU"
+                                icon="magnifying-glass"
+                            />
+                            @if ($showBranchSelector && !$isEdit && !$branch_id)
+                                <p class="text-sm text-amber-600 dark:text-amber-300">Select a branch to list inventory.</p>
+                            @endif
+                        </div>
+
+                        @if ($inventoryItems->isNotEmpty())
+                            <div class="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+                                @foreach ($inventoryItems as $item)
+                                    @php
+                                        $availableQty = (float) ($item->stock?->qty_on_hand ?? 0) - (float) ($item->stock?->qty_reserved ?? 0);
+                                    @endphp
+                                    <button
+                                        type="button"
+                                        wire:click="addInventoryLine({{ $item->id }})"
+                                        class="rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-left transition hover:border-indigo-300 hover:bg-indigo-50 dark:border-zinc-700 dark:bg-zinc-900/40 dark:hover:border-indigo-700 dark:hover:bg-indigo-900/20"
+                                    >
+                                        <div class="flex items-start justify-between gap-3">
+                                            <div class="min-w-0">
+                                                <p class="truncate text-sm font-medium text-zinc-900 dark:text-white">{{ $item->name }}</p>
+                                                <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                                                    {{ $item->sku ?: 'No SKU' }} @if($item->unit) &bull; {{ $item->unit }} @endif
+                                                </p>
+                                            </div>
+                                            <span class="shrink-0 font-mono text-sm text-zinc-900 dark:text-white">{{ number_format((float) $item->default_sell_price, 0) }}</span>
+                                        </div>
+                                        <div class="mt-2 flex items-center justify-between text-xs">
+                                            <span class="text-zinc-500 dark:text-zinc-400">Available</span>
+                                            <span class="{{ $availableQty > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400' }}">
+                                                {{ rtrim(rtrim(number_format($availableQty, 2), '0'), '.') }}
+                                            </span>
+                                        </div>
+                                    </button>
+                                @endforeach
+                            </div>
+                        @else
+                            <p class="rounded-lg border border-dashed border-zinc-300 p-4 text-sm text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+                                No inventory items found for this branch.
+                            </p>
+                        @endif
+
+                        @error('inventorySearch')
+                            <p class="mt-2 text-sm text-red-500">{{ $message }}</p>
+                        @enderror
+                    </div>
+                @endif
 
                 @php
                     $hasOrderTailor = (int) ($assigned_tailor_id ?? 0) > 0;
@@ -286,7 +347,12 @@
                         <div class="rounded-xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-800/50" wire:key="line-{{ $index }}">
                             {{-- Line Header --}}
                             <div class="mb-4 flex items-start justify-between">
-                                <flux:badge size="sm">Item {{ $index + 1 }}</flux:badge>
+                                <div class="flex flex-wrap items-center gap-2">
+                                    <flux:badge size="sm">Item {{ $index + 1 }}</flux:badge>
+                                    @if (! empty($line['inventory_item_id']))
+                                        <flux:badge size="sm" color="lime">Inventory</flux:badge>
+                                    @endif
+                                </div>
                                 @if (count($lines) > 1)
                                     <flux:button size="xs" variant="ghost" wire:click="removeLine({{ $index }})" type="button" title="Remove Item">
                                         <x-icon name="delete" class="size-4 text-red-500" />
@@ -303,6 +369,12 @@
                                         placeholder="e.g. Men's Suit"
                                         required
                                     />
+                                    @if (! empty($line['sku']))
+                                        <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">SKU: {{ $line['sku'] }}</p>
+                                    @endif
+                                    @error("lines.$index.inventory_item_id")
+                                        <p class="mt-1 text-sm text-red-500">{{ $message }}</p>
+                                    @enderror
                                 </div>
                                 @can('orders.assign_tailor')
                                     @if (!$hasOrderTailor)
@@ -317,11 +389,14 @@
                                 <flux:input
                                     wire:model.live="lines.{{ $index }}.qty"
                                     type="number"
-                                    step="1"
-                                    min="1"
+                                    step="0.01"
+                                    min="0.01"
                                     label="Qty"
                                     required
                                 />
+                                @error("lines.$index.qty")
+                                    <p class="text-sm text-red-500">{{ $message }}</p>
+                                @enderror
                                 <flux:input
                                     wire:model.blur="lines.{{ $index }}.unit_price"
                                     type="number"

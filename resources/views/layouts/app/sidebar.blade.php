@@ -467,7 +467,7 @@
 
                 {{-- Inventory Group (Permission-based) --}}
                 @if ($inventoryModuleEnabled)
-                @canany(['inventory.view', 'pos.view'])
+                @canany(['inventory.view', 'pos.view', 'sales.view.own', 'sales.view.branch', 'sales.view.all'])
                 <div class="nav-group">
                     <h3 class="px-3 mb-2 text-[0.65rem] font-semibold uppercase tracking-wider text-white/35">{{ __('Inventory') }}</h3>
 
@@ -481,6 +481,17 @@
                         {{ __('POS') }}
                     </a>
                     @endcan
+
+                    @canany(['sales.view.own', 'sales.view.branch', 'sales.view.all'])
+                    <a
+                        href="{{ route('inventory.sales.index') }}"
+                        wire:navigate
+                        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('inventory.sales.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}"
+                    >
+                        <i class="fa-duotone fa-receipt size-5"></i>
+                        {{ __('Sales') }}
+                    </a>
+                    @endcanany
 
                     @can('inventory.view')
                     
@@ -1048,7 +1059,7 @@
                     @endif
 
                     @if ($inventoryModuleEnabled)
-                    @canany(['inventory.view', 'pos.view'])
+                    @canany(['inventory.view', 'pos.view', 'sales.view.own', 'sales.view.branch', 'sales.view.all'])
                     <div class="nav-group">
                         <h3 class="px-3 mb-2 text-[0.65rem] font-semibold uppercase tracking-wider text-white/35">{{ __('Inventory') }}</h3>
 
@@ -1059,6 +1070,14 @@
                             {{ __('POS') }}
                         </a>
                         @endcan
+
+                        @canany(['sales.view.own', 'sales.view.branch', 'sales.view.all'])
+                        <a href="{{ route('inventory.sales.index') }}" wire:navigate @click="sidebarOpen = false"
+                           class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('inventory.sales.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
+                            <i class="fa-duotone fa-receipt size-5"></i>
+                            {{ __('Sales') }}
+                        </a>
+                        @endcanany
 
                         @can('inventory.view')
 

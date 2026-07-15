@@ -5,6 +5,7 @@ namespace App\Policies;
 use App\Enums\OrderStatus;
 use App\Models\Order;
 use App\Models\User;
+use App\Support\PaymentPermissions;
 
 class OrderPolicy
 {
@@ -109,7 +110,7 @@ class OrderPolicy
      */
     public function recordPayments(User $user, Order $order): bool
     {
-        if (! $user->can('payments.create')) {
+        if (! PaymentPermissions::canCreate($user)) {
             return false;
         }
 

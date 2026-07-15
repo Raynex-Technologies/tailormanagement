@@ -47,12 +47,6 @@ class PosSaleService
             ]);
         }
 
-        if ($paymentMethod !== 'cash' && blank($paymentReference)) {
-            throw ValidationException::withMessages([
-                'paymentReference' => ['Payment reference is required for non-cash payments.'],
-            ]);
-        }
-
         $branchId = BranchContext::getEffectiveBranchId();
 
         if ($customerId !== null) {

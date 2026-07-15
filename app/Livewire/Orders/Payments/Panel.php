@@ -17,25 +17,33 @@ class Panel extends Component
 
     // Authorization flags
     public bool $canViewPayments = false;
+
     public bool $canRecordPayments = false;
 
     // Payment form fields
     public bool $showPaymentModal = false;
+
     public ?float $amount = null;
+
     public ?int $payment_method_id = null;
+
     public ?string $reference = null;
+
     public ?string $paidAt = null;
+
     public ?string $note = null;
 
     // Payment summary (cached)
     public float $totalAmount = 0;
+
     public float $paidAmount = 0;
+
     public float $balanceAmount = 0;
 
     protected function rules(): array
     {
         return [
-            'amount' => ['required', 'numeric', 'min:0.01', 'max:' . ($this->balanceAmount + 0.01)],
+            'amount' => ['required', 'numeric', 'min:0.01', 'max:'.($this->balanceAmount + 0.01)],
             'payment_method_id' => ['required', 'integer', 'exists:payment_methods,id'],
             'reference' => ['nullable', 'string', 'max:100'],
             'paidAt' => ['nullable', 'date'],
@@ -46,7 +54,7 @@ class Panel extends Component
     protected function messages(): array
     {
         return [
-            'amount.max' => 'Amount cannot exceed remaining balance of ' . money_tzs($this->balanceAmount),
+            'amount.max' => 'Amount cannot exceed remaining balance of '.money_tzs($this->balanceAmount),
         ];
     }
 
@@ -55,16 +63,18 @@ class Panel extends Component
         $user = auth()->user();
         $orderIsCancelled = $order->status === OrderStatus::Cancelled;
 
-        // Check permissions - this panel should only be rendered if user can view payments
-        // but we double-check here for security
+        // Users who can view payments can see history; users who can record
+        // payments can access the card and modal without history access.
         $this->canViewPayments = $user->can('viewPayments', $order);
         $this->canRecordPayments = ! $orderIsCancelled && $user->can('recordPayments', $order);
 
-        if (! $this->canViewPayments) {
-            abort(403, 'You do not have permission to view payments.');
+        if (! $this->canViewPayments && ! $this->canRecordPayments) {
+            abort(403, 'You do not have permission to access payments for this order.');
         }
 
-        $this->order = $order->load('payments.receiver', 'payments.paymentMethod');
+        $this->order = $this->canViewPayments
+            ? $order->load('payments.receiver', 'payments.paymentMethod')
+            : $order;
         $this->refreshSummary();
         $this->payment_method_id = $this->getDefaultPaymentMethodId();
     }
@@ -136,7 +146,7 @@ class Panel extends Component
         } catch (\Illuminate\Validation\ValidationException $e) {
             throw $e;
         } catch (\Exception $e) {
-            session()->flash('error', 'Failed to record payment: ' . $e->getMessage());
+            session()->flash('error', 'Failed to record payment: '.$e->getMessage());
         }
     }
 
@@ -167,8 +177,11 @@ class Panel extends Component
     public function render()
     {
         return view('livewire.orders.payments.panel', [
-            'payments' => $this->order->payments()->with(['receiver', 'paymentMethod'])->latest('paid_at')->get(),
+            'payments' => $this->canViewPayments
+                ? $this->order->payments()->with(['receiver', 'paymentMethod'])->latest('paid_at')->get()
+                : collect(),
             'paymentMethods' => $this->paymentMethods,
+            'canViewPayments' => $this->canViewPayments,
             'canRecordPayments' => $this->canRecordPayments,
         ]);
     }

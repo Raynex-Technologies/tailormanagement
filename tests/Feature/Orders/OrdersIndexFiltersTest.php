@@ -9,10 +9,28 @@ use App\Models\Customer;
 use App\Models\Order;
 use Illuminate\Support\Facades\DB;
 use Livewire\Livewire;
+use Spatie\Permission\Models\Permission;
+use Spatie\Permission\Models\Role;
 use Tests\TestCase;
 
 class OrdersIndexFiltersTest extends TestCase
 {
+    public function test_orders_index_shows_payments_card_for_legacy_payment_create_permission(): void
+    {
+        Permission::firstOrCreate(['name' => 'payment.create', 'guard_name' => 'web']);
+
+        $role = Role::create(['name' => 'legacy_payment_creator', 'guard_name' => 'web']);
+        $role->givePermissionTo(['orders.view', 'payment.create']);
+
+        $user = $this->createUserWithRole('legacy_payment_creator', $this->branch);
+        $this->actingAs($user);
+
+        Livewire::test(OrdersIndex::class)
+            ->assertSee('Payments')
+            ->assertSee('Record and view payments related to orders.')
+            ->assertDontSee('View Payments');
+    }
+
     public function test_orders_management_sorts_by_order_date_desc(): void
     {
         $user = $this->actingAsRole('branch_manager', $this->branch);

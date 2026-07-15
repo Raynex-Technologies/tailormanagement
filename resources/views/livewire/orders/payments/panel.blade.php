@@ -32,7 +32,7 @@
     </flux:card>
 
     {{-- Payment History Table --}}
-    @if ($payments->isNotEmpty())
+    @if ($canViewPayments && $payments->isNotEmpty())
         <flux:card>
             <flux:heading size="md" class="mb-4">{{ __('Payment History') }}</flux:heading>
 
@@ -85,7 +85,7 @@
                 </flux:table.rows>
             </flux:table>
         </flux:card>
-    @else
+    @elseif ($canViewPayments)
         <flux:card>
             <div class="py-6 text-center">
                 <x-icon name="payments" class="mx-auto size-12 text-zinc-300 dark:text-zinc-600" />

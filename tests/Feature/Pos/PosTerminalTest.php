@@ -9,8 +9,8 @@ use App\Models\InventoryItem;
 use App\Models\PosSale;
 use App\Models\SmsLog;
 use App\Models\SmsTemplate;
-use App\Services\Sms\SmsNotificationGate;
 use App\Services\Pos\PosSaleService;
+use App\Services\Sms\SmsNotificationGate;
 use Illuminate\Validation\ValidationException;
 use Livewire\Livewire;
 use Tests\TestCase;
@@ -125,6 +125,26 @@ class PosTerminalTest extends TestCase
         $this->get(route('pos.sales.show', $sale))
             ->assertOk()
             ->assertSee('Walk-in Customer');
+    }
+
+    public function test_non_cash_sale_can_be_completed_without_payment_reference(): void
+    {
+        $user = $this->actingAsRole('sales', $this->branch);
+        $item = $this->createSellableItem(stock: 5, price: 1500);
+
+        $sale = app(PosSaleService::class)->complete(
+            cart: [['inventory_item_id' => $item->id, 'quantity' => 1]],
+            cashier: $user,
+            customerId: null,
+            discountAmount: 0,
+            taxAmount: 0,
+            amountPaid: 1500,
+            paymentMethod: 'mobile_money',
+            paymentReference: null
+        );
+
+        $this->assertSame('mobile_money', $sale->payment_method);
+        $this->assertNull($sale->payment_reference);
     }
 
     public function test_sale_can_be_completed_with_selected_customer(): void

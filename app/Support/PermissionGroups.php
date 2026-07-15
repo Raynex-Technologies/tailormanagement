@@ -52,6 +52,9 @@ class PermissionGroups
         'Point of Sale' => [
             'pos.view',
             'pos.sell',
+            'sales.view.own',
+            'sales.view.branch',
+            'sales.view.all',
         ],
         'Inventory' => [
             'inventory.view',

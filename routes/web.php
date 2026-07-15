@@ -22,6 +22,8 @@ use App\Livewire\Installments\Plans\Index as InstallmentPlansIndex;
 use App\Livewire\Installments\Plans\Show as InstallmentPlansShow;
 use App\Livewire\Inventory\Categories\Index as CategoriesIndex;
 use App\Livewire\Inventory\Items\Index as ItemsIndex;
+use App\Livewire\Inventory\Sales\Index as InventorySalesIndex;
+use App\Livewire\Inventory\Sales\Show as InventorySalesShow;
 use App\Livewire\Inventory\Stock\Index as StockIndex;
 use App\Livewire\Inventory\Suppliers\Index as InventorySuppliersIndex;
 use App\Livewire\Inventory\Transactions\Index as TransactionsIndex;
@@ -380,6 +382,11 @@ Route::middleware(['auth', 'verified', 'branch.context'])->group(function () {
 
         // Transaction History
         Route::get('transactions', TransactionsIndex::class)->name('inventory.transactions.index');
+    });
+
+    Route::prefix('inventory/sales')->middleware(['module.enabled:inventory', 'can:viewAny,App\Models\PosSale'])->group(function () {
+        Route::get('/', InventorySalesIndex::class)->name('inventory.sales.index');
+        Route::get('/{sale}', InventorySalesShow::class)->name('inventory.sales.show');
     });
 
     Route::prefix('pos')->middleware('can:pos.view')->group(function () {

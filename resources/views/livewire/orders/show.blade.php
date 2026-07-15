@@ -657,7 +657,7 @@
                 @endif
 
                 {{-- Payments Panel --}}
-                @if ($canViewPayments)
+                @if ($canViewPayments || $canRecordPayments)
                     <livewire:orders.payments.panel :order="$order" wire:key="payments-panel-{{ $order->id }}" />
                 @endif
             </div>

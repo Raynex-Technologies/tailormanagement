@@ -7,12 +7,41 @@ use App\Enums\PaymentStatus;
 use App\Models\Customer;
 use App\Models\Order;
 use App\Models\OrderPayment;
+use App\Models\PosSale;
 use App\Reports\SalesReport;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
 
 class SalesReportDateFilterTest extends TestCase
 {
+    public function test_sales_report_summary_includes_pos_sales(): void
+    {
+        $user = $this->actingAsRole('accountant', $this->branch);
+
+        PosSale::create([
+            'branch_id' => $this->branch->id,
+            'sale_number' => 'POS-TEST-001',
+            'user_id' => $user->id,
+            'subtotal' => 12000,
+            'discount_amount' => 0,
+            'tax_amount' => 0,
+            'total_amount' => 12000,
+            'amount_paid' => 12000,
+            'change_amount' => 0,
+            'payment_method' => 'cash',
+            'status' => 'completed',
+            'sold_at' => now(),
+        ]);
+
+        $report = new SalesReport([
+            'date_from' => now()->toDateString(),
+            'date_to' => now()->toDateString(),
+        ]);
+
+        $this->assertEquals(12000.0, $report->summary()['total_received']);
+        $this->assertContains('POS-TEST-001', $report->rows(50)->getCollection()->pluck('document_no')->all());
+    }
+
     public function test_sales_report_page_uses_live_filter_bindings(): void
     {
         $this->actingAsRole('accountant', $this->branch);

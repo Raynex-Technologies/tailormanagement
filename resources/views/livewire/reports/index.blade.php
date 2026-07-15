@@ -111,7 +111,7 @@
 
             <dl class="divide-y divide-zinc-100 dark:divide-zinc-700/50">
                 <div class="flex items-center justify-between px-5 py-4">
-                    <dt class="text-sm text-zinc-600 dark:text-zinc-300">{{ __('Revenue (Payments Received)') }}</dt>
+                    <dt class="text-sm text-zinc-600 dark:text-zinc-300">{{ __('Revenue (Payments + POS Sales)') }}</dt>
                     <dd class="text-sm font-semibold text-emerald-600 dark:text-emerald-400">{{ money_tzs($summary['income_total']) }}</dd>
                 </div>
                 <div class="flex items-center justify-between px-5 py-4">
@@ -143,7 +143,7 @@
             </div>
 
             <div class="rounded-2xl bg-white dark:bg-zinc-800/50 p-5 shadow-sm border border-zinc-200/50 dark:border-zinc-700/50">
-                <p class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('Payments Captured') }}</p>
+                <p class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('Revenue Entries') }}</p>
                 <p class="mt-1 text-2xl font-bold text-zinc-900 dark:text-white">{{ number_format($summary['payments_count']) }}</p>
             </div>
 

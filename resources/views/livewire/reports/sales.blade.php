@@ -15,7 +15,7 @@
                 </div>
                 <div>
                     <h1 class="text-xl font-bold text-zinc-900 dark:text-white">{{ __('Sales Report') }}</h1>
-                    <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">{{ __('Payment transactions and revenue analysis.') }}</p>
+                    <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">{{ __('Order payments, POS sales, and revenue analysis.') }}</p>
                 </div>
             </div>
             @can('reports.export')
@@ -38,7 +38,7 @@
                     <option value="{{ $m->id }}">{{ $m->name }}</option>
                 @endforeach
             </flux:select>
-            <flux:input wire:model.live.debounce.300ms="search" placeholder="{{ __('Search order/customer...') }}" label="{{ __('Search') }}" icon="magnifying-glass" />
+            <flux:input wire:model.live.debounce.300ms="search" placeholder="{{ __('Search sale, order, or customer...') }}" label="{{ __('Search') }}" icon="magnifying-glass" />
             <div class="flex items-end">
                 <flux:button wire:click="resetFilters" variant="ghost" size="sm">
                     <i class="fa-duotone fa-xmark mr-1 size-4"></i>
@@ -63,7 +63,7 @@
                 <i class="fa-duotone fa-hashtag size-5 text-indigo-500"></i>
             </div>
             <p class="text-3xl font-bold tracking-tight text-zinc-900 dark:text-white">{{ number_format($this->summary['total_count']) }}</p>
-            <p class="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">{{ __('Number of Payments') }}</p>
+            <p class="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">{{ __('Revenue Entries') }}</p>
         </div>
 
         <div class="rounded-2xl bg-white dark:bg-zinc-800/50 p-5 shadow-sm border border-zinc-200/50 dark:border-zinc-700/50">
@@ -91,8 +91,8 @@
                     <i class="fa-duotone fa-table-list size-5 text-emerald-600 dark:text-emerald-400"></i>
                 </div>
                 <div>
-                    <h2 class="text-lg font-semibold text-zinc-900 dark:text-white">{{ __('Payment Transactions') }}</h2>
-                    <p class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('Individual payment records for the selected period') }}</p>
+                    <h2 class="text-lg font-semibold text-zinc-900 dark:text-white">{{ __('Revenue Entries') }}</h2>
+                    <p class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('Order payments and POS sales for the selected period') }}</p>
                 </div>
             </div>
         </div>
@@ -101,8 +101,9 @@
             <table class="min-w-full divide-y divide-zinc-200 dark:divide-zinc-700">
                 <thead>
                     <tr class="text-left text-xs font-medium uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-                        <th class="px-4 py-3">{{ __('Order Date') }}</th>
-                        <th class="px-4 py-3">{{ __('Order No') }}</th>
+                        <th class="px-4 py-3">{{ __('Type') }}</th>
+                        <th class="px-4 py-3">{{ __('Date') }}</th>
+                        <th class="px-4 py-3">{{ __('Document') }}</th>
                         <th class="px-4 py-3">{{ __('Customer') }}</th>
                         <th class="px-4 py-3 text-right">{{ __('Amount') }}</th>
                         <th class="px-4 py-3">{{ __('Method') }}</th>
@@ -114,16 +115,21 @@
                     @forelse($this->rows as $row)
                         <tr class="text-sm text-zinc-900 dark:text-zinc-100 hover:bg-zinc-50 dark:hover:bg-zinc-800/50">
                             <td class="px-4 py-3 whitespace-nowrap">
-                                {{
-                                    $row->order_date
-                                        ? \Carbon\Carbon::parse($row->order_date)->format('M d, Y')
-                                        : \Carbon\Carbon::parse($row->order_created_at)->format('M d, Y')
-                                }}
+                                <flux:badge size="sm">{{ $row->source_label }}</flux:badge>
                             </td>
                             <td class="px-4 py-3 whitespace-nowrap">
-                                <a href="{{ route('orders.show', $row->order_id) }}" wire:navigate class="font-medium text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300">
-                                    {{ $row->order_no }}
-                                </a>
+                                {{ \Carbon\Carbon::parse($row->sale_date)->format('M d, Y') }}
+                            </td>
+                            <td class="px-4 py-3 whitespace-nowrap">
+                                @if ($row->source_type === 'pos_sale')
+                                    <a href="{{ route('inventory.sales.show', $row->pos_sale_id) }}" wire:navigate class="font-medium text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300">
+                                        {{ $row->document_no }}
+                                    </a>
+                                @else
+                                    <a href="{{ route('orders.show', $row->order_id) }}" wire:navigate class="font-medium text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300">
+                                        {{ $row->document_no }}
+                                    </a>
+                                @endif
                             </td>
                             <td class="px-4 py-3">{{ $row->customer_name }}</td>
                             <td class="px-4 py-3 text-right font-medium">{{ money_tzs($row->amount) }}</td>
@@ -133,15 +139,15 @@
                                 </span>
                             </td>
                             <td class="px-4 py-3 text-zinc-500">{{ $row->reference ?? '-' }}</td>
-                            <td class="px-4 py-3">{{ $row->received_by_name ?? '-' }}</td>
+                            <td class="px-4 py-3">{{ $row->cashier_name ?? '-' }}</td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="7" class="px-4 py-16 text-center">
+                            <td colspan="8" class="px-4 py-16 text-center">
                                 <div class="flex items-center justify-center size-14 rounded-2xl mx-auto mb-3 bg-zinc-100 dark:bg-zinc-800">
                                     <i class="fa-duotone fa-money-bills size-7 text-zinc-400 dark:text-zinc-500"></i>
                                 </div>
-                                <p class="text-sm font-medium text-zinc-900 dark:text-white">{{ __('No payments found') }}</p>
+                                <p class="text-sm font-medium text-zinc-900 dark:text-white">{{ __('No revenue entries found') }}</p>
                                 <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">{{ __('Try adjusting the filters or date range.') }}</p>
                             </td>
                         </tr>

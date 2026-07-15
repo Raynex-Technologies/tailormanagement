@@ -11,6 +11,8 @@ use App\Models\Branch;
 use App\Models\BusinessSetting;
 use App\Models\Customer;
 use App\Models\Invoice;
+use App\Models\InventoryItem;
+use App\Models\InventoryTransaction;
 use App\Models\Order;
 use App\Models\OrderExpense;
 use App\Models\OrderLine;
@@ -18,8 +20,10 @@ use App\Models\OrderMeasurement;
 use App\Models\OrderPayment;
 use App\Models\PaymentMethod;
 use App\Models\User;
+use App\Services\Inventory\StockMovementService;
 use App\Support\BranchContext;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -77,6 +81,8 @@ class Form extends Component
 
     // Order lines
     public array $lines = [];
+    public bool $showInventoryPicker = false;
+    public string $inventorySearch = '';
 
     // Deposit (create only, optional)
     #[Validate('nullable|numeric|min:0', as: 'deposit amount')]
@@ -168,6 +174,8 @@ class Form extends Component
 
             $this->lines[] = [
                 'id' => $line->id,
+                'inventory_item_id' => $line->inventory_item_id,
+                'sku' => $line->sku,
                 'assigned_tailor_id' => $line->assigned_tailor_id,
                 'item_name' => $line->item_name,
                 'qty' => (float) $line->qty,
@@ -201,6 +209,8 @@ class Form extends Component
     {
         $this->lines[] = [
             'id' => null,
+            'inventory_item_id' => null,
+            'sku' => null,
             'assigned_tailor_id' => null,
             'item_name' => '',
             'qty' => 1,
@@ -212,6 +222,62 @@ class Form extends Component
             ],
         ];
 
+        $this->syncOrderExpensesWithSelectedTailors();
+    }
+
+    public function toggleInventoryPicker(): void
+    {
+        $this->showInventoryPicker = ! $this->showInventoryPicker;
+    }
+
+    public function addInventoryLine(int $inventoryItemId): void
+    {
+        $branchId = $this->getEffectiveBranchIdForInventory();
+
+        if (! $branchId) {
+            $this->addError('branch_id', 'Select a branch before adding inventory items.');
+
+            return;
+        }
+
+        $item = InventoryItem::query()
+            ->with('stock')
+            ->whereKey($inventoryItemId)
+            ->where('branch_id', $branchId)
+            ->where('is_active', true)
+            ->first();
+
+        if (! $item) {
+            $this->addError('inventorySearch', 'Selected inventory item is not available for this branch.');
+
+            return;
+        }
+
+        $newLine = [
+            'id' => null,
+            'inventory_item_id' => $item->id,
+            'sku' => $item->sku,
+            'assigned_tailor_id' => null,
+            'item_name' => $item->name,
+            'qty' => 1,
+            'unit_price' => (float) ($item->default_sell_price ?? 0),
+            'line_total' => (float) ($item->default_sell_price ?? 0),
+            'notes' => '',
+            'measurements' => [
+                ['key' => '', 'value' => ''],
+            ],
+        ];
+
+        if (count($this->lines) === 1
+            && empty($this->lines[0]['id'])
+            && empty($this->lines[0]['item_name'])
+            && empty($this->lines[0]['inventory_item_id'])) {
+            $this->lines[0] = $newLine;
+        } else {
+            $this->lines[] = $newLine;
+        }
+
+        $this->calculateTotals();
         $this->syncOrderExpensesWithSelectedTailors();
     }
 
@@ -459,6 +525,8 @@ class Form extends Component
         $this->assigned_tailor_id = null;
         $this->lines = array_values(array_map(function ($line) {
             $line['assigned_tailor_id'] = null;
+            $line['inventory_item_id'] = null;
+            $line['sku'] = null;
 
             return $line;
         }, $this->lines));
@@ -669,6 +737,19 @@ class Form extends Component
         return auth()->user()?->branch_id;
     }
 
+    protected function getEffectiveBranchIdForInventory(): ?int
+    {
+        if ($this->isEdit && $this->order) {
+            return $this->order->branch_id;
+        }
+
+        if (auth()->user()?->isGlobalAdmin()) {
+            return $this->branch_id;
+        }
+
+        return auth()->user()?->branch_id;
+    }
+
     public function getSelectedCustomerProperty(): ?Customer
     {
         if (! $this->customer_id) {
@@ -714,6 +795,7 @@ class Form extends Component
             'order_expenses.*.amount' => ['nullable', 'numeric', 'min:0.01'],
             'assigned_tailor_id' => ['nullable', 'integer', 'exists:users,id'],
             'lines' => ['required', 'array', 'min:1'],
+            'lines.*.inventory_item_id' => ['nullable', 'integer', 'exists:inventory_items,id'],
             'lines.*.assigned_tailor_id' => ['nullable', 'integer', 'exists:users,id'],
             'lines.*.item_name' => ['required', 'string', 'max:191'],
             'lines.*.qty' => ['required', 'numeric', 'min:0.01'],
@@ -739,6 +821,10 @@ class Form extends Component
         }
 
         if (! $this->validateTailorAssignments($effectiveBranchId)) {
+            return;
+        }
+
+        if (! $this->validateInventoryLines($effectiveBranchId)) {
             return;
         }
 
@@ -852,6 +938,8 @@ class Form extends Component
 
                     $lineAttributes = [
                         'order_id' => $order->id,
+                        'inventory_item_id' => ($lineData['inventory_item_id'] ?? null) ?: null,
+                        'sku' => $lineData['sku'] ?? null,
                         'assigned_tailor_id' => $lineData['assigned_tailor_id'] ?: null,
                         'item_name' => $lineData['item_name'],
                         'qty' => $lineData['qty'],
@@ -872,6 +960,7 @@ class Form extends Component
                     }
 
                     $existingLineIds[] = $line->id;
+                    $this->syncInventoryStockForLine($line, (float) $lineData['qty']);
 
                     // Handle measurements
                     $measurements = [];
@@ -894,7 +983,14 @@ class Form extends Component
 
                 // Delete removed lines
                 if ($this->isEdit) {
-                    $order->lines()->whereNotIn('id', $existingLineIds)->delete();
+                    $removedLines = $order->lines()
+                        ->whereNotIn('id', $existingLineIds)
+                        ->get();
+
+                    foreach ($removedLines as $removedLine) {
+                        $this->returnIssuedInventoryForLine($removedLine);
+                        $removedLine->delete();
+                    }
                 }
 
                 // Create deposit payment on new order if amount given
@@ -971,8 +1067,133 @@ class Form extends Component
             session()->flash('success', $this->isEdit ? 'Order updated successfully.' : 'Order created successfully.');
             $this->redirect(route('orders.show', $this->order), navigate: true);
 
+        } catch (ValidationException $e) {
+            throw $e;
         } catch (\Exception $e) {
             $this->addError('save', 'Failed to save order: '.$e->getMessage());
+        }
+    }
+
+    protected function validateInventoryLines(int $branchId): bool
+    {
+        $inventoryItemIds = collect($this->lines)
+            ->pluck('inventory_item_id')
+            ->filter()
+            ->map(fn ($id) => (int) $id)
+            ->unique()
+            ->values();
+
+        if ($inventoryItemIds->isEmpty()) {
+            return true;
+        }
+
+        $items = InventoryItem::query()
+            ->with('stock')
+            ->whereIn('id', $inventoryItemIds->all())
+            ->where('branch_id', $branchId)
+            ->where('is_active', true)
+            ->get()
+            ->keyBy('id');
+
+        $isValid = true;
+        $requestedQtyByItem = [];
+        $existingIssuedQtyByItem = [];
+
+        foreach ($this->lines as $index => $line) {
+            $itemId = (int) ($line['inventory_item_id'] ?? 0);
+            if ($itemId <= 0) {
+                continue;
+            }
+
+            $item = $items->get($itemId);
+            if (! $item) {
+                $this->addError("lines.{$index}.inventory_item_id", 'Selected inventory item must belong to this order branch.');
+                $isValid = false;
+
+                continue;
+            }
+
+            $requestedQty = (float) ($line['qty'] ?? 0);
+            $requestedQtyByItem[$itemId] = ($requestedQtyByItem[$itemId] ?? 0) + $requestedQty;
+
+            $alreadyIssuedForLine = ! empty($line['id'])
+                ? max(0, -1 * (float) InventoryTransaction::query()
+                    ->where('reference_type', OrderLine::class)
+                    ->where('reference_id', $line['id'])
+                    ->where('inventory_item_id', $itemId)
+                    ->sum('qty'))
+                : 0.0;
+
+            $existingIssuedQtyByItem[$itemId] = ($existingIssuedQtyByItem[$itemId] ?? 0) + $alreadyIssuedForLine;
+        }
+
+        foreach ($requestedQtyByItem as $itemId => $requestedQty) {
+            $item = $items->get($itemId);
+            if (! $item) {
+                continue;
+            }
+
+            $available = (float) ($item->stock?->qty_on_hand ?? 0) + (float) ($existingIssuedQtyByItem[$itemId] ?? 0);
+
+            if ($available < $requestedQty) {
+                $this->addError('lines', "{$item->name} has only {$available} available.");
+                $isValid = false;
+            }
+        }
+
+        return $isValid;
+    }
+
+    protected function syncInventoryStockForLine(OrderLine $line, float $newQty): void
+    {
+        $this->returnIssuedInventoryForLine($line, 'inventory updated');
+
+        if (! $line->inventory_item_id || $newQty <= 0) {
+            return;
+        }
+
+        $item = InventoryItem::query()
+            ->whereKey($line->inventory_item_id)
+            ->where('branch_id', $line->order?->branch_id)
+            ->firstOrFail();
+
+        app(StockMovementService::class)->issue(
+            item: $item,
+            qty: $newQty,
+            note: "Order {$line->order?->order_no}",
+            actor: auth()->user(),
+            reference: $line
+        );
+    }
+
+    protected function returnIssuedInventoryForLine(OrderLine $line, string $reason = 'line removed'): void
+    {
+        $netIssuedByItem = InventoryTransaction::query()
+            ->where('reference_type', OrderLine::class)
+            ->where('reference_id', $line->id)
+            ->selectRaw('inventory_item_id, SUM(qty) as net_qty')
+            ->groupBy('inventory_item_id')
+            ->get();
+
+        foreach ($netIssuedByItem as $transaction) {
+            $qtyToReturn = max(0, -1 * (float) $transaction->net_qty);
+
+            if ($qtyToReturn <= 0) {
+                continue;
+            }
+
+            $item = InventoryItem::query()->find($transaction->inventory_item_id);
+            if (! $item) {
+                continue;
+            }
+
+            app(StockMovementService::class)->return(
+                item: $item,
+                qty: $qtyToReturn,
+                note: "Order {$line->order?->order_no} {$reason}",
+                actor: auth()->user(),
+                reference: $line
+            );
         }
     }
 
@@ -1014,6 +1235,25 @@ class Form extends Component
             ->orderBy('name')
             ->get(['id', 'name', 'account_number', 'account_holder_name']);
 
+        $inventoryItems = collect();
+        $inventoryBranchId = $this->getEffectiveBranchIdForInventory();
+        if ($inventoryBranchId) {
+            $inventoryItems = InventoryItem::query()
+                ->with('stock')
+                ->where('branch_id', $inventoryBranchId)
+                ->where('is_active', true)
+                ->when(trim($this->inventorySearch) !== '', function ($query) {
+                    $search = trim($this->inventorySearch);
+                    $query->where(function ($q) use ($search) {
+                        $q->where('name', 'like', "%{$search}%")
+                            ->orWhere('sku', 'like', "%{$search}%");
+                    });
+                })
+                ->orderBy('name')
+                ->limit(12)
+                ->get(['id', 'branch_id', 'sku', 'name', 'default_sell_price', 'unit']);
+        }
+
         // Get branches for global admin selector
         $branches = $this->showBranchSelector
             ? Branch::active()->orderBy('name')->get(['id', 'name'])
@@ -1026,6 +1266,7 @@ class Form extends Component
             'priorities' => $priorities,
             'branches' => $branches,
             'paymentMethods' => $paymentMethods,
+            'inventoryItems' => $inventoryItems,
             'allowOrderDatesFlexibility' => $this->allowsOrderDatesFlexibility(),
         ])->title($this->getTitle());
     }

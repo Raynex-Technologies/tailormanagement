@@ -27,6 +27,7 @@ use App\Models\OnlineBooking;
 use App\Models\Order;
 use App\Models\OrderStockRequest;
 use App\Models\Package;
+use App\Models\PosSale;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseRequest;
 use App\Models\User;
@@ -49,6 +50,7 @@ use App\Policies\OnlineBookingPolicy;
 use App\Policies\OrderPolicy;
 use App\Policies\OrderStockRequestPolicy;
 use App\Policies\PackagePolicy;
+use App\Policies\PosSalePolicy;
 use App\Policies\PrivateImagePolicy;
 use App\Policies\PurchaseOrderPolicy;
 use App\Policies\PurchaseRequestPolicy;
@@ -102,6 +104,7 @@ class AppServiceProvider extends ServiceProvider
         Order::class => OrderPolicy::class,
         Package::class => PackagePolicy::class,
         OrderStockRequest::class => OrderStockRequestPolicy::class,
+        PosSale::class => PosSalePolicy::class,
         PurchaseOrder::class => PurchaseOrderPolicy::class,
         PurchaseRequest::class => PurchaseRequestPolicy::class,
         PrivateImage::class => PrivateImagePolicy::class,

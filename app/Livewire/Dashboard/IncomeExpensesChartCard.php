@@ -5,6 +5,7 @@ namespace App\Livewire\Dashboard;
 use App\Models\Expense;
 use App\Models\OrderExpense;
 use App\Models\OrderPayment;
+use App\Models\PosSale;
 use App\Support\BranchContext;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
@@ -87,7 +88,7 @@ class IncomeExpensesChartCard extends Component
     #[Computed]
     public function chartKey(): string
     {
-        return 'income-expenses-' . md5(json_encode($this->chartData) ?: '');
+        return 'income-expenses-'.md5(json_encode($this->chartData) ?: '');
     }
 
     public function render()
@@ -140,7 +141,7 @@ class IncomeExpensesChartCard extends Component
 
     protected function collectIncomeTotals(CarbonInterface $startDate, CarbonInterface $endDate, bool $groupByMonth): array
     {
-        return OrderPayment::query()
+        $incomeTotals = OrderPayment::query()
             ->whereNotNull('paid_at')
             ->whereBetween('paid_at', [$startDate, $endDate])
             ->get(['paid_at', 'amount'])
@@ -150,6 +151,23 @@ class IncomeExpensesChartCard extends Component
             ->map(fn ($payments) => (float) $payments->sum(fn ($payment) => (float) $payment->amount))
             ->filter(fn ($value, $key) => filled($key))
             ->all();
+
+        $posTotals = PosSale::query()
+            ->whereNotNull('sold_at')
+            ->whereBetween('sold_at', [$startDate, $endDate])
+            ->get(['sold_at', 'total_amount'])
+            ->groupBy(fn (PosSale $sale) => $groupByMonth
+                ? $sale->sold_at?->format('Y-m')
+                : $sale->sold_at?->format('Y-m-d'))
+            ->map(fn ($sales) => (float) $sales->sum(fn ($sale) => (float) $sale->total_amount))
+            ->filter(fn ($value, $key) => filled($key))
+            ->all();
+
+        foreach ($posTotals as $period => $amount) {
+            $incomeTotals[$period] = ($incomeTotals[$period] ?? 0) + (float) $amount;
+        }
+
+        return $incomeTotals;
     }
 
     protected function collectExpenseTotals(CarbonInterface $startDate, CarbonInterface $endDate, bool $groupByMonth): array
@@ -187,10 +205,10 @@ class IncomeExpensesChartCard extends Component
     protected function formatPeriodLabel(CarbonInterface $startDate, CarbonInterface $endDate): string
     {
         if ($startDate->isSameMonth($endDate)) {
-            return $startDate->format('M j, Y') . ' - ' . $endDate->format('M j, Y');
+            return $startDate->format('M j, Y').' - '.$endDate->format('M j, Y');
         }
 
-        return $startDate->format('M Y') . ' - ' . $endDate->format('M Y');
+        return $startDate->format('M Y').' - '.$endDate->format('M Y');
     }
 
     protected function emptyChartData(

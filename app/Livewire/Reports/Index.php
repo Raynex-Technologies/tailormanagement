@@ -6,6 +6,7 @@ use App\Models\Expense;
 use App\Models\Order;
 use App\Models\OrderExpense;
 use App\Models\OrderPayment;
+use App\Models\PosSale;
 use Carbon\Carbon;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
@@ -75,7 +76,7 @@ class Index extends Component
         if ($this->period === self::PERIOD_PAST_12_MONTHS) {
             [$startDate, $endDate] = $this->resolveDateRange();
 
-            return __('Past 12 months') . ' (' . $startDate->format('M Y') . ' - ' . $endDate->format('M Y') . ')';
+            return __('Past 12 months').' ('.$startDate->format('M Y').' - '.$endDate->format('M Y').')';
         }
 
         if ($this->period === self::PERIOD_MONTH) {
@@ -93,8 +94,12 @@ class Index extends Component
         $incomeQuery = OrderPayment::query()
             ->whereNotNull('paid_at');
 
+        $posIncomeQuery = PosSale::query()
+            ->whereNotNull('sold_at');
+
         if ($startDate && $endDate) {
             $incomeQuery->whereBetween('paid_at', [$startDate, $endDate]);
+            $posIncomeQuery->whereBetween('sold_at', [$startDate, $endDate]);
         }
 
         $regularExpenseQuery = Expense::query()
@@ -120,7 +125,9 @@ class Index extends Component
             $ordersQuery->dateRange($startDate->toDateString(), $endDate->toDateString());
         }
 
-        $incomeTotal = (float) (clone $incomeQuery)->sum('amount');
+        $orderPaymentIncomeTotal = (float) (clone $incomeQuery)->sum('amount');
+        $posIncomeTotal = (float) (clone $posIncomeQuery)->sum('total_amount');
+        $incomeTotal = $orderPaymentIncomeTotal + $posIncomeTotal;
         $regularExpensesTotal = (float) (clone $regularExpenseQuery)->sum('amount');
         $orderExpensesTotal = (float) (clone $orderExpenseQuery)->sum('amount');
         $totalExpenses = $regularExpensesTotal + $orderExpensesTotal;
@@ -145,7 +152,7 @@ class Index extends Component
             'net_result' => $netResult,
             'result_type' => $resultType,
             'profit_margin' => $profitMargin,
-            'payments_count' => (int) (clone $incomeQuery)->count(),
+            'payments_count' => (int) ((clone $incomeQuery)->count() + (clone $posIncomeQuery)->count()),
             'expenses_count' => (int) ((clone $regularExpenseQuery)->count() + (clone $orderExpenseQuery)->count()),
             'orders_count' => (int) (clone $ordersQuery)->count(),
             'orders_value' => (float) (clone $ordersQuery)->sum('total'),
@@ -158,7 +165,7 @@ class Index extends Component
         return [
             [
                 'name' => 'Sales Report',
-                'description' => 'Payment transactions, totals, and methods analysis.',
+                'description' => 'Order payments, POS sales, totals, and methods analysis.',
                 'route' => 'reports.sales',
                 'icon' => 'payments',
                 'color' => 'emerald',
