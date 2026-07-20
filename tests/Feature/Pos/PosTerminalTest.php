@@ -41,10 +41,12 @@ class PosTerminalTest extends TestCase
         Livewire::actingAs($user)
             ->test(PosTerminal::class)
             ->call('addItem', $item->id)
+            ->assertSet('amountPaid', 2500.0)
             ->set('amountPaid', 3000)
             ->set('paymentMethod', 'cash')
             ->call('completeSale')
-            ->assertHasNoErrors();
+            ->assertHasNoErrors()
+            ->assertDispatched('open-pos-receipt');
 
         $sale = PosSale::query()->first();
 

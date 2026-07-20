@@ -91,7 +91,7 @@
                                 </a>
                             </td>
                             <td class="px-4 py-3 whitespace-nowrap">{{ $sale->sold_at?->format('M d, Y H:i') ?? '-' }}</td>
-                            <td class="px-4 py-3">{{ $sale->customer?->name ?? __('Walk-in Customer') }}</td>
+                            <td class="px-4 py-3">{{ $sale->customer?->name ?? __('Customer') }}</td>
                             <td class="px-4 py-3">{{ $sale->user?->name ?? '-' }}</td>
                             <td class="px-4 py-3">{{ $sale->branch?->name ?? '-' }}</td>
                             <td class="px-4 py-3 text-right">{{ number_format($sale->items_count) }}</td>

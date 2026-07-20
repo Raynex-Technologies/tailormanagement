@@ -1,4 +1,7 @@
-<div class="flex h-screen flex-col overflow-hidden bg-zinc-100 p-3 dark:bg-zinc-950">
+<div
+    class="flex h-screen flex-col overflow-hidden bg-zinc-100 p-3 dark:bg-zinc-950"
+    x-on:open-pos-receipt.window="window.open($event.detail.url, '_blank', 'noopener')"
+>
     @if (session('success'))
         <div class="mb-3 shrink-0">
             <flux:callout variant="success" icon="check-circle">
@@ -252,7 +255,7 @@
                     wire:loading.attr="disabled"
                     :disabled="empty($cart)"
                 >
-                    <span wire:loading.remove wire:target="completeSale">{{ __('Complete Sale') }}</span>
+                    <span wire:loading.remove wire:target="completeSale">{{ __('Complete & Print') }}</span>
                     <span wire:loading wire:target="completeSale">{{ __('Processing...') }}</span>
                 </flux:button>
             </form>
@@ -286,100 +289,4 @@
         </form>
     </flux:modal>
 
-    <flux:modal wire:model="showReceiptModal" class="w-full max-w-xl">
-        @if ($completedSale)
-            <div class="space-y-4">
-                <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                        <flux:heading size="lg">{{ __('Receipt') }} {{ $completedSale->sale_number }}</flux:heading>
-                        <flux:text class="text-zinc-500">{{ __('Sale completed. Print the receipt or continue selling from this screen.') }}</flux:text>
-                    </div>
-                    <div class="flex gap-2">
-                        <flux:button type="button" variant="ghost" wire:click="$set('showReceiptModal', false)">
-                            {{ __('Close') }}
-                        </flux:button>
-                        <flux:button type="button" variant="primary" icon="printer" onclick="window.print()">
-                            {{ __('Print') }}
-                        </flux:button>
-                    </div>
-                </div>
-
-                <div class="pos-receipt-print-area pos-receipt-modal-shell">
-                    @include('pos.partials.receipt-slip', [
-                        'sale' => $completedSale,
-                        'settings' => $businessSettings,
-                        'receiptUrl' => $completedSale->public_receipt_url,
-                        'receiptQrCodeSvg' => $receiptQrCodeSvg,
-                    ])
-                </div>
-            </div>
-        @endif
-    </flux:modal>
-
-    <style>
-        .pos-receipt-modal-shell {
-            display: flex;
-            justify-content: center;
-            max-height: min(72vh, 48rem);
-            overflow-y: auto;
-            border-radius: 0.75rem;
-            background: #ece7df;
-            padding: 1.5rem 1rem;
-        }
-
-        .pos-receipt-slip {
-            width: min(100%, 23rem);
-            color: #18181b;
-            filter: drop-shadow(0 12px 18px rgb(0 0 0 / 0.18));
-        }
-
-        .pos-receipt-edge {
-            height: 14px;
-            background:
-                linear-gradient(135deg, transparent 8px, #fff 0) top left,
-                linear-gradient(225deg, transparent 8px, #fff 0) top right;
-            background-size: 16px 14px;
-            background-repeat: repeat-x;
-        }
-
-        .pos-receipt-edge-bottom {
-            transform: rotate(180deg);
-        }
-
-        .pos-receipt-body {
-            background: #fff;
-            padding: 2rem 2.25rem;
-        }
-
-        .pos-receipt-slip svg {
-            width: 100%;
-            height: 100%;
-        }
-
-        @media print {
-            body * {
-                visibility: hidden !important;
-            }
-
-            .pos-receipt-print-area,
-            .pos-receipt-print-area * {
-                visibility: visible !important;
-            }
-
-            .pos-receipt-print-area {
-                position: fixed !important;
-                inset: 0 !important;
-                max-height: none !important;
-                overflow: visible !important;
-                align-items: flex-start;
-                padding: 0 !important;
-                background: #fff !important;
-            }
-
-            .pos-receipt-slip {
-                width: 80mm;
-                filter: none;
-            }
-        }
-    </style>
 </div>

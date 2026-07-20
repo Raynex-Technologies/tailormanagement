@@ -87,7 +87,7 @@
                 <dl class="space-y-3 text-sm">
                     <div class="flex justify-between gap-4">
                         <dt class="text-zinc-500">{{ __('Customer') }}</dt>
-                        <dd class="text-right font-medium">{{ $sale->customer?->name ?? __('Walk-in Customer') }}</dd>
+                        <dd class="text-right font-medium">{{ $sale->customer?->name ?? __('Client') }}</dd>
                     </div>
                     <div class="flex justify-between gap-4">
                         <dt class="text-zinc-500">{{ __('Cashier') }}</dt>

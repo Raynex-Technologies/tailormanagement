@@ -2,16 +2,10 @@
 
 namespace App\Livewire\Pos;
 
-use App\Models\BusinessSetting;
 use App\Models\Customer;
 use App\Models\InventoryItem;
-use App\Models\PosSale;
 use App\Services\Pos\PosSaleService;
 use App\Support\BranchContext;
-use BaconQrCode\Renderer\Image\SvgImageBackEnd;
-use BaconQrCode\Renderer\ImageRenderer;
-use BaconQrCode\Renderer\RendererStyle\RendererStyle;
-use BaconQrCode\Writer;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -56,10 +50,6 @@ class PosTerminal extends Component
 
     public ?string $newCustomerAddress = null;
 
-    public bool $showReceiptModal = false;
-
-    public ?int $completedSaleId = null;
-
     public function mount(): void
     {
         $this->authorize('pos.view');
@@ -68,6 +58,16 @@ class PosTerminal extends Component
     public function updatedItemSearch(): void
     {
         $this->resetErrorBag('cart');
+    }
+
+    public function updatedDiscountAmount(): void
+    {
+        $this->syncAmountPaidToTotal();
+    }
+
+    public function updatedTaxAmount(): void
+    {
+        $this->syncAmountPaidToTotal();
     }
 
     public function addFirstSearchMatch(): void
@@ -112,6 +112,8 @@ class PosTerminal extends Component
             'stock' => $available,
             'discount_amount' => 0,
         ];
+
+        $this->syncAmountPaidToTotal();
     }
 
     public function increaseQty(int $itemId): void
@@ -127,6 +129,7 @@ class PosTerminal extends Component
         }
 
         $this->cart[$itemId]['quantity']++;
+        $this->syncAmountPaidToTotal();
     }
 
     public function decreaseQty(int $itemId): void
@@ -136,6 +139,7 @@ class PosTerminal extends Component
         }
 
         $this->cart[$itemId]['quantity'] = max(1, $this->cart[$itemId]['quantity'] - 1);
+        $this->syncAmountPaidToTotal();
     }
 
     public function updateQty(int $itemId, mixed $quantity): void
@@ -158,11 +162,13 @@ class PosTerminal extends Component
         }
 
         $this->cart[$itemId]['quantity'] = $quantity;
+        $this->syncAmountPaidToTotal();
     }
 
     public function removeItem(int $itemId): void
     {
         unset($this->cart[$itemId]);
+        $this->syncAmountPaidToTotal();
     }
 
     public function clearCart(): void
@@ -266,8 +272,7 @@ class PosTerminal extends Component
 
         session()->flash('success', "Sale {$sale->sale_number} completed.");
 
-        $this->completedSaleId = $sale->id;
-        $this->showReceiptModal = true;
+        $this->dispatch('open-pos-receipt', url: route('pos.sales.show', $sale));
         $this->resetSaleForm();
 
         return null;
@@ -307,9 +312,6 @@ class PosTerminal extends Component
         return view('livewire.pos.pos-terminal', [
             'items' => $items,
             'customers' => $customers,
-            'completedSale' => $this->completedSale(),
-            'businessSettings' => BusinessSetting::instance(),
-            'receiptQrCodeSvg' => $this->receiptQrCodeSvg(),
         ]);
     }
 
@@ -353,31 +355,8 @@ class PosTerminal extends Component
         $this->resetErrorBag();
     }
 
-    protected function completedSale(): ?PosSale
+    protected function syncAmountPaidToTotal(): void
     {
-        if (! $this->completedSaleId) {
-            return null;
-        }
-
-        return PosSale::query()
-            ->with(['items.inventoryItem', 'customer', 'user', 'branch'])
-            ->find($this->completedSaleId);
-    }
-
-    protected function receiptQrCodeSvg(): ?string
-    {
-        $sale = $this->completedSale();
-        $url = $sale?->public_receipt_url;
-
-        if (! $url) {
-            return null;
-        }
-
-        $renderer = new ImageRenderer(
-            new RendererStyle(150),
-            new SvgImageBackEnd
-        );
-
-        return (new Writer($renderer))->writeString($url);
+        $this->amountPaid = $this->total;
     }
 }
