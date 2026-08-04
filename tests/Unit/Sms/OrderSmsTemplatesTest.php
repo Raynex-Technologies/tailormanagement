@@ -7,6 +7,7 @@ use App\Enums\PaymentStatus;
 use App\Models\Customer;
 use App\Models\Order;
 use App\Models\OrderLine;
+use App\Models\OrderPayment;
 use App\Models\SmsTemplate;
 use App\Services\Sms\Templates\OrderSmsTemplates;
 use Tests\TestCase;
@@ -78,6 +79,44 @@ class OrderSmsTemplatesTest extends TestCase
                 now()->addDays(5)->format('M d, Y')
             ),
             $message
+        );
+    }
+
+    public function test_order_created_template_exposes_and_renders_deposit(): void
+    {
+        $this->assertContains('deposit', SmsTemplate::variablesForCategory('order_created'));
+
+        $customer = Customer::factory()->create(['branch_id' => $this->branch->id]);
+        $order = Order::create([
+            'branch_id' => $this->branch->id,
+            'order_no' => 'ORD-DEPOSIT-001',
+            'customer_id' => $customer->id,
+            'status' => OrderStatus::New,
+            'order_date' => now()->toDateString(),
+            'due_date' => now()->addDays(5)->toDateString(),
+            'subtotal' => 90000,
+            'discount' => 0,
+            'total' => 90000,
+            'payment_status' => PaymentStatus::Partial,
+            'created_by' => null,
+        ]);
+        $deposit = OrderPayment::create([
+            'branch_id' => $this->branch->id,
+            'order_id' => $order->id,
+            'amount' => 30000,
+            'paid_at' => now(),
+            'received_by' => null,
+        ]);
+
+        SmsTemplate::instance()->update([
+            'templates' => array_replace(SmsTemplate::defaultTemplates(), [
+                'order_created' => 'Order {order_number} deposit {deposit}',
+            ]),
+        ]);
+
+        $this->assertSame(
+            'Order ORD-DEPOSIT-001 deposit Tsh 30,000',
+            OrderSmsTemplates::orderCreated($order->fresh(), $deposit)
         );
     }
 

@@ -387,7 +387,7 @@
                                     @endif
                                 @endcan
                                 <flux:input
-                                    wire:model.live="lines.{{ $index }}.qty"
+                                    wire:model.live.debounce.250ms="lines.{{ $index }}.qty"
                                     type="number"
                                     step="0.01"
                                     min="0.01"
@@ -398,7 +398,7 @@
                                     <p class="text-sm text-red-500">{{ $message }}</p>
                                 @enderror
                                 <flux:input
-                                    wire:model.blur="lines.{{ $index }}.unit_price"
+                                    wire:model.live.debounce.250ms="lines.{{ $index }}.unit_price"
                                     type="number"
                                     step="1"
                                     min="0"
@@ -507,12 +507,16 @@
                             <input type="hidden" wire:model="order_expenses.{{ $expenseIndex }}.tailor_id" />
 
                             <div class="grid gap-4 sm:grid-cols-2">
-                                <flux:input
+                                <flux:select
                                     wire:model.blur="order_expenses.{{ $expenseIndex }}.notes"
                                     label="Description"
-                                    placeholder="e.g. Tailoring labor cost"
                                     :disabled="$expensesLocked"
-                                />
+                                >
+                                    <flux:select.option value="">{{ __('Select description') }}</flux:select.option>
+                                    <flux:select.option value="Labour Charge">{{ __('Labour Charge') }}</flux:select.option>
+                                    <flux:select.option value="Additional Materials">{{ __('Additional Materials') }}</flux:select.option>
+                                    <flux:select.option value="Other">{{ __('Other') }}</flux:select.option>
+                                </flux:select>
                                 <flux:input
                                     wire:model.live="order_expenses.{{ $expenseIndex }}.amount"
                                     type="number"

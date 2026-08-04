@@ -11,12 +11,11 @@ This file may only be modified after the user gives explicit permission for that
 
 This rule is mandatory for every task in this repository and overrides any conflicting implementation preference.
 
-- NEVER delete, purge, truncate, overwrite, or mass-reset existing database data.
-- NEVER run or write seeders, tests, commands, scripts, or migrations that remove or rewrite current data.
-- NEVER run destructive artisan or database commands such as `migrate:fresh`, `db:wipe`, `migrate:refresh`, `migrate:reset`, rollback flows, truncate flows, or equivalent SQL.
-- If a requested task would require schema changes or destructive data changes, stop and tell the user that the task conflicts with this rule.
-
-Treat this as a permanent operating constraint for all future work in this repository.
+- NEVER make arbitrary or unrelated database changes.
+- Schema changes must only be introduced when required by the explicitly authorized task.
+- For this pre-production application, migrations, table replacement, column changes, and destructive cleanup of development-only schema are permitted when explicitly required by the requested implementation.
+- Keep schema changes scoped to the task and validate them with appropriate migration and focused tests.
+- NEVER run broad destructive artisan or database commands such as `migrate:fresh`, `db:wipe`, `migrate:refresh`, or equivalent whole-database reset flows unless the user explicitly requests that exact operation.
 
 ## Hard Rule: Implementation Priorities
 

@@ -16,6 +16,10 @@ class SendOrderPaymentSms
      */
     public function handle(OrderPaymentRecorded $event): void
     {
+        if (! $event->sendCustomerSms) {
+            return;
+        }
+
         try {
             $order = $event->order;
             $payment = $event->payment;

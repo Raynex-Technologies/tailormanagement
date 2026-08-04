@@ -21,13 +21,13 @@ class SendOrderCreatedSms
                 'order_id' => $order->id,
                 'order_no' => $order->order_no,
                 'has_phone' => ! empty($customerPhone),
-                'phone' => $customerPhone ? substr($customerPhone, 0, 4) . '***' : null,
+                'phone' => $customerPhone ? substr($customerPhone, 0, 4).'***' : null,
             ]);
 
             $this->smsService->sendTemplate(
                 'order_created',
                 $customerPhone,
-                OrderSmsTemplates::replacementsForOrder($order),
+                OrderSmsTemplates::replacementsForOrder($order, $event->deposit),
                 $order,
                 $event->actor
             );

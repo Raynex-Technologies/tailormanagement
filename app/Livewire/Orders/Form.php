@@ -4,15 +4,15 @@ namespace App\Livewire\Orders;
 
 use App\Enums\OrderStatus;
 use App\Enums\PaymentStatus;
+use App\Enums\Priority;
 use App\Events\OrderCreated;
 use App\Events\OrderPaymentRecorded;
-use App\Enums\Priority;
 use App\Models\Branch;
 use App\Models\BusinessSetting;
 use App\Models\Customer;
-use App\Models\Invoice;
 use App\Models\InventoryItem;
 use App\Models\InventoryTransaction;
+use App\Models\Invoice;
 use App\Models\Order;
 use App\Models\OrderExpense;
 use App\Models\OrderLine;
@@ -23,28 +23,39 @@ use App\Models\User;
 use App\Services\Inventory\StockMovementService;
 use App\Support\BranchContext;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\ValidationException;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
-use Livewire\Attributes\Title;
 use Livewire\Attributes\Validate;
 use Livewire\Component;
 
 #[Layout('layouts.app.sidebar')]
 class Form extends Component
 {
+    private const ORDER_EXPENSE_DESCRIPTIONS = [
+        'Labour Charge',
+        'Additional Materials',
+        'Other',
+    ];
+
     public ?Order $order = null;
+
     public bool $isEdit = false;
 
     // Branch (for global admins)
     public ?int $branch_id = null;
+
     public bool $showBranchSelector = false;
+
     public bool $mustSelectBranch = false;
 
     // Customer
     public ?int $customer_id = null;
+
     public string $customerSearch = '';
+
     public bool $showCustomerDropdown = false;
+
     public bool $showNewCustomerForm = false;
 
     // New customer fields
@@ -81,7 +92,9 @@ class Form extends Component
 
     // Order lines
     public array $lines = [];
+
     public bool $showInventoryPicker = false;
+
     public string $inventorySearch = '';
 
     // Deposit (create only, optional)
@@ -96,6 +109,7 @@ class Form extends Component
 
     // Computed totals
     public float $subtotal = 0;
+
     public float $total = 0;
 
     public function mount(?Order $order = null): void
@@ -346,10 +360,23 @@ class Form extends Component
             return [
                 'id' => isset($expense['id']) && $expense['id'] !== '' ? (int) $expense['id'] : null,
                 'tailor_id' => isset($expense['tailor_id']) && $expense['tailor_id'] !== '' ? (int) $expense['tailor_id'] : null,
-                'notes' => trim((string) ($expense['notes'] ?? '')),
+                'notes' => $this->normalizeOrderExpenseDescription($expense['notes'] ?? ''),
                 'amount' => ($expense['amount'] ?? null) === '' ? null : ($expense['amount'] ?? null),
             ];
         }, $this->order_expenses));
+    }
+
+    protected function normalizeOrderExpenseDescription(mixed $description): string
+    {
+        $description = trim((string) $description);
+
+        if ($description === '') {
+            return '';
+        }
+
+        return in_array($description, self::ORDER_EXPENSE_DESCRIPTIONS, true)
+            ? $description
+            : 'Other';
     }
 
     protected function emptyOrderExpenseRow(?int $tailorId = null): array
@@ -791,7 +818,7 @@ class Form extends Component
             'deposit_payment_method_id' => ['nullable', 'integer', 'exists:payment_methods,id'],
             'order_expenses' => ['nullable', 'array'],
             'order_expenses.*.tailor_id' => ['nullable', 'integer', 'exists:users,id'],
-            'order_expenses.*.notes' => ['nullable', 'string', 'max:1000'],
+            'order_expenses.*.notes' => ['nullable', 'string', Rule::in(self::ORDER_EXPENSE_DESCRIPTIONS)],
             'order_expenses.*.amount' => ['nullable', 'numeric', 'min:0.01'],
             'assigned_tailor_id' => ['nullable', 'integer', 'exists:users,id'],
             'lines' => ['required', 'array', 'min:1'],
@@ -925,7 +952,6 @@ class Form extends Component
                     $orderData['payment_status'] = PaymentStatus::Unpaid;
                     $orderData['created_by'] = auth()->id();
                     $order = Order::create($orderData);
-                    event(new OrderCreated($order->load('customer'), auth()->user()));
                 }
 
                 // Handle lines
@@ -993,9 +1019,11 @@ class Form extends Component
                     }
                 }
 
+                $depositPayment = null;
+
                 // Create deposit payment on new order if amount given
                 if (! $this->isEdit && $this->deposit_amount !== null && (float) $this->deposit_amount > 0) {
-                    $payment = OrderPayment::create([
+                    $depositPayment = OrderPayment::create([
                         'branch_id' => $order->branch_id,
                         'order_id' => $order->id,
                         'amount' => (float) $this->deposit_amount,
@@ -1006,7 +1034,7 @@ class Form extends Component
                     ]);
                     $order->refresh();
                     $order->update(['payment_status' => $order->computed_payment_status]);
-                    event(new OrderPaymentRecorded($order->fresh(), $payment, auth()->user()));
+                    event(new OrderPaymentRecorded($order->fresh(), $depositPayment, auth()->user(), sendCustomerSms: false));
                 }
 
                 $existingExpenseIds = [];
@@ -1056,6 +1084,14 @@ class Form extends Component
                     $order->orderExpenses()
                         ->whereNotIn('id', $existingExpenseIds)
                         ->delete();
+                }
+
+                if (! $this->isEdit) {
+                    event(new OrderCreated(
+                        $order->fresh(['customer', 'lines']),
+                        auth()->user(),
+                        $depositPayment
+                    ));
                 }
 
                 // Keep invoice aligned with current order details and lines.

@@ -32,6 +32,12 @@ class AddSecurityHeaders
         $response->headers->set('Referrer-Policy', 'strict-origin-when-cross-origin');
         $response->headers->set('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
 
+        if ($request->routeIs('login', 'two-factor.login')) {
+            $response->headers->set('Cache-Control', 'private, no-store, no-cache, must-revalidate, max-age=0');
+            $response->headers->set('Pragma', 'no-cache');
+            $response->headers->set('Expires', 'Thu, 01 Jan 1970 00:00:00 GMT');
+        }
+
         if (app()->isProduction() && $request->isSecure()) {
             $response->headers->set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
         }

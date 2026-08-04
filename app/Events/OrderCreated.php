@@ -3,6 +3,7 @@
 namespace App\Events;
 
 use App\Models\Order;
+use App\Models\OrderPayment;
 use App\Models\User;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Foundation\Events\Dispatchable;
@@ -14,6 +15,7 @@ class OrderCreated
 
     public function __construct(
         public Order $order,
-        public ?User $actor = null
+        public ?User $actor = null,
+        public ?OrderPayment $deposit = null
     ) {}
 }

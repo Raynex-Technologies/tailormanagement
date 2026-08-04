@@ -77,4 +77,12 @@
             </div>
         @endif
     </div>
-</x-layouts::auth>
+    <script>
+        window.addEventListener('pageshow', (event) => {
+            const navigation = window.performance.getEntriesByType?.('navigation')?.[0];
+
+            if (event.persisted || navigation?.type === 'back_forward') {
+                window.location.reload();
+            }
+        });
+    </script></x-layouts::auth>

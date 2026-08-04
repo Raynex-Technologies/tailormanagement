@@ -126,7 +126,7 @@ class PosTerminalTest extends TestCase
         $this->assertNull($sale->customer_id);
         $this->get(route('pos.sales.show', $sale))
             ->assertOk()
-            ->assertSee('Walk-in Customer');
+            ->assertSee('Client');
     }
 
     public function test_non_cash_sale_can_be_completed_without_payment_reference(): void

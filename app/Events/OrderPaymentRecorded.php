@@ -16,6 +16,7 @@ class OrderPaymentRecorded
     public function __construct(
         public Order $order,
         public OrderPayment $payment,
-        public User $actor
+        public User $actor,
+        public bool $sendCustomerSms = true
     ) {}
 }

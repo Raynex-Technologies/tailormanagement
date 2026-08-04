@@ -6,8 +6,9 @@ use App\Enums\SmsStatus;
 use App\Models\BeemConfig;
 use App\Models\SmsLog;
 use App\Models\SmsTemplate;
-use App\Models\TwilioWhatsappConfig;
 use App\Models\User;
+use App\Models\WhatsappIntegration;
+use App\Services\WhatsApp\WhatsAppService;
 use App\Support\BranchContext;
 use App\Support\Phone;
 use Illuminate\Database\Eloquent\Model;
@@ -17,9 +18,9 @@ class SmsService
 {
     protected BeemSmsClient $beemClient;
 
-    protected TwilioWhatsappClient $whatsappClient;
+    protected WhatsAppService $whatsappClient;
 
-    public function __construct(BeemSmsClient $beemClient, TwilioWhatsappClient $whatsappClient)
+    public function __construct(BeemSmsClient $beemClient, WhatsAppService $whatsappClient)
     {
         $this->beemClient = $beemClient;
         $this->whatsappClient = $whatsappClient;
@@ -36,7 +37,7 @@ class SmsService
         $whatsappMessage = app(SmsTemplateRenderer::class)->render($whatsappTemplateBody, $data);
 
         $smsReason = $gate->reasonSmsDisabled($templateCode);
-        $whatsappConfig = TwilioWhatsappConfig::instance();
+        $whatsappConfig = WhatsappIntegration::forBranch(BranchContext::requireId());
         $whatsappReason = $whatsappConfig->whatsapp_enabled
             ? $gate->reasonWhatsappDisabled($templateCode)
             : SmsNotificationGate::WHATSAPP_GLOBAL_DISABLED;
@@ -49,7 +50,7 @@ class SmsService
         if ($whatsappConfig->whatsapp_enabled) {
             $whatsappLog = $whatsappReason === null
                 ? $this->sendWhatsappTemplateIfPhonePresent($templateCode, $to, $whatsappTemplateBody, $whatsappMessage, $data, $reference, $actor)
-                : $this->createSkippedLog($templateCode, $to, $whatsappMessage, $whatsappReason, $reference, $actor, 'twilio_whatsapp');
+                : $this->createSkippedLog($templateCode, $to, $whatsappMessage, $whatsappReason, $reference, $actor, 'meta_whatsapp');
         }
 
         return $smsReason === null ? $smsLog : ($whatsappLog ?? $smsLog);
@@ -233,7 +234,7 @@ class SmsService
 
             return SmsLog::create([
                 'branch_id' => $branchId,
-                'provider' => 'twilio_whatsapp',
+                'provider' => 'meta_whatsapp',
                 'template_code' => $templateCode,
                 'to' => 'missing',
                 'message' => $message,
@@ -257,7 +258,7 @@ class SmsService
 
             return SmsLog::create([
                 'branch_id' => $branchId,
-                'provider' => 'twilio_whatsapp',
+                'provider' => 'meta_whatsapp',
                 'template_code' => $templateCode,
                 'to' => 'missing',
                 'message' => $renderedMessage,
@@ -276,136 +277,21 @@ class SmsService
 
     public function sendWhatsappTemplate(string $templateCode, string $to, string $templateBody, string $renderedMessage, array $data = [], ?Model $reference = null, ?User $actor = null): SmsLog
     {
-        $reason = app(SmsNotificationGate::class)->reasonWhatsappDisabled($templateCode);
-
-        if ($reason !== null) {
-            return $this->createSkippedLog($templateCode, $to, $renderedMessage, $reason, $reference, $actor, 'twilio_whatsapp');
-        }
-
-        $normalizedPhone = Phone::toE164Tz($to);
-        $branchId = $reference?->getAttribute('branch_id') ?? BranchContext::id();
-        $settings = SmsTemplate::instance()->settingsFor($templateCode) ?? [];
-
-        $smsLog = SmsLog::create([
-            'branch_id' => $branchId,
-            'provider' => 'twilio_whatsapp',
-            'template_code' => $templateCode,
-            'to' => $normalizedPhone ?? $to,
-            'message' => $renderedMessage,
-            'status' => SmsStatus::Queued,
-            'skip_reason' => null,
-            'provider_message_id' => null,
-            'provider_response' => null,
-            'reference_type' => $reference ? $reference->getMorphClass() : null,
-            'reference_id' => $reference ? $reference->id : null,
-            'created_by' => $actor?->id,
-        ]);
-
-        if (empty($normalizedPhone)) {
-            $smsLog->update([
-                'status' => SmsStatus::Failed,
-                'provider_response' => json_encode(['error' => 'Invalid phone number format']),
-            ]);
-
-            return $smsLog;
-        }
-
-        if (! $this->whatsappClient->isConfigured()) {
-            $smsLog->update([
-                'status' => SmsStatus::Failed,
-                'provider_response' => json_encode(['error' => 'Twilio WhatsApp provider not configured']),
-            ]);
-
-            return $smsLog;
-        }
-
-        $contentSid = $settings['twilio_content_sid'] ?? null;
-        if (! $contentSid) {
-            $smsLog->update([
-                'status' => SmsStatus::Failed,
-                'provider_response' => json_encode(['error' => 'Approved Twilio Content SID is missing']),
-            ]);
-
-            return $smsLog;
-        }
-
-        $response = $this->whatsappClient->sendContentTemplate(
-            $normalizedPhone,
-            $contentSid,
-            $this->contentVariablesFor($templateBody, $data)
-        );
-
-        $smsLog->update([
-            'status' => $response['success'] ? SmsStatus::Sent : SmsStatus::Failed,
-            'provider_message_id' => $response['message_id'],
-            'provider_response' => json_encode($response['raw_response']),
-        ]);
-
-        return $smsLog->fresh();
+        return $this->sendWhatsapp($to, $renderedMessage, $reference, $actor, $templateCode);
     }
 
     public function sendWhatsapp(string $to, string $message, ?Model $reference = null, ?User $actor = null, ?string $templateCode = null): SmsLog
     {
-        if ($templateCode !== null) {
-            $reason = app(SmsNotificationGate::class)->reasonWhatsappDisabled($templateCode);
-
-            if ($reason !== null) {
-                return $this->createSkippedLog($templateCode, $to, $message, $reason, $reference, $actor, 'twilio_whatsapp');
-            }
-        }
-
         $normalizedPhone = Phone::toE164Tz($to);
-        $branchId = $reference?->getAttribute('branch_id') ?? BranchContext::id();
-
-        $smsLog = SmsLog::create([
-            'branch_id' => $branchId,
-            'provider' => 'twilio_whatsapp',
-            'template_code' => $templateCode,
-            'to' => $normalizedPhone ?? $to,
-            'message' => $message,
-            'status' => SmsStatus::Queued,
-            'skip_reason' => null,
-            'provider_message_id' => null,
-            'provider_response' => null,
-            'reference_type' => $reference ? $reference->getMorphClass() : null,
-            'reference_id' => $reference ? $reference->id : null,
-            'created_by' => $actor?->id,
-        ]);
-
-        if (! TwilioWhatsappConfig::instance()->whatsapp_enabled) {
-            $smsLog->update([
-                'status' => SmsStatus::Failed,
-                'provider_response' => json_encode(['error' => 'WhatsApp disabled']),
-            ]);
-
-            return $smsLog;
-        }
-
+        $branchId = $reference?->getAttribute('branch_id') ?? BranchContext::requireId();
+        $smsLog = SmsLog::create(['branch_id' => $branchId, 'provider' => 'meta_whatsapp', 'template_code' => $templateCode, 'to' => $normalizedPhone ?? $to, 'message' => $message, 'status' => SmsStatus::Queued, 'skip_reason' => null, 'provider_message_id' => null, 'provider_response' => null, 'reference_type' => $reference?->getMorphClass(), 'reference_id' => $reference?->id, 'created_by' => $actor?->id]);
         if (empty($normalizedPhone)) {
-            $smsLog->update([
-                'status' => SmsStatus::Failed,
-                'provider_response' => json_encode(['error' => 'Invalid phone number format']),
-            ]);
+            $smsLog->update(['status' => SmsStatus::Failed, 'provider_response' => json_encode(['error' => 'Invalid phone number format'])]);
 
             return $smsLog;
         }
-
-        if (! $this->whatsappClient->isConfigured()) {
-            $smsLog->update([
-                'status' => SmsStatus::Failed,
-                'provider_response' => json_encode(['error' => 'Twilio WhatsApp provider not configured']),
-            ]);
-
-            return $smsLog;
-        }
-
-        $response = $this->whatsappClient->send($normalizedPhone, $message);
-
-        $smsLog->update([
-            'status' => $response['success'] ? SmsStatus::Sent : SmsStatus::Failed,
-            'provider_message_id' => $response['message_id'],
-            'provider_response' => json_encode($response['raw_response']),
-        ]);
+        $result = $this->whatsappClient->sendText($branchId, $normalizedPhone, $message);
+        $smsLog->update(['status' => $result['success'] ? SmsStatus::Queued : SmsStatus::Failed, 'provider_message_id' => null, 'provider_response' => json_encode($result)]);
 
         return $smsLog->fresh();
     }
@@ -415,7 +301,7 @@ class SmsService
         $reference = $log->reference;
         $provider = strtolower((string) $log->provider);
 
-        if ($provider === 'twilio_whatsapp') {
+        if ($provider === 'meta_whatsapp') {
             return $this->sendWhatsapp(
                 to: $log->to,
                 message: $log->message,

@@ -52,8 +52,8 @@
         @php
             $monthRevenue  = $stats['sales']['payments_month_sum'];
             $monthExpenses = $stats['expenses']['expenses_month_sum'];
-            $storefrontRevenue = $stats['sales']['storefront_payments_month_sum'];
-            $newOrdersThisMonth = (int) ($stats['orders']['new_orders_month_count'] ?? 0);
+            $itemSales = $stats['sales']['pos_sales_month_sum'];
+            $newOrders = (int) ($stats['orders']['new_orders_count'] ?? 0);
             $fmt = fn($v) => $v >= 1_000_000
                 ? number_format($v / 1_000_000, 1) . 'M'
                 : ($v >= 1_000 ? number_format($v / 1_000, 0) . 'K' : number_format($v, 0));
@@ -73,6 +73,7 @@
                         'icon' => 'fa-arrow-trend-up',
                         'text' => $formatPct($value),
                         'text_class' => 'text-emerald-700',
+                        'badge_class' => '!bg-emerald-50 border-emerald-200',
                     ];
                 }
 
@@ -81,6 +82,7 @@
                         'icon' => 'fa-arrow-trend-down',
                         'text' => $formatPct($value),
                         'text_class' => 'text-red-700',
+                        'badge_class' => '!bg-red-50 border-red-200',
                     ];
                 }
 
@@ -88,12 +90,13 @@
                     'icon' => 'fa-minus',
                     'text' => '0%',
                     'text_class' => 'text-zinc-700',
+                    'badge_class' => '!bg-zinc-50 border-zinc-200',
                 ];
             };
             $newOrdersTrend = $trendMeta((float) ($stats['orders']['new_orders_month_change_pct'] ?? 0));
             $revenueTrend = $trendMeta((float) ($stats['sales']['payments_month_change_pct'] ?? 0));
             $expenseTrend = $trendMeta((float) ($stats['expenses']['expenses_month_change_pct'] ?? 0));
-            $storefrontRevenueTrend = $trendMeta((float) ($stats['sales']['storefront_payments_month_change_pct'] ?? 0));
+            $itemSalesTrend = $trendMeta((float) ($stats['sales']['pos_sales_month_change_pct'] ?? 0));
             $kpiBadgeBaseClass = 'inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-xs font-semibold shadow-sm border border-black/10 whitespace-nowrap';
         @endphp
         <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -103,13 +106,13 @@
                     <div class="flex items-center justify-center size-11 rounded-xl bg-white/20">
                         <i class="fa-duotone fa-file-circle-plus size-5 text-white"></i>
                     </div>
-                    <span class="{{ $kpiBadgeBaseClass }} {{ $newOrdersTrend['text_class'] }}">
-                        <i class="fa-duotone {{ $newOrdersTrend['icon'] }} text-[10px]"></i>
+                    <span class="{{ $kpiBadgeBaseClass }} {{ $newOrdersTrend['text_class'] }} {{ $newOrdersTrend['badge_class'] }}">
+                        <i class="fa-duotone {{ $newOrdersTrend['icon'] }} text-xs" aria-hidden="true"></i>
                         {{ $newOrdersTrend['text'] }}
                     </span>
                 </div>
                 <div class="mt-3">
-                    <p class="text-3xl font-bold tracking-tight text-white">{{ number_format($newOrdersThisMonth) }}</p>
+                    <p class="text-3xl font-bold tracking-tight text-white">{{ number_format($newOrders) }}</p>
                     <p class="mt-0.5 text-sm text-white/85">{{ __('New Orders') }}</p>
                 </div>
             </div>
@@ -152,22 +155,22 @@
                 </div>
             </div>
 
-            {{-- Store Front Revenue --}}
+            {{-- Item Sales --}}
             <div class="rounded-2xl p-5 shadow-sm border border-[#f0bca2]" style="background-color: #f7d4c1;">
                 <div class="flex items-start justify-between">
                     <div class="flex items-center justify-center size-11 rounded-xl bg-white/55">
-                        <i class="fa-duotone fa-store size-5 text-[#7d3f22]"></i>
+                        <i class="fa-duotone fa-cart-shopping size-5 text-[#7d3f22]"></i>
                     </div>
-                    <span class="{{ $kpiBadgeBaseClass }} {{ $storefrontRevenueTrend['text_class'] }}">
-                        <i class="fa-duotone {{ $storefrontRevenueTrend['icon'] }} text-[10px]"></i>
-                        {{ $storefrontRevenueTrend['text'] }}
+                    <span class="{{ $kpiBadgeBaseClass }} {{ $itemSalesTrend['text_class'] }}">
+                        <i class="fa-duotone {{ $itemSalesTrend['icon'] }} text-[10px]"></i>
+                        {{ $itemSalesTrend['text'] }}
                     </span>
                 </div>
                 <div class="mt-3">
                     <p class="text-3xl font-bold tracking-tight text-[#3d1f11]">
-                        {{ $fmt($storefrontRevenue) }} <span class="text-sm font-normal text-[#6b2f17]">TZS</span>
+                        {{ $fmt($itemSales) }} <span class="text-sm font-normal text-[#6b2f17]">TZS</span>
                     </p>
-                    <p class="mt-0.5 text-sm text-[#6b2f17]">{{ __('Store Front Revenue') }}</p>
+                    <p class="mt-0.5 text-sm text-[#6b2f17]">{{ __('Item Sales') }}</p>
                 </div>
             </div>
         </div>

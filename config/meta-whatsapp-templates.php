@@ -1,0 +1,3 @@
+<?php
+
+return ['categories' => ['UTILITY', 'MARKETING', 'AUTHENTICATION'], 'languages' => ['en', 'en_US', 'sw', 'sw_KE'], 'header_formats' => ['NONE', 'TEXT', 'IMAGE', 'VIDEO', 'DOCUMENT', 'LOCATION'], 'button_types' => ['QUICK_REPLY', 'URL', 'PHONE_NUMBER', 'OTP'], 'name_max' => 512, 'body_max' => 1024, 'header_text_max' => 60, 'footer_max' => 60, 'button_max' => 10, 'media' => ['IMAGE' => ['image/jpeg', 'image/png'], 'VIDEO' => ['video/mp4'], 'DOCUMENT' => ['application/pdf']], 'media_max_bytes' => 16 * 1024 * 1024, 'statuses' => ['PENDING', 'APPROVED', 'REJECTED', 'IN_APPEAL', 'PENDING_DELETION', 'DELETED', 'DISABLED', 'FLAGGED', 'REINSTATED']];

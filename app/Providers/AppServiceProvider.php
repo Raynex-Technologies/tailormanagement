@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Contracts\WhatsAppProvider;
 use App\Http\Middleware\SetBranchContext;
 use App\Models\Appointment;
 use App\Models\AppointmentType;
@@ -55,6 +56,7 @@ use App\Policies\PrivateImagePolicy;
 use App\Policies\PurchaseOrderPolicy;
 use App\Policies\PurchaseRequestPolicy;
 use App\Policies\UserPolicy;
+use App\Services\WhatsApp\MetaWhatsAppProvider;
 use App\Support\BranchContext;
 use App\Support\PrivateImage;
 use App\Support\SystemUiSettings;
@@ -116,7 +118,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->bind(WhatsAppProvider::class, MetaWhatsAppProvider::class);
     }
 
     /**

@@ -39,14 +39,14 @@ class OrderSmsTemplates
         $customerName = $replacements['customer_name'] ?? 'Customer';
 
         return match ($category) {
-            'order_created' => "[{$appName}] Order {$orderNo} for " . ($replacements['garments'] ?? 'your items') . ' created on ' . ($replacements['order_date'] ?? '') . '. Due: ' . ($replacements['due_date'] ?? '') . '.',
-            'order_status_change' => "[{$appName}] Order {$orderNo} status: " . ($replacements['status'] ?? '') . '. Due: ' . ($replacements['due_date'] ?? '') . '.',
-            'order_ready' => "[{$appName}] Good news {$customerName}, order {$orderNo} for " . ($replacements['garments'] ?? 'your items') . ' is READY for pickup. Balance: ' . ($replacements['balance_due'] ?? '') . '.',
-            'order_delivered' => "[{$appName}] Order {$orderNo} for " . ($replacements['garments'] ?? 'your items') . ' has been DELIVERED. Thank you!',
-            'order_delivery_date_change' => "[{$appName}] Order {$orderNo} due date updated from " . ($replacements['old_due_date'] ?? '') . ' to ' . ($replacements['new_due_date'] ?? $replacements['due_date'] ?? '') . '.',
+            'order_created' => "[{$appName}] Order {$orderNo} for ".($replacements['garments'] ?? 'your items').' created on '.($replacements['order_date'] ?? '').'. Due: '.($replacements['due_date'] ?? '').'.',
+            'order_status_change' => "[{$appName}] Order {$orderNo} status: ".($replacements['status'] ?? '').'. Due: '.($replacements['due_date'] ?? '').'.',
+            'order_ready' => "[{$appName}] Good news {$customerName}, order {$orderNo} for ".($replacements['garments'] ?? 'your items').' is READY for pickup. Balance: '.($replacements['balance_due'] ?? '').'.',
+            'order_delivered' => "[{$appName}] Order {$orderNo} for ".($replacements['garments'] ?? 'your items').' has been DELIVERED. Thank you!',
+            'order_delivery_date_change' => "[{$appName}] Order {$orderNo} due date updated from ".($replacements['old_due_date'] ?? '').' to '.($replacements['new_due_date'] ?? $replacements['due_date'] ?? '').'.',
             'order_cancelled' => "[{$appName}] Order {$orderNo} has been cancelled.",
-            'order_payment' => "[{$appName}] Payment received for order {$orderNo}. Balance: " . ($replacements['balance_due'] ?? '') . '.',
-            'order_due_date_reminder' => "[{$appName}] Reminder: Order {$orderNo} is due on " . ($replacements['due_date'] ?? $replacements['expected_delivery_date'] ?? '') . '.',
+            'order_payment' => "[{$appName}] Payment received for order {$orderNo}. Balance: ".($replacements['balance_due'] ?? '').'.',
+            'order_due_date_reminder' => "[{$appName}] Reminder: Order {$orderNo} is due on ".($replacements['due_date'] ?? $replacements['expected_delivery_date'] ?? '').'.',
             default => "[{$appName}] Order {$orderNo} update.",
         };
     }
@@ -85,6 +85,7 @@ class OrderSmsTemplates
             'expected_delivery_date' => $dueDate,
             'total_amount' => money_tzs($order->total),
             'amount_paid' => $payment ? money_tzs($payment->amount) : money_tzs($order->paid_amount),
+            'deposit' => $payment ? money_tzs($payment->amount) : money_tzs(0),
             'balance_due' => money_tzs($order->balance_due),
         ];
 
@@ -94,9 +95,9 @@ class OrderSmsTemplates
     /**
      * Get SMS message for order creation.
      */
-    public static function orderCreated(Order $order): string
+    public static function orderCreated(Order $order, ?OrderPayment $deposit = null): string
     {
-        $replacements = self::replacementsForOrder($order);
+        $replacements = self::replacementsForOrder($order, $deposit);
 
         return self::resolveTemplate('order_created', $replacements);
     }

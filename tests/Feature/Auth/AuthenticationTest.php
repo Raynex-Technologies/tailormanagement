@@ -18,6 +18,23 @@ class AuthenticationTest extends TestCase
         $response->assertOk();
     }
 
+    public function test_login_screen_is_not_cached_by_the_browser(): void
+    {
+        $this->get(route('login'))
+            ->assertOk()
+            ->assertHeader('Cache-Control', 'max-age=0, must-revalidate, no-cache, no-store, private')
+            ->assertHeader('Pragma', 'no-cache');
+    }
+
+    public function test_authenticated_users_are_redirected_away_from_login(): void
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->get(route('login'))
+            ->assertRedirect(route('dashboard'));
+    }
+
     public function test_users_can_authenticate_using_the_login_screen(): void
     {
         $user = User::factory()->create();

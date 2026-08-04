@@ -164,11 +164,6 @@ class SmsTemplate extends Model
                 'sms_enabled' => (bool) $definition['enabled'],
                 'whatsapp_enabled' => false,
                 'whatsapp_status' => 'not_submitted',
-                'twilio_content_sid' => null,
-                'twilio_approval_request_sid' => null,
-                'twilio_template_name' => null,
-                'twilio_category' => 'UTILITY',
-                'twilio_rejection_reason' => null,
                 'is_active' => true,
                 'category' => $definition['category'],
                 'description' => $definition['description'],
@@ -222,6 +217,10 @@ class SmsTemplate extends Model
             'amount_paid' => [
                 'label' => __('Amount Paid'),
                 'description' => __('The paid amount relevant to the message.'),
+            ],
+            'deposit' => [
+                'label' => __('Deposit'),
+                'description' => __('The deposit recorded when the order was created.'),
             ],
             'balance_due' => [
                 'label' => __('Balance Due'),
@@ -340,11 +339,6 @@ class SmsTemplate extends Model
                 'sms_enabled' => array_key_exists('sms_enabled', $values) ? (bool) $values['sms_enabled'] : $normalized[$code]['sms_enabled'],
                 'whatsapp_enabled' => array_key_exists('whatsapp_enabled', $values) ? (bool) $values['whatsapp_enabled'] : $normalized[$code]['whatsapp_enabled'],
                 'whatsapp_status' => in_array(($values['whatsapp_status'] ?? null), ['not_submitted', 'pending', 'approved', 'rejected'], true) ? $values['whatsapp_status'] : $normalized[$code]['whatsapp_status'],
-                'twilio_content_sid' => $values['twilio_content_sid'] ?? $normalized[$code]['twilio_content_sid'],
-                'twilio_approval_request_sid' => $values['twilio_approval_request_sid'] ?? $normalized[$code]['twilio_approval_request_sid'],
-                'twilio_template_name' => $values['twilio_template_name'] ?? $normalized[$code]['twilio_template_name'],
-                'twilio_category' => $values['twilio_category'] ?? $normalized[$code]['twilio_category'],
-                'twilio_rejection_reason' => $values['twilio_rejection_reason'] ?? $normalized[$code]['twilio_rejection_reason'],
                 'is_active' => array_key_exists('is_active', $values) ? (bool) $values['is_active'] : $normalized[$code]['is_active'],
                 'category' => $values['category'] ?? $normalized[$code]['category'],
                 'description' => $values['description'] ?? $normalized[$code]['description'],
@@ -397,6 +391,7 @@ class SmsTemplate extends Model
         ];
 
         return match ($category) {
+            'order_created' => [...$common, 'deposit'],
             'order_delivery_date_change' => [...$common, 'old_due_date', 'new_due_date'],
             'appointment_created', 'appointment_confirmed', 'appointment_rescheduled', 'appointment_cancelled', 'appointment_reminder' => ['customer_name', 'appointment_date', 'appointment_time'],
             'customer_created', 'measurement_recorded', 'thank_you_message' => ['customer_name', 'business_name'],

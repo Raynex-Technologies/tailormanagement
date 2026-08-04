@@ -36,7 +36,7 @@
             </div>
             <div class="grid grid-cols-[5.5rem_minmax(0,1fr)] gap-3">
                 <span>{{ __('Customer') }}:</span>
-                <span>{{ $sale->customer?->name ?? __('Customer') }}</span>
+                <span>{{ $sale->customer?->name ?? __('Client') }}</span>
             </div>
         </div>
 

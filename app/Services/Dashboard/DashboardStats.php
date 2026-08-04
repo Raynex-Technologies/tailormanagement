@@ -129,6 +129,10 @@ class DashboardStats
             'payments_month_change_pct' => $this->percentageChange($revenueThisMonth, $revenueLastMonth),
             'pos_sales_month_sum' => $posSalesThisMonth,
             'pos_sales_last_month_sum' => $posSalesLastMonth,
+            'pos_sales_month_change_pct' => $this->percentageChange(
+                $posSalesThisMonth,
+                $posSalesLastMonth
+            ),
             'storefront_payments_month_sum' => $storefrontPaymentsThisMonth,
             'storefront_payments_last_month_sum' => $storefrontPaymentsLastMonth,
             'storefront_payments_month_change_pct' => $this->percentageChange(
@@ -257,6 +261,7 @@ class DashboardStats
                 'payments_month_change_pct' => 0.0,
                 'pos_sales_month_sum' => 0,
                 'pos_sales_last_month_sum' => 0,
+                'pos_sales_month_change_pct' => 0.0,
                 'storefront_payments_month_sum' => 0,
                 'storefront_payments_last_month_sum' => 0,
                 'storefront_payments_month_change_pct' => 0.0,

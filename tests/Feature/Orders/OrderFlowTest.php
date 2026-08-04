@@ -14,6 +14,8 @@ use App\Models\OrderExpense;
 use App\Models\OrderLine;
 use App\Models\OrderPayment;
 use App\Models\PaymentMethod;
+use App\Models\SmsLog;
+use App\Models\SmsTemplate;
 use Livewire\Livewire;
 use Spatie\Permission\Models\Role;
 use Tests\TestCase;
@@ -112,6 +114,59 @@ class OrderFlowTest extends TestCase
         ]);
 
         $this->assertEquals($this->branch->id, $order->branch_id);
+    }
+
+    public function test_new_order_with_deposit_sends_only_order_created_sms_with_deposit(): void
+    {
+        $this->actingAsRole('branch_manager', $this->branch);
+        $customer = Customer::factory()->create([
+            'branch_id' => $this->branch->id,
+            'phone' => '0712345678',
+        ]);
+        $paymentMethod = PaymentMethod::query()->firstOrCreate(
+            ['name' => 'Cash'],
+            ['is_enabled' => true]
+        );
+
+        SmsTemplate::instance()->update([
+            'templates' => array_replace(SmsTemplate::defaultTemplates(), [
+                'order_created' => 'Order {order_number}, deposit {deposit}.',
+            ]),
+        ]);
+
+        Livewire::test(OrderForm::class)
+            ->set('customer_id', $customer->id)
+            ->set('lines.0.item_name', 'Suit')
+            ->set('lines.0.qty', 1)
+            ->set('lines.0.unit_price', 90000)
+            ->set('deposit_amount', 30000)
+            ->set('deposit_payment_method_id', $paymentMethod->id)
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $order = Order::query()->latest('id')->firstOrFail();
+        $logs = SmsLog::query()
+            ->where('reference_type', Order::class)
+            ->where('reference_id', $order->id)
+            ->get();
+
+        $this->assertCount(1, $logs);
+        $this->assertSame('order_created', $logs->first()->template_code);
+        $this->assertStringContainsString('deposit Tsh 30,000', $logs->first()->message);
+    }
+
+    public function test_order_line_totals_recalculate_live_before_save(): void
+    {
+        $this->actingAsRole('branch_manager', $this->branch);
+
+        Livewire::test(OrderForm::class)
+            ->set('lines.0.qty', 2)
+            ->set('lines.0.unit_price', 2500)
+            ->assertSet('lines.0.line_total', 5000.0)
+            ->assertSet('subtotal', 5000.0)
+            ->assertSet('total', 5000.0)
+            ->set('discount', 500)
+            ->assertSet('total', 4500.0);
     }
 
     public function test_create_order_can_attach_inventory_item_with_custom_price_and_decrease_stock(): void
@@ -406,8 +461,8 @@ class OrderFlowTest extends TestCase
             ->set('lines.0.qty', 1)
             ->set('lines.0.unit_price', 150000)
             ->set('order_expenses', [
-                ['notes' => 'Tailoring labor', 'amount' => 25000],
-                ['notes' => 'Additional fittings', 'amount' => 8000],
+                ['notes' => 'Labour Charge', 'amount' => 25000],
+                ['notes' => 'Other', 'amount' => 8000],
             ])
             ->call('save')
             ->assertHasNoErrors();
@@ -423,7 +478,7 @@ class OrderFlowTest extends TestCase
 
         $this->assertCount(1, $expenses);
         $this->assertSame($tailor->id, $expenses[0]->tailor_id);
-        $this->assertSame('Tailoring labor', $expenses[0]->notes);
+        $this->assertSame('Labour Charge', $expenses[0]->notes);
         $this->assertEquals(25000.0, (float) $expenses[0]->amount);
     }
 
@@ -448,7 +503,7 @@ class OrderFlowTest extends TestCase
                 ],
             ])
             ->set('order_expenses', [
-                ['notes' => 'Thread and trims', 'amount' => 5000],
+                ['notes' => 'Additional Materials', 'amount' => 5000],
             ])
             ->call('save')
             ->assertHasNoErrors();
@@ -462,7 +517,7 @@ class OrderFlowTest extends TestCase
 
         $this->assertNotNull($expense);
         $this->assertSame($tailor->id, $expense->tailor_id);
-        $this->assertSame('Thread and trims', $expense->notes);
+        $this->assertSame('Additional Materials', $expense->notes);
     }
 
     public function test_create_order_expenses_do_not_fail_when_order_tailor_value_is_zero_and_line_tailor_is_selected(): void
@@ -479,7 +534,7 @@ class OrderFlowTest extends TestCase
             ->set('lines.0.unit_price', 85000)
             ->set('lines.0.assigned_tailor_id', (string) $tailor->id)
             ->set('order_expenses', [
-                ['notes' => 'Buttons and lining', 'amount' => 7000],
+                ['notes' => 'Additional Materials', 'amount' => 7000],
             ])
             ->call('save')
             ->assertHasNoErrors();
@@ -527,8 +582,8 @@ class OrderFlowTest extends TestCase
                 ],
             ])
             ->set('order_expenses', [
-                ['notes' => 'Shirt labor', 'amount' => 5000],
-                ['notes' => 'Trouser labor', 'amount' => 4000],
+                ['notes' => 'Labour Charge', 'amount' => 5000],
+                ['notes' => 'Labour Charge', 'amount' => 4000],
             ])
             ->call('save')
             ->assertHasNoErrors();
@@ -576,7 +631,7 @@ class OrderFlowTest extends TestCase
                 ],
             ])
             ->set('order_expenses', [
-                ['notes' => 'Combined labor', 'amount' => 12000],
+                ['notes' => 'Labour Charge', 'amount' => 12000],
             ])
             ->call('save')
             ->assertHasNoErrors();
@@ -930,13 +985,13 @@ class OrderFlowTest extends TestCase
         ]);
 
         Livewire::test(OrderForm::class, ['order' => $order])
-            ->set('order_expenses.0.notes', 'Updated labor')
+            ->set('order_expenses.0.notes', 'Labour Charge')
             ->set('order_expenses.0.amount', 18000)
             ->call('save')
             ->assertHasNoErrors();
 
         $expense->refresh();
-        $this->assertSame('Updated labor', $expense->notes);
+        $this->assertSame('Labour Charge', $expense->notes);
         $this->assertEquals(18000.0, (float) $expense->amount);
     }
 
@@ -978,7 +1033,7 @@ class OrderFlowTest extends TestCase
                 [
                     'id' => null,
                     'tailor_id' => null,
-                    'notes' => 'New fittings',
+                    'notes' => 'Other',
                     'amount' => 4500,
                 ],
             ])
@@ -989,7 +1044,7 @@ class OrderFlowTest extends TestCase
 
         $newExpense = OrderExpense::query()
             ->where('order_id', $order->id)
-            ->where('notes', 'New fittings')
+            ->where('notes', 'Other')
             ->first();
 
         $this->assertNotNull($newExpense);

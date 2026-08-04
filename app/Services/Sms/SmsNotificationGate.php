@@ -4,7 +4,8 @@ namespace App\Services\Sms;
 
 use App\Models\BeemConfig;
 use App\Models\SmsTemplate;
-use App\Models\TwilioWhatsappConfig;
+use App\Models\WhatsappIntegration;
+use App\Support\BranchContext;
 
 class SmsNotificationGate
 {
@@ -58,7 +59,7 @@ class SmsNotificationGate
 
     public function reasonWhatsappDisabled(string $templateCode): ?string
     {
-        if (! TwilioWhatsappConfig::instance()->whatsapp_enabled) {
+        if (! WhatsappIntegration::forBranch(BranchContext::requireId())->enabled) {
             return self::WHATSAPP_GLOBAL_DISABLED;
         }
 
