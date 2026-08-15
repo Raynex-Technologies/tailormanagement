@@ -45,7 +45,7 @@ return new class extends Migration
             $t->text('reason')->nullable();
             $t->timestamp('occurred_at');
             $t->timestamps();
-            $t->index(['whatsapp_template_id', 'occurred_at']);
+            $t->index(['whatsapp_template_id', 'occurred_at'], 'wa_template_history_occurred_idx');
         });
     }
 

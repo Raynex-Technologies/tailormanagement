@@ -4,6 +4,7 @@ namespace App\Jobs;
 
 use App\Contracts\WhatsAppProvider;
 use App\Models\WhatsappMessage;
+use App\Services\WhatsApp\WhatsappMessageLifecycle;
 use App\Services\WhatsApp\WhatsAppPhoneNormalizer;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
@@ -22,9 +23,13 @@ class SendWhatsappMessage implements ShouldQueue
 
     public function __construct(public int $messageId) {}
 
-    public function handle(WhatsAppProvider $provider, WhatsAppPhoneNormalizer $phones): void
+    public function handle(WhatsAppProvider $provider, WhatsAppPhoneNormalizer $phones, ?WhatsappMessageLifecycle $lifecycle = null): void
     {
+        $lifecycle ??= app(WhatsappMessageLifecycle::class);
         $message = WhatsappMessage::withoutGlobalScopes()->with('integration')->findOrFail($this->messageId);
+        if ($message->external_message_id && in_array($message->status, ['accepted', 'sent', 'delivered', 'read'], true)) {
+            return;
+        }
         if (! in_array($message->status, ['queued', 'submitting'], true)) {
             return;
         } $integration = $message->integration;
@@ -38,9 +43,14 @@ class SendWhatsappMessage implements ShouldQueue
 
             return;
         } $message->update(['status' => 'submitting', 'submitted_at' => now()]);
-        $result = $provider->sendText($integration, $recipient, (string) $message->body);
+        if ($message->message_type === 'template') {
+            $snapshot = $message->safe_metadata ?: [];
+            $result = $provider->sendTemplate($integration, $recipient, (string) ($snapshot['template_name'] ?? ''), (string) ($snapshot['language'] ?? ''), $snapshot['components'] ?? []);
+        } else {
+            $result = $provider->sendText($integration, $recipient, (string) $message->body);
+        }
         if ($result['success']) {
-            $message->update(['status' => 'accepted', 'external_message_id' => $result['message_id'], 'accepted_at' => now(), 'failure_code' => null, 'failure_reason' => null]);
+            $lifecycle->accepted($message, $result['message_id']);
 
             return;
         } if ($result['integration_failure'] ?? false) {
@@ -61,5 +71,6 @@ class SendWhatsappMessage implements ShouldQueue
     protected function failMessage(WhatsappMessage $message, string $code, string $reason): void
     {
         $message->update(['status' => 'failed', 'failure_code' => $code, 'failure_reason' => $reason, 'failed_at' => now()]);
+        $message->smsLog()->update(['status' => 'failed', 'provider_response' => json_encode(['error_code' => $code, 'error_message' => $reason])]);
     }
 }

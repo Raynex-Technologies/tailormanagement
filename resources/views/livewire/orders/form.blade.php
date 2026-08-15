@@ -212,7 +212,7 @@
                             wire:model="order_date"
                             type="date"
                             label="Order Date"
-                            min="{{ date('Y-m-d') }}"
+                            min="{{ $isEdit ? ($order?->order_date?->toDateString() ?? $order?->created_at?->toDateString() ?? date('Y-m-d')) : date('Y-m-d') }}"
                             required
                         />
                     @endif

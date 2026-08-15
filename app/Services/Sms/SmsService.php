@@ -4,10 +4,12 @@ namespace App\Services\Sms;
 
 use App\Enums\SmsStatus;
 use App\Models\BeemConfig;
+use App\Models\Customer;
 use App\Models\SmsLog;
 use App\Models\SmsTemplate;
 use App\Models\User;
 use App\Models\WhatsappIntegration;
+use App\Models\WhatsappTemplate;
 use App\Services\WhatsApp\WhatsAppService;
 use App\Support\BranchContext;
 use App\Support\Phone;
@@ -38,7 +40,7 @@ class SmsService
 
         $smsReason = $gate->reasonSmsDisabled($templateCode);
         $whatsappConfig = WhatsappIntegration::forBranch(BranchContext::requireId());
-        $whatsappReason = $whatsappConfig->whatsapp_enabled
+        $whatsappReason = $whatsappConfig->enabled
             ? $gate->reasonWhatsappDisabled($templateCode)
             : SmsNotificationGate::WHATSAPP_GLOBAL_DISABLED;
 
@@ -47,7 +49,7 @@ class SmsService
             : $this->createSkippedLog($templateCode, $to, $message, $smsReason, $reference, $actor, 'beem');
 
         $whatsappLog = null;
-        if ($whatsappConfig->whatsapp_enabled) {
+        if ($whatsappConfig->enabled) {
             $whatsappLog = $whatsappReason === null
                 ? $this->sendWhatsappTemplateIfPhonePresent($templateCode, $to, $whatsappTemplateBody, $whatsappMessage, $data, $reference, $actor)
                 : $this->createSkippedLog($templateCode, $to, $whatsappMessage, $whatsappReason, $reference, $actor, 'meta_whatsapp');
@@ -277,7 +279,52 @@ class SmsService
 
     public function sendWhatsappTemplate(string $templateCode, string $to, string $templateBody, string $renderedMessage, array $data = [], ?Model $reference = null, ?User $actor = null): SmsLog
     {
-        return $this->sendWhatsapp($to, $renderedMessage, $reference, $actor, $templateCode);
+        $branchId = $reference?->getAttribute('branch_id') ?? BranchContext::requireId();
+        $normalizedPhone = Phone::toE164Tz($to);
+        $settings = SmsTemplate::instance()->settingsFor($templateCode) ?? [];
+        $templateName = (string) ($settings['whatsapp_template_name'] ?? $templateCode);
+        $templateLanguage = $settings['whatsapp_template_language'] ?? null;
+        $template = WhatsappTemplate::withoutGlobalScopes()
+            ->where('branch_id', $branchId)
+            ->whereHas('integration', fn ($query) => $query->where('enabled', true))
+            ->where('name', $templateName)
+            ->when($templateLanguage, fn ($query, $language) => $query->where('language', $language))
+            ->whereRaw('UPPER(meta_status) = ?', ['APPROVED'])
+            ->whereNull('deleted_at_meta')
+            ->orderByDesc('last_synced_at')
+            ->first();
+        $customerId = $this->customerIdFor($reference);
+        $customer = $customerId ? Customer::withoutGlobalScopes()->where('branch_id', $branchId)->find($customerId) : null;
+        $reason = null;
+        if (! $template) {
+            $reason = 'whatsapp_template_missing_or_unapproved';
+        } elseif (! $customer || ! $customer->whatsapp_opted_in_at) {
+            $reason = 'whatsapp_opt_in_required';
+        } elseif ($template->category === 'MARKETING' && ! $customer->whatsapp_marketing_opted_in_at) {
+            $reason = 'whatsapp_marketing_opt_in_required';
+        }
+        if (! $normalizedPhone || $reason) {
+            return $this->createSkippedLog($templateCode, $to, $renderedMessage, $reason ?: 'invalid_phone', $reference, $actor, 'meta_whatsapp');
+        }
+
+        $smsLog = SmsLog::create([
+            'branch_id' => $branchId, 'provider' => 'meta_whatsapp', 'template_code' => $templateCode,
+            'to' => $normalizedPhone, 'message' => $renderedMessage, 'status' => SmsStatus::Queued,
+            'skip_reason' => null, 'provider_message_id' => null, 'provider_response' => null,
+            'reference_type' => $reference?->getMorphClass(), 'reference_id' => $reference?->getKey(), 'created_by' => $actor?->id,
+        ]);
+        $result = $this->whatsappClient->queueTemplate(
+            $branchId, $normalizedPhone, $template, $data, $customerId, $reference,
+            ['notification_code' => $templateCode, 'actor_id' => $actor?->id, 'rendered_message' => $renderedMessage, 'sms_log_id' => $smsLog->id]
+        );
+        if (! $result['success']) {
+            $smsLog->update(['status' => SmsStatus::Failed, 'provider_response' => json_encode($result)]);
+
+            return $smsLog->fresh();
+        }
+        $smsLog->update(['whatsapp_message_id' => $result['message_id'], 'provider_response' => json_encode($result)]);
+
+        return $smsLog->fresh();
     }
 
     public function sendWhatsapp(string $to, string $message, ?Model $reference = null, ?User $actor = null, ?string $templateCode = null): SmsLog
@@ -370,5 +417,25 @@ class SmsService
         }
 
         return $variables;
+    }
+
+    protected function customerIdFor(?Model $reference): ?int
+    {
+        if (! $reference) {
+            return null;
+        }
+        if ($reference instanceof Customer) {
+            return (int) $reference->getKey();
+        }
+        $customerId = $reference->getAttribute('customer_id');
+        if ($customerId) {
+            return (int) $customerId;
+        }
+        $orderId = $reference->getAttribute('order_id');
+        if ($orderId) {
+            return \App\Models\Order::withoutGlobalScopes()->whereKey($orderId)->value('customer_id');
+        }
+
+        return null;
     }
 }

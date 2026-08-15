@@ -31,23 +31,30 @@ class ProcessWhatsappWebhook implements ShouldQueue
         $event = WhatsappWebhookEvent::with('integration')->findOrFail($this->eventId);
         if ($event->processed_at) {
             return;
-        } $integration = $event->integration;
-        foreach ($event->payload['entry'] ?? [] as $entry) {
-            foreach ($entry['changes'] ?? [] as $change) {
-                $value = $change['value'] ?? [];
-                if (($change['field'] ?? null) === 'message_template_status_update') {
-                    $this->templateStatus($integration, $value, $templateStatuses);
+        }
+        try {
+            $integration = $event->integration;
+            foreach ($event->payload['entry'] ?? [] as $entry) {
+                foreach ($entry['changes'] ?? [] as $change) {
+                    $value = $change['value'] ?? [];
+                    if (($change['field'] ?? null) === 'message_template_status_update') {
+                        $this->templateStatus($integration, $value, $templateStatuses);
 
-                    continue;
-                }
-                foreach ($value['messages'] ?? [] as $incoming) {
-                    $this->inbound($integration, $incoming, $phones);
-                } foreach ($value['statuses'] ?? [] as $status) {
-                    $this->status($status, $lifecycle);
+                        continue;
+                    }
+                    foreach ($value['messages'] ?? [] as $incoming) {
+                        $this->inbound($integration, $incoming, $phones);
+                    }
+                    foreach ($value['statuses'] ?? [] as $status) {
+                        $this->status($integration, $status, $lifecycle);
+                    }
                 }
             }
+            $event->update(['processed_at' => now(), 'processing_error' => null]);
+        } catch (\Throwable $exception) {
+            $event->update(['processing_error' => 'Webhook processing failed ('.class_basename($exception).').']);
+            throw $exception;
         }
-        $event->update(['processed_at' => now(), 'processing_error' => null]);
     }
 
     protected function templateStatus($integration, array $value, WhatsappTemplateStatusService $statuses): void
@@ -80,12 +87,12 @@ class ProcessWhatsappWebhook implements ShouldQueue
     protected function inbound($integration, array $incoming, WhatsAppPhoneNormalizer $phones): void
     {
         $external = (string) ($incoming['id'] ?? '');
-        if ($external === '' || WhatsappMessage::withoutGlobalScopes()->where('external_message_id', $external)->exists()) {
+        if ($external === '' || WhatsappMessage::withoutGlobalScopes()->where('whatsapp_integration_id', $integration->id)->where('external_message_id', $external)->exists()) {
             return;
         } $phone = $phones->normalize($incoming['from'] ?? null);
         if (! $phone) {
             return;
-        } $customer = Customer::withoutGlobalScopes()->where('branch_id', $integration->branch_id)->get(['id', 'phone'])->first(fn ($candidate) => $phones->normalize($candidate->phone) === $phone);
+        } $customer = Customer::withoutGlobalScopes()->where('branch_id', $integration->branch_id)->where('whatsapp_phone', $phone)->first(['id']);
         $at = CarbonImmutable::createFromTimestampUTC((int) ($incoming['timestamp'] ?? now()->timestamp));
         $contact = WhatsappContact::withoutGlobalScopes()->firstOrCreate(['whatsapp_integration_id' => $integration->id, 'phone' => $phone], ['branch_id' => $integration->branch_id]);
         $contact->update(['customer_id' => $customer?->id ?: $contact->customer_id, 'last_customer_message_at' => $at]);
@@ -93,13 +100,13 @@ class ProcessWhatsappWebhook implements ShouldQueue
         WhatsappMessage::withoutGlobalScopes()->create(['branch_id' => $integration->branch_id, 'whatsapp_integration_id' => $integration->id, 'whatsapp_contact_id' => $contact->id, 'customer_id' => $customer?->id, 'external_message_id' => $external, 'direction' => 'inbound', 'message_type' => $type, 'phone' => $phone, 'body' => $type === 'text' ? data_get($incoming, 'text.body') : null, 'status' => 'delivered', 'delivered_at' => $at, 'meta_timestamp' => $at, 'safe_metadata' => $type === 'text' ? null : ['type' => $type]]);
     }
 
-    protected function status(array $status, WhatsappMessageLifecycle $lifecycle): void
+    protected function status($integration, array $status, WhatsappMessageLifecycle $lifecycle): void
     {
         $id = (string) ($status['id'] ?? '');
         $state = (string) ($status['status'] ?? '');
         if ($id === '' || ! in_array($state, ['sent', 'delivered', 'read', 'failed'], true)) {
             return;
-        } $message = WhatsappMessage::withoutGlobalScopes()->where('external_message_id', $id)->first();
+        } $message = WhatsappMessage::withoutGlobalScopes()->where('whatsapp_integration_id', $integration->id)->where('external_message_id', $id)->first();
         if (! $message) {
             return;
         } $at = CarbonImmutable::createFromTimestampUTC((int) ($status['timestamp'] ?? now()->timestamp));

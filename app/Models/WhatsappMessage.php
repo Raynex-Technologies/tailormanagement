@@ -37,4 +37,9 @@ class WhatsappMessage extends Model
     {
         return $this->morphTo();
     }
+
+    public function smsLog(): \Illuminate\Database\Eloquent\Relations\HasOne
+    {
+        return $this->hasOne(SmsLog::class);
+    }
 }

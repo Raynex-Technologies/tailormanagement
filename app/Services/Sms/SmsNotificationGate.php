@@ -78,10 +78,6 @@ class SmsNotificationGate
             return self::TEMPLATE_WHATSAPP_DISABLED;
         }
 
-        if (($settings['whatsapp_status'] ?? null) !== 'approved') {
-            return self::TEMPLATE_WHATSAPP_NOT_APPROVED;
-        }
-
         return null;
     }
 }

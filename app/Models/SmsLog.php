@@ -24,6 +24,7 @@ class SmsLog extends Model
         'status',
         'skip_reason',
         'provider_message_id',
+        'whatsapp_message_id',
         'provider_response',
         'reference_type',
         'reference_id',
@@ -45,6 +46,11 @@ class SmsLog extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function whatsappMessage(): BelongsTo
+    {
+        return $this->belongsTo(WhatsappMessage::class);
     }
 
     public function scopeResolvedFailedRetries(Builder $query): Builder

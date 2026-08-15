@@ -805,8 +805,14 @@ class Form extends Component
         $orderDateRules = ['required', 'date'];
         $dueDateRules = ['nullable', 'date'];
 
+        $keepsOriginalOrderDate = $this->isEdit
+            && $this->order?->order_date?->toDateString() === $this->order_date;
+
         if (! $this->allowsOrderDatesFlexibility()) {
-            $orderDateRules[] = 'after_or_equal:today';
+            if (! $keepsOriginalOrderDate) {
+                $orderDateRules[] = 'after_or_equal:today';
+            }
+
             $dueDateRules[] = 'after_or_equal:today';
         }
 

@@ -43,6 +43,27 @@ class MetaWhatsAppProvider implements WhatsAppProvider
         }
     }
 
+    public function sendTemplate(WhatsappIntegration $integration, string $recipient, string $name, string $language, array $components = []): array
+    {
+        try {
+            $template = ['name' => $name, 'language' => ['code' => $language]];
+            if ($components !== []) {
+                $template['components'] = $components;
+            }
+            $response = $this->client($integration)->post('/'.$integration->phone_number_id.'/messages', [
+                'messaging_product' => 'whatsapp',
+                'recipient_type' => 'individual',
+                'to' => $recipient,
+                'type' => 'template',
+                'template' => $template,
+            ]);
+
+            return $this->messageResult($response);
+        } catch (ConnectionException) {
+            return $this->failure('network_error', 'Meta could not be reached while sending the template.', true, false);
+        }
+    }
+
     public function markAsRead(WhatsappIntegration $integration, string $externalMessageId): array
     {
         try {
@@ -81,7 +102,7 @@ class MetaWhatsAppProvider implements WhatsAppProvider
                 return $this->responseFailure($response);
             }
 
-return ['success' => true, 'data' => ['id' => $response->json('id'), 'status' => $response->json('status') ?: 'PENDING', 'category' => $response->json('category') ?: $definition->category]];
+            return ['success' => true, 'data' => ['id' => $response->json('id'), 'status' => $response->json('status') ?: 'PENDING', 'category' => $response->json('category') ?: $definition->category]];
         } catch (ConnectionException) {
             return $this->failure('network_error', 'Meta could not be reached while submitting the template.', true, false);
         }
@@ -120,7 +141,7 @@ return ['success' => true, 'data' => ['id' => $response->json('id'), 'status' =>
                 return $this->responseFailure($response);
             }
 
-return ['success' => true, 'data' => $response->json('data') ?: [], 'after' => $response->json('paging.cursors.after'), 'has_more' => filled($response->json('paging.next'))];
+            return ['success' => true, 'data' => $response->json('data') ?: [], 'after' => $response->json('paging.cursors.after'), 'has_more' => filled($response->json('paging.next'))];
         } catch (ConnectionException) {
             return $this->failure('network_error', 'Meta could not be reached while synchronizing templates.', true, false);
         }
@@ -167,7 +188,7 @@ return ['success' => true, 'data' => $response->json('data') ?: [], 'after' => $
             } $components[] = $item;
         }
 
-return ['name' => $definition->name, 'language' => $definition->language, 'category' => $definition->category, 'components' => $components];
+        return ['name' => $definition->name, 'language' => $definition->language, 'category' => $definition->category, 'components' => $components];
     }
 
     protected function get(WhatsappIntegration $integration, string $resource, array $query): array

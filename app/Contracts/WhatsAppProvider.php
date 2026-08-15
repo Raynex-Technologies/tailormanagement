@@ -10,6 +10,8 @@ interface WhatsAppProvider
 
     public function sendText(WhatsappIntegration $integration, string $recipient, string $message): array;
 
+    public function sendTemplate(WhatsappIntegration $integration, string $recipient, string $name, string $language, array $components = []): array;
+
     public function markAsRead(WhatsappIntegration $integration, string $externalMessageId): array;
 
     public function configureWebhooks(WhatsappIntegration $integration, string $callbackUrl): array;

@@ -160,10 +160,12 @@ class SmsTemplate extends Model
     public static function defaultTemplateSettings(): array
     {
         return collect(self::templateDefinitions())
-            ->map(fn (array $definition) => [
+            ->map(fn (array $definition, string $code) => [
                 'sms_enabled' => (bool) $definition['enabled'],
                 'whatsapp_enabled' => false,
                 'whatsapp_status' => 'not_submitted',
+                'whatsapp_template_name' => $code,
+                'whatsapp_template_language' => null,
                 'is_active' => true,
                 'category' => $definition['category'],
                 'description' => $definition['description'],
@@ -339,6 +341,8 @@ class SmsTemplate extends Model
                 'sms_enabled' => array_key_exists('sms_enabled', $values) ? (bool) $values['sms_enabled'] : $normalized[$code]['sms_enabled'],
                 'whatsapp_enabled' => array_key_exists('whatsapp_enabled', $values) ? (bool) $values['whatsapp_enabled'] : $normalized[$code]['whatsapp_enabled'],
                 'whatsapp_status' => in_array(($values['whatsapp_status'] ?? null), ['not_submitted', 'pending', 'approved', 'rejected'], true) ? $values['whatsapp_status'] : $normalized[$code]['whatsapp_status'],
+                'whatsapp_template_name' => filled($values['whatsapp_template_name'] ?? null) ? (string) $values['whatsapp_template_name'] : $normalized[$code]['whatsapp_template_name'],
+                'whatsapp_template_language' => filled($values['whatsapp_template_language'] ?? null) ? (string) $values['whatsapp_template_language'] : null,
                 'is_active' => array_key_exists('is_active', $values) ? (bool) $values['is_active'] : $normalized[$code]['is_active'],
                 'category' => $values['category'] ?? $normalized[$code]['category'],
                 'description' => $values['description'] ?? $normalized[$code]['description'],
@@ -370,8 +374,7 @@ class SmsTemplate extends Model
 
         return $settings !== null
             && (bool) ($settings['is_active'] ?? false)
-            && (bool) ($settings['whatsapp_enabled'] ?? false)
-            && ($settings['whatsapp_status'] ?? null) === 'approved';
+            && (bool) ($settings['whatsapp_enabled'] ?? false);
     }
 
     /** Variables available per category (for UI hints) */

@@ -995,6 +995,40 @@ class OrderFlowTest extends TestCase
         $this->assertEquals(18000.0, (float) $expense->amount);
     }
 
+    public function test_edit_order_accepts_its_original_historical_order_date(): void
+    {
+        $this->actingAsRole('branch_manager', $this->branch);
+        $customer = Customer::factory()->create(['branch_id' => $this->branch->id]);
+        $originalOrderDate = today()->subDays(10)->toDateString();
+
+        $order = Order::create([
+            'branch_id' => $this->branch->id,
+            'customer_id' => $customer->id,
+            'order_date' => $originalOrderDate,
+            'status' => OrderStatus::New,
+            'subtotal' => 70000,
+            'discount' => 0,
+            'total' => 70000,
+            'payment_status' => PaymentStatus::Unpaid,
+            'created_by' => auth()->id(),
+        ]);
+
+        OrderLine::create([
+            'order_id' => $order->id,
+            'item_name' => 'Suit',
+            'qty' => 1,
+            'unit_price' => 70000,
+            'line_total' => 70000,
+        ]);
+
+        Livewire::test(OrderForm::class, ['order' => $order])
+            ->set('notes', 'Updated without changing the original date')
+            ->call('save')
+            ->assertHasNoErrors();
+
+        $this->assertSame($originalOrderDate, $order->fresh()->order_date->toDateString());
+    }
+
     public function test_edit_order_can_add_and_remove_order_expenses(): void
     {
         $this->actingAsRole('branch_manager', $this->branch);

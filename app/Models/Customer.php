@@ -19,6 +19,9 @@ class Customer extends Model
         'code',
         'name',
         'phone',
+        'whatsapp_phone',
+        'whatsapp_opted_in_at',
+        'whatsapp_marketing_opted_in_at',
         'email',
         'address',
         'dob',
@@ -29,6 +32,8 @@ class Customer extends Model
     {
         return [
             'dob' => 'date',
+            'whatsapp_opted_in_at' => 'datetime',
+            'whatsapp_marketing_opted_in_at' => 'datetime',
         ];
     }
 
@@ -37,6 +42,11 @@ class Customer extends Model
         static::creating(function (Customer $customer) {
             if (empty($customer->code)) {
                 $customer->code = DocNumber::customer();
+            }
+        });
+        static::saving(function (Customer $customer) {
+            if ($customer->isDirty('phone') || blank($customer->whatsapp_phone)) {
+                $customer->whatsapp_phone = \App\Support\Phone::toE164Tz($customer->phone);
             }
         });
     }
