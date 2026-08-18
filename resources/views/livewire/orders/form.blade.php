@@ -473,35 +473,19 @@
             <flux:card>
                 <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                     <flux:heading size="lg">Order Expenses</flux:heading>
-                    <p class="text-xs text-zinc-500 dark:text-zinc-400">Auto-generated per assigned tailor</p>
+                    <flux:button type="button" size="sm" variant="ghost" wire:click="addOrderExpense">
+                        {{ __('Add expense') }}
+                    </flux:button>
                 </div>
-
-                @php
-                    $selectedExpenseTailorIds = $hasOrderTailor
-                        ? collect([(int) $assigned_tailor_id])->filter()
-                        : collect($lines)
-                            ->filter(fn ($line) => trim((string) ($line['item_name'] ?? '')) !== '')
-                            ->pluck('assigned_tailor_id')
-                            ->filter()
-                            ->map(fn ($id) => (int) $id)
-                            ->unique()
-                            ->values();
-
-                    $expensesLocked = $selectedExpenseTailorIds->isEmpty();
-                @endphp
 
                 <div class="space-y-4">
                     @foreach ($order_expenses as $expenseIndex => $expense)
-                        @php
-                            $expenseTailorId = (int) ($expense['tailor_id'] ?? 0);
-                            $expenseTailorName = $expenseTailorId > 0
-                                ? ($tailors->firstWhere('id', $expenseTailorId)?->name ?? 'Assigned tailor')
-                                : 'No tailor selected';
-                        @endphp
                         <div class="rounded-xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-800/50" wire:key="order-expense-{{ $expenseIndex }}">
                             <div class="mb-4 flex items-start justify-between gap-3">
                                 <flux:badge size="sm">Expense {{ $expenseIndex + 1 }}</flux:badge>
-                                <span class="text-sm font-medium text-zinc-600 dark:text-zinc-300">{{ $expenseTailorName }}</span>
+                                <flux:button type="button" size="xs" variant="ghost" wire:click="removeOrderExpense({{ $expenseIndex }})">
+                                    {{ __('Remove') }}
+                                </flux:button>
                             </div>
 
                             <input type="hidden" wire:model="order_expenses.{{ $expenseIndex }}.tailor_id" />
@@ -510,7 +494,6 @@
                                 <flux:select
                                     wire:model.blur="order_expenses.{{ $expenseIndex }}.notes"
                                     label="Description"
-                                    :disabled="$expensesLocked"
                                 >
                                     <flux:select.option value="">{{ __('Select description') }}</flux:select.option>
                                     <flux:select.option value="Labour Charge">{{ __('Labour Charge') }}</flux:select.option>
@@ -524,7 +507,6 @@
                                     min="0"
                                     label="Amount"
                                     placeholder="0.00"
-                                    :disabled="$expensesLocked"
                                 />
                             </div>
 
@@ -541,15 +523,6 @@
                     @endforeach
                 </div>
 
-                @if ($expensesLocked)
-                    <p class="mt-3 text-sm text-zinc-500 dark:text-zinc-400">
-                        Select an order tailor or assign line tailor(s) to activate order expenses.
-                    </p>
-                @elseif (!$hasOrderTailor)
-                    <p class="mt-3 text-sm text-zinc-500 dark:text-zinc-400">
-                        One expense line is generated per unique inline tailor assignment.
-                    </p>
-                @endif
                 @error('order_expenses')
                     <p class="mt-2 text-sm text-red-500">{{ $message }}</p>
                 @enderror

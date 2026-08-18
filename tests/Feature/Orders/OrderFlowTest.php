@@ -448,7 +448,7 @@ class OrderFlowTest extends TestCase
         $this->assertNotNull($order->completed_at);
     }
 
-    public function test_create_order_expenses_are_collapsed_to_one_row_per_selected_order_tailor(): void
+    public function test_create_order_expenses_are_independent_from_selected_order_tailor(): void
     {
         $this->actingAsRole('branch_manager', $this->branch);
         $tailor = $this->createUserWithRole('tailor', $this->branch);
@@ -476,13 +476,14 @@ class OrderFlowTest extends TestCase
             ->orderBy('id')
             ->get();
 
-        $this->assertCount(1, $expenses);
-        $this->assertSame($tailor->id, $expenses[0]->tailor_id);
+        $this->assertCount(2, $expenses);
+        $this->assertNull($expenses[0]->tailor_id);
         $this->assertSame('Labour Charge', $expenses[0]->notes);
         $this->assertEquals(25000.0, (float) $expenses[0]->amount);
+        $this->assertNull($expenses[1]->tailor_id);
     }
 
-    public function test_create_order_expenses_use_single_line_tailor_when_order_tailor_is_empty(): void
+    public function test_create_order_expense_does_not_require_a_line_tailor(): void
     {
         $this->actingAsRole('branch_manager', $this->branch);
         $tailor = $this->createUserWithRole('tailor', $this->branch);
@@ -516,11 +517,11 @@ class OrderFlowTest extends TestCase
             ->first();
 
         $this->assertNotNull($expense);
-        $this->assertSame($tailor->id, $expense->tailor_id);
+        $this->assertNull($expense->tailor_id);
         $this->assertSame('Additional Materials', $expense->notes);
     }
 
-    public function test_create_order_expenses_do_not_fail_when_order_tailor_value_is_zero_and_line_tailor_is_selected(): void
+    public function test_create_order_expense_remains_independent_when_line_tailor_is_selected(): void
     {
         $this->actingAsRole('branch_manager', $this->branch);
         $tailor = $this->createUserWithRole('tailor', $this->branch);
@@ -547,10 +548,10 @@ class OrderFlowTest extends TestCase
             ->first();
 
         $this->assertNotNull($expense);
-        $this->assertSame($tailor->id, $expense->tailor_id);
+        $this->assertNull($expense->tailor_id);
     }
 
-    public function test_create_order_expenses_create_one_row_per_inline_tailor_when_order_tailor_is_empty(): void
+    public function test_create_order_expenses_keep_user_entered_rows_with_inline_tailors(): void
     {
         $this->actingAsRole('branch_manager', $this->branch);
         $tailorA = $this->createUserWithRole('tailor', $this->branch);
@@ -597,10 +598,10 @@ class OrderFlowTest extends TestCase
             ->get();
 
         $this->assertCount(2, $expenses);
-        $this->assertSame([$tailorA->id, $tailorB->id], $expenses->pluck('tailor_id')->all());
+        $this->assertSame([null, null], $expenses->pluck('tailor_id')->all());
     }
 
-    public function test_create_order_expenses_dedupe_inline_tailor_when_multiple_lines_share_same_tailor(): void
+    public function test_create_order_expenses_are_not_deduped_by_inline_tailor(): void
     {
         $this->actingAsRole('branch_manager', $this->branch);
         $tailor = $this->createUserWithRole('tailor', $this->branch);
@@ -644,7 +645,7 @@ class OrderFlowTest extends TestCase
             ->get();
 
         $this->assertCount(1, $expenses);
-        $this->assertSame($tailor->id, (int) $expenses->first()->tailor_id);
+        $this->assertNull($expenses->first()->tailor_id);
     }
 
     public function test_create_order_new_customer_phone_must_be_unique_within_branch(): void
@@ -1082,7 +1083,7 @@ class OrderFlowTest extends TestCase
             ->first();
 
         $this->assertNotNull($newExpense);
-        $this->assertSame($tailor->id, $newExpense->tailor_id);
+        $this->assertNull($newExpense->tailor_id);
         $this->assertEquals(4500.0, (float) $newExpense->amount);
     }
 }

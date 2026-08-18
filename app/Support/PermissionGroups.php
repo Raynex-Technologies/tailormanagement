@@ -13,8 +13,21 @@ class PermissionGroups
      * Order defines display order. Permissions are matched by prefix then exact.
      */
     protected static array $groups = [
-        'Core' => [
+        'Dashboard' => [
             'dashboard.view',
+            'dashboard.kpi.orders.view',
+            'dashboard.kpi.revenue.view',
+            'dashboard.kpi.expenses.view',
+            'dashboard.kpi.item-sales.view',
+            'dashboard.chart.income-expenses.view',
+            'dashboard.calendar.view',
+            'dashboard.order-progress.view',
+            'dashboard.alert.low-stock.view',
+            'dashboard.alert.purchase-requests.view',
+            'dashboard.quick-actions.view',
+            'dashboard.todos.view',
+            'dashboard.payment-methods.view',
+            'dashboard.top-customers.view',
         ],
         'Users & Access Control' => [
             'users.view',

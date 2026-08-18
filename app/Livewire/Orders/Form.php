@@ -320,24 +320,12 @@ class Form extends Component
 
     public function addOrderExpense(): void
     {
-        if (! empty($this->selectedExpenseTailorIds())) {
-            $this->syncOrderExpensesWithSelectedTailors();
-
-            return;
-        }
-
         $this->normalizeOrderExpenses();
         $this->order_expenses[] = $this->emptyOrderExpenseRow();
     }
 
     public function removeOrderExpense(int $index): void
     {
-        if (! empty($this->selectedExpenseTailorIds())) {
-            $this->syncOrderExpensesWithSelectedTailors();
-
-            return;
-        }
-
         if (count($this->order_expenses) > 1) {
             unset($this->order_expenses[$index]);
             $this->order_expenses = array_values($this->order_expenses);
@@ -389,111 +377,10 @@ class Form extends Component
         ];
     }
 
-    protected function isOrderExpenseRowFilled(array $expense): bool
-    {
-        $notes = trim((string) ($expense['notes'] ?? ''));
-        $amount = $expense['amount'] ?? null;
-
-        return $notes !== '' || ($amount !== null && $amount !== '');
-    }
-
-    protected function pickPreferredOrderExpenseRow(array $current, array $candidate): array
-    {
-        if ($this->isOrderExpenseRowFilled($candidate) && ! $this->isOrderExpenseRowFilled($current)) {
-            return $candidate;
-        }
-
-        $currentId = (int) ($current['id'] ?? 0);
-        $candidateId = (int) ($candidate['id'] ?? 0);
-
-        if ($candidateId > 0 && $currentId <= 0) {
-            return $candidate;
-        }
-
-        return $current;
-    }
-
-    /**
-     * Selected tailor IDs for order expenses.
-     * Order tailor overrides inline line-tailor assignments.
-     *
-     * @return array<int>
-     */
-    protected function selectedExpenseTailorIds(): array
-    {
-        if ($this->assigned_tailor_id) {
-            return [(int) $this->assigned_tailor_id];
-        }
-
-        return $this->activeLineTailorIds()->all();
-    }
-
-    /**
-     * Keep order_expenses as one row per unique selected tailor.
-     * If no tailor is selected, keep a single unassigned row.
-     */
+    /** Keep expense rows independent from tailor assignments. */
     protected function syncOrderExpensesWithSelectedTailors(): void
     {
         $this->normalizeOrderExpenses();
-
-        $selectedTailorIds = $this->selectedExpenseTailorIds();
-        $rowsByTailor = [];
-        $fallbackRows = [];
-
-        foreach ($this->order_expenses as $expense) {
-            $tailorId = (int) ($expense['tailor_id'] ?? 0);
-
-            if ($tailorId > 0) {
-                if (! isset($rowsByTailor[$tailorId])) {
-                    $rowsByTailor[$tailorId] = $expense;
-
-                    continue;
-                }
-
-                $preferred = $this->pickPreferredOrderExpenseRow($rowsByTailor[$tailorId], $expense);
-                if ($preferred !== $rowsByTailor[$tailorId]) {
-                    $fallbackRows[] = $rowsByTailor[$tailorId];
-                    $rowsByTailor[$tailorId] = $preferred;
-                } else {
-                    $fallbackRows[] = $expense;
-                }
-
-                continue;
-            }
-
-            $fallbackRows[] = $expense;
-        }
-
-        if (! empty($selectedTailorIds)) {
-            $syncedRows = [];
-
-            foreach ($selectedTailorIds as $tailorId) {
-                $row = $rowsByTailor[$tailorId]
-                    ?? array_shift($fallbackRows)
-                    ?? $this->emptyOrderExpenseRow($tailorId);
-
-                $row['tailor_id'] = (int) $tailorId;
-                $syncedRows[] = $row;
-            }
-
-            $this->order_expenses = array_values($syncedRows);
-
-            return;
-        }
-
-        $fallbackRow = array_shift($fallbackRows);
-        if (! $fallbackRow && ! empty($rowsByTailor)) {
-            $fallbackRow = array_values($rowsByTailor)[0];
-        }
-
-        if (! $fallbackRow) {
-            $this->order_expenses = [$this->emptyOrderExpenseRow()];
-
-            return;
-        }
-
-        $fallbackRow['tailor_id'] = null;
-        $this->order_expenses = [$fallbackRow];
     }
 
     protected function normalizeOrderTailorAssignment(): void
@@ -561,20 +448,6 @@ class Form extends Component
         $this->syncOrderExpensesWithSelectedTailors();
     }
 
-    protected function hasFilledOrderExpenses(): bool
-    {
-        foreach ($this->order_expenses as $expense) {
-            $notes = trim((string) ($expense['notes'] ?? ''));
-            $amount = $expense['amount'] ?? null;
-
-            if ($notes !== '' || ($amount !== null && $amount !== '')) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
     /**
      * Tailor IDs from non-empty order lines only.
      */
@@ -609,10 +482,6 @@ class Form extends Component
                 $isValid = false;
             }
 
-            if (($hasNotes || $hasAmount) && (int) ($expense['tailor_id'] ?? 0) <= 0) {
-                $this->addError("order_expenses.{$index}.tailor_id", 'Select an order tailor or assign line tailor(s) before saving order expenses.');
-                $isValid = false;
-            }
         }
 
         return $isValid;
@@ -865,12 +734,6 @@ class Form extends Component
             return;
         }
 
-        if ($this->hasFilledOrderExpenses() && empty($this->selectedExpenseTailorIds())) {
-            $this->addError('order_expenses', 'Select an order tailor or assign line tailor(s) before saving order expenses.');
-
-            return;
-        }
-
         // Must have customer
         if (! $this->customer_id && ! $this->showNewCustomerForm) {
             $this->addError('customer_id', 'Please select a customer or create a new one.');
@@ -1061,7 +924,7 @@ class Form extends Component
 
                         if ($existingExpense) {
                             $existingExpense->update([
-                                'tailor_id' => (int) ($expenseData['tailor_id'] ?? 0),
+                                'tailor_id' => filled($expenseData['tailor_id'] ?? null) ? (int) $expenseData['tailor_id'] : null,
                                 'amount' => (float) $amount,
                                 'notes' => $notes ?: null,
                             ]);
@@ -1071,15 +934,9 @@ class Form extends Component
                         }
                     }
 
-                    $tailorIdForExpense = (int) ($expenseData['tailor_id'] ?? 0);
-
-                    if ($tailorIdForExpense <= 0) {
-                        continue;
-                    }
-
                     $createdExpense = OrderExpense::create([
                         'order_id' => $order->id,
-                        'tailor_id' => $tailorIdForExpense,
+                        'tailor_id' => filled($expenseData['tailor_id'] ?? null) ? (int) $expenseData['tailor_id'] : null,
                         'amount' => (float) $amount,
                         'notes' => $notes ?: null,
                     ]);
