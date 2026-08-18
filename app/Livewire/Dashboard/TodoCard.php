@@ -12,20 +12,32 @@ use Livewire\Component;
 
 class TodoCard extends Component
 {
+    public function mount(): void
+    {
+        abort_unless(auth()->user()?->can('dashboard.todos.view'), 403);
+    }
+
     // Modal state
     public bool $showModal = false;
+
     public bool $showCategoryModal = false;
 
     // Task form fields
     public string $title = '';
+
     public ?int $categoryId = null;
+
     public string $priority = 'normal';
+
     public string $note = '';
+
     public ?string $dueDate = null;
+
     public ?string $dueTime = null;
 
     // Category form fields
     public string $categoryName = '';
+
     public string $categoryColor = 'blue';
 
     // Sorting

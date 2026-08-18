@@ -6,7 +6,6 @@ use App\Support\PermissionGroups;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
-use Livewire\Attributes\Title;
 use Livewire\Component;
 use Spatie\Permission\Models\Permission;
 use Spatie\Permission\Models\Role;
@@ -18,9 +17,11 @@ class Form extends Component
 
     /** @var Role|int|string|null From route: id or resolved Role */
     public Role|int|string|null $role = null;
+
     public bool $isEdit = false;
 
     public string $name = '';
+
     /** @var array<int, bool> permission id => selected */
     public array $permissions = [];
 
@@ -60,6 +61,17 @@ class Form extends Component
         $this->validate();
 
         $guardName = config('auth.defaults.guard');
+        $dashboardViewId = Permission::query()->where('name', 'dashboard.view')->value('id');
+        if (! $dashboardViewId || empty($this->permissions[$dashboardViewId])) {
+            $dashboardPermissionIds = Permission::query()
+                ->where('name', 'like', 'dashboard.%')
+                ->pluck('id');
+
+            foreach ($dashboardPermissionIds as $permissionId) {
+                $this->permissions[$permissionId] = false;
+            }
+        }
+
         $permissionIds = array_keys(array_filter($this->permissions));
 
         if ($this->isEdit) {
@@ -101,6 +113,7 @@ class Form extends Component
 
         return view('livewire.roles.form', [
             'groupedPermissions' => $grouped,
+            'dashboardViewPermissionId' => $permissions->firstWhere('name', 'dashboard.view')?->id,
         ])->title($this->isEdit ? __('Edit Role') : __('New Role'));
     }
 }

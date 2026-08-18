@@ -11,6 +11,11 @@ use Livewire\Component;
 
 class PaymentMethodDistributionCard extends Component
 {
+    public function mount(): void
+    {
+        abort_unless(auth()->user()?->can('dashboard.payment-methods.view'), 403);
+    }
+
     public string $range = 'this_month';
 
     protected const RANGE_MONTHS = [
@@ -64,7 +69,7 @@ class PaymentMethodDistributionCard extends Component
         $rows = OrderPayment::query()
             ->leftJoin('payment_methods', 'order_payments.payment_method_id', '=', 'payment_methods.id')
             ->whereBetween('order_payments.paid_at', [$startDate, $endDate])
-            ->selectRaw($methodExpr . ' as method_name')
+            ->selectRaw($methodExpr.' as method_name')
             ->selectRaw('SUM(order_payments.amount) as total_amount')
             ->selectRaw('COUNT(order_payments.id) as payments_count')
             ->groupBy(DB::raw($methodExpr))
@@ -110,7 +115,7 @@ class PaymentMethodDistributionCard extends Component
 
         return [
             'chart_gradient' => $totalAmount > 0
-                ? 'conic-gradient(' . implode(', ', $segments) . ')'
+                ? 'conic-gradient('.implode(', ', $segments).')'
                 : 'conic-gradient(#E5E7EB 0% 100%)',
             'items' => $items,
             'total_amount' => $totalAmount,
@@ -140,7 +145,7 @@ class PaymentMethodDistributionCard extends Component
             return $startDate->format('M Y');
         }
 
-        return $startDate->format('M Y') . ' - ' . $endDate->format('M Y');
+        return $startDate->format('M Y').' - '.$endDate->format('M Y');
     }
 
     protected function formatPercent(float $value): string

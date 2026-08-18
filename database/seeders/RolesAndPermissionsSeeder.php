@@ -121,9 +121,26 @@ class RolesAndPermissionsSeeder extends Seeder
         // ====================================================================
         // STEP 1: Define ALL permissions (create if not exists)
         // ====================================================================
+        $dashboardPermissions = [
+            'dashboard.kpi.orders.view',
+            'dashboard.kpi.revenue.view',
+            'dashboard.kpi.expenses.view',
+            'dashboard.kpi.item-sales.view',
+            'dashboard.chart.income-expenses.view',
+            'dashboard.calendar.view',
+            'dashboard.order-progress.view',
+            'dashboard.alert.low-stock.view',
+            'dashboard.alert.purchase-requests.view',
+            'dashboard.quick-actions.view',
+            'dashboard.todos.view',
+            'dashboard.payment-methods.view',
+            'dashboard.top-customers.view',
+        ];
+
         $allPermissions = [
             // Core
             'dashboard.view',
+            ...$dashboardPermissions,
 
             // Users & Access Control
             'users.view',
@@ -636,6 +653,13 @@ class RolesAndPermissionsSeeder extends Seeder
             'customer' => [
             ],
         ];
+
+        foreach ($rolePermissions as &$permissions) {
+            if (in_array('dashboard.view', $permissions, true)) {
+                $permissions = array_values(array_unique([...$permissions, ...$dashboardPermissions]));
+            }
+        }
+        unset($permissions);
 
         // ====================================================================
         // STEP 3: Apply permissions to roles (syncPermissions cleans up extras)

@@ -14,6 +14,11 @@ use Livewire\Component;
 
 class IncomeExpensesChartCard extends Component
 {
+    public function mount(): void
+    {
+        abort_unless(auth()->user()?->can('dashboard.chart.income-expenses.view'), 403);
+    }
+
     public string $range = 'this_month';
 
     protected const RANGE_MONTHS = [

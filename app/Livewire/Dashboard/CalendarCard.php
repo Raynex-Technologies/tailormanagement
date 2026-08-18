@@ -17,6 +17,8 @@ class CalendarCard extends Component
 
     public function mount(): void
     {
+        abort_unless(auth()->user()?->can('dashboard.calendar.view'), 403);
+
         $this->month = now()->format('Y-m');
     }
 

@@ -11,6 +11,11 @@ use Livewire\Component;
 
 class OrderProgressCard extends Component
 {
+    public function mount(): void
+    {
+        abort_unless(auth()->user()?->can('dashboard.order-progress.view'), 403);
+    }
+
     public string $range = 'this_month';
 
     protected const RANGE_MONTHS = [
@@ -106,10 +111,10 @@ class OrderProgressCard extends Component
     protected function formatPeriodLabel(CarbonInterface $startDate, CarbonInterface $endDate): string
     {
         if ($startDate->isSameMonth($endDate)) {
-            return $startDate->format('M j, Y') . ' - ' . $endDate->format('M j, Y');
+            return $startDate->format('M j, Y').' - '.$endDate->format('M j, Y');
         }
 
-        return $startDate->format('M Y') . ' - ' . $endDate->format('M j, Y');
+        return $startDate->format('M Y').' - '.$endDate->format('M j, Y');
     }
 
     protected function emptyData(CarbonInterface $startDate, CarbonInterface $endDate, bool $requiresBranchSelection): array

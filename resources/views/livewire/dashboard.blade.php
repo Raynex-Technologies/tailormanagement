@@ -101,6 +101,7 @@
         @endphp
         <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {{-- New Orders --}}
+            @can('dashboard.kpi.orders.view')
             <div class="rounded-2xl p-5 shadow-sm border border-[#0b4b51]" style="background-color: #0f5e65;">
                 <div class="flex items-start justify-between">
                     <div class="flex items-center justify-center size-11 rounded-xl bg-white/20">
@@ -116,8 +117,10 @@
                     <p class="mt-0.5 text-sm text-white/85">{{ __('New Orders') }}</p>
                 </div>
             </div>
+            @endcan
 
             {{-- Revenue This Month --}}
+            @can('dashboard.kpi.revenue.view')
             <div class="rounded-2xl p-5 shadow-sm border border-[#db6222]" style="background-color: #f17735;">
                 <div class="flex items-start justify-between">
                     <div class="flex items-center justify-center size-11 rounded-xl bg-white/30">
@@ -135,8 +138,10 @@
                     <p class="mt-0.5 text-sm text-[#5a230c]">{{ __('Revenue This Month') }}</p>
                 </div>
             </div>
+            @endcan
 
             {{-- Expenses This Month --}}
+            @can('dashboard.kpi.expenses.view')
             <div class="rounded-2xl p-5 shadow-sm border border-[#8f1f3c]" style="background-color: #ad2749;">
                 <div class="flex items-start justify-between">
                     <div class="flex items-center justify-center size-11 rounded-xl bg-white/20">
@@ -154,8 +159,10 @@
                     <p class="mt-0.5 text-sm text-white/85">{{ __('Expenses This Month') }}</p>
                 </div>
             </div>
+            @endcan
 
             {{-- Item Sales --}}
+            @can('dashboard.kpi.item-sales.view')
             <div class="rounded-2xl p-5 shadow-sm border border-[#f0bca2]" style="background-color: #f7d4c1;">
                 <div class="flex items-start justify-between">
                     <div class="flex items-center justify-center size-11 rounded-xl bg-white/55">
@@ -173,6 +180,7 @@
                     <p class="mt-0.5 text-sm text-[#6b2f17]">{{ __('Item Sales') }}</p>
                 </div>
             </div>
+            @endcan
         </div>
         @endif
 
@@ -180,17 +188,23 @@
         <div class="grid gap-6 lg:grid-cols-3">
             {{-- Left: KPI Stats --}}
             <div class="space-y-6 lg:col-span-2 min-w-0">
-                <livewire:dashboard.income-expenses-chart-card />
+                @can('dashboard.chart.income-expenses.view')
+                    <livewire:dashboard.income-expenses-chart-card />
+                @endcan
 
-                <livewire:dashboard.calendar-card />
+                @can('dashboard.calendar.view')
+                    <livewire:dashboard.calendar-card />
+                @endcan
 
-                <livewire:dashboard.order-progress-card />
+                @can('dashboard.order-progress.view')
+                    <livewire:dashboard.order-progress-card />
+                @endcan
 
                 {{-- Alerts Row --}}
-                @if ($stats['inventory']['low_stock_count'] > 0 || $stats['procurement']['pending_purchase_requests_count'] > 0)
+                @if (($user->can('dashboard.alert.low-stock.view') && $stats['inventory']['low_stock_count'] > 0) || ($user->can('dashboard.alert.purchase-requests.view') && $stats['procurement']['pending_purchase_requests_count'] > 0))
                 <div class="grid gap-4 sm:grid-cols-2">
                     {{-- Low Stock Alert --}}
-                    @if ($stats['inventory']['low_stock_count'] > 0)
+                    @if ($user->can('dashboard.alert.low-stock.view') && $stats['inventory']['low_stock_count'] > 0)
                         <div class="rounded-2xl p-4 border border-amber-200 dark:border-amber-800/50 bg-amber-50 dark:bg-amber-900/20">
                             <div class="flex items-center gap-3">
                                 <div class="flex items-center justify-center size-10 rounded-xl bg-amber-100 dark:bg-amber-900/50 shrink-0">
@@ -210,7 +224,7 @@
                     @endif
 
                     {{-- Pending Purchase Requests --}}
-                    @if ($stats['procurement']['pending_purchase_requests_count'] > 0)
+                    @if ($user->can('dashboard.alert.purchase-requests.view') && $stats['procurement']['pending_purchase_requests_count'] > 0)
                         <div class="rounded-2xl p-4 border border-blue-200 dark:border-blue-800/50 bg-blue-50 dark:bg-blue-900/20">
                             <div class="flex items-center gap-3">
                                 <div class="flex items-center justify-center size-10 rounded-xl bg-blue-100 dark:bg-blue-900/50 shrink-0">
@@ -232,6 +246,7 @@
                 @endif
 
                 {{-- Quick Actions --}}
+                @can('dashboard.quick-actions.view')
                 <div class="rounded-2xl bg-white dark:bg-zinc-800/50 p-6 shadow-sm border border-zinc-200/50 dark:border-zinc-700/50">
                     <h2 class="text-lg font-semibold text-zinc-900 dark:text-white mb-4">{{ __('Quick Actions') }}</h2>
                     <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -272,15 +287,21 @@
                         @endcan
                     </div>
                 </div>
+                @endcan
             </div>
 
             {{-- Right: Todo + Payments Cards --}}
             <div class="lg:col-span-1 min-w-0">
                 <div class="space-y-6">
-                    <livewire:dashboard.todo-card />
-                    <livewire:dashboard.payment-method-distribution-card />
+                    @can('dashboard.todos.view')
+                        <livewire:dashboard.todo-card />
+                    @endcan
+                    @can('dashboard.payment-methods.view')
+                        <livewire:dashboard.payment-method-distribution-card />
+                    @endcan
 
                     {{-- Top Customers — header outside card --}}
+                    @can('dashboard.top-customers.view')
                     <div class="flex items-center justify-between">
                         <h2 class="text-lg font-semibold text-zinc-900 dark:text-white">{{ __('Top Customers') }}</h2>
                         @can('users.view')
@@ -333,6 +354,7 @@
                             </div>
                         </div>
                     @endforelse
+                    @endcan
                 </div>
             </div>
         </div>
@@ -470,7 +492,9 @@
 
             {{-- Right: Todo Card --}}
             <div class="lg:col-span-1">
-                <livewire:dashboard.todo-card />
+                @can('dashboard.todos.view')
+                    <livewire:dashboard.todo-card />
+                @endcan
             </div>
         </div>
     @endif

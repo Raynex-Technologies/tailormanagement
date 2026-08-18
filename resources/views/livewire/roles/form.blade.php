@@ -57,6 +57,9 @@
                             </div>
                             <div class="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3">
                                 @foreach ($permissions as $permission)
+                                    @if ($permission->name !== 'dashboard.view' && str_starts_with($permission->name, 'dashboard.') && empty($this->permissions[$dashboardViewPermissionId]))
+                                        @continue
+                                    @endif
                                     <label class="flex items-center gap-2 cursor-pointer">
                                         <input
                                             type="checkbox"
