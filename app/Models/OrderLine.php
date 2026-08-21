@@ -16,6 +16,9 @@ class OrderLine extends Model
         'order_id',
         'inventory_item_id',
         'inventory_item_variant_id',
+        'order_catalog_item_id',
+        'order_package_instance_id',
+        'order_package_template_item_id',
         'assigned_tailor_id',
         'sku',
         'item_name',
@@ -31,6 +34,9 @@ class OrderLine extends Model
         return [
             'inventory_item_id' => 'integer',
             'inventory_item_variant_id' => 'integer',
+            'order_catalog_item_id' => 'integer',
+            'order_package_instance_id' => 'integer',
+            'order_package_template_item_id' => 'integer',
             'assigned_tailor_id' => 'integer',
             'qty' => 'decimal:2',
             'unit_price' => 'decimal:2',
@@ -62,5 +68,20 @@ class OrderLine extends Model
     public function variant(): BelongsTo
     {
         return $this->belongsTo(InventoryItemVariant::class, 'inventory_item_variant_id');
+    }
+
+    public function catalogItem(): BelongsTo
+    {
+        return $this->belongsTo(OrderCatalogItem::class, 'order_catalog_item_id');
+    }
+
+    public function packageInstance(): BelongsTo
+    {
+        return $this->belongsTo(OrderPackageInstance::class, 'order_package_instance_id');
+    }
+
+    public function sourcePackageComponent(): BelongsTo
+    {
+        return $this->belongsTo(OrderPackageTemplateItem::class, 'order_package_template_item_id');
     }
 }

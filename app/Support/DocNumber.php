@@ -6,9 +6,11 @@ use App\Models\CapitalAllocation;
 use App\Models\Customer;
 use App\Models\DeliveryNote;
 use App\Models\GoodsReceipt;
-use App\Models\Invoice;
 use App\Models\InstallmentPlan;
+use App\Models\Invoice;
 use App\Models\Order;
+use App\Models\OrderCatalogItem;
+use App\Models\OrderPackageTemplate;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseRequest;
 use Illuminate\Support\Facades\DB;
@@ -31,6 +33,24 @@ class DocNumber
     public static function order(): string
     {
         return self::generate('ORD', Order::class, 'order_no');
+    }
+
+    /**
+     * Generate a stable order catalog item code.
+     * Format: OCI-YYYY-XXXXXX
+     */
+    public static function orderCatalogItem(): string
+    {
+        return self::generate('OCI', OrderCatalogItem::class, 'code');
+    }
+
+    /**
+     * Generate a stable order package template code.
+     * Format: OPT-YYYY-XXXXXX
+     */
+    public static function orderPackageTemplate(): string
+    {
+        return self::generate('OPT', OrderPackageTemplate::class, 'code');
     }
 
     /**
@@ -174,7 +194,7 @@ class DocNumber
     {
         $year = now()->year;
         $pattern = "{$prefix}-{$year}-%";
-        $regex = '/^' . preg_quote($prefix, '/') . '-' . $year . '-(\d+)$/';
+        $regex = '/^'.preg_quote($prefix, '/').'-'.$year.'-(\d+)$/';
 
         $existingNumbers = DB::table($table)
             ->where($column, 'like', $pattern)

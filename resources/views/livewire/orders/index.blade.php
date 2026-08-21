@@ -1,49 +1,98 @@
-<div>
+<div x-data="{ filtersOpen: false }">
     <flux:main class="p-0">
-        <div class="mb-6">
-            <flux:breadcrumbs>
-                <flux:breadcrumbs.item :href="route('dashboard')" icon="home" wire:navigate />
-                <flux:breadcrumbs.item>{{ __('Orders') }}</flux:breadcrumbs.item>
+        <section class="mb-6 overflow-hidden rounded-2xl p-5 text-white shadow-lg sm:p-6" style="background: linear-gradient(135deg, var(--tailorpro-primary) 0%, color-mix(in srgb, var(--tailorpro-primary) 88%, #ffffff 12%) 100%);">
+            <flux:breadcrumbs class="mb-5 text-white/70">
+                <flux:breadcrumbs.item :href="route('dashboard')" icon="home" class="!text-white/70 hover:!text-white" wire:navigate />
+                <flux:breadcrumbs.item class="!text-white">{{ __('Orders') }}</flux:breadcrumbs.item>
             </flux:breadcrumbs>
-        </div>
 
-        {{-- Page Header --}}
-        <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-                <flux:heading size="xl">{{ __('Orders Management') }}</flux:heading>
-                <flux:text class="mt-1 text-zinc-600 dark:text-zinc-400">
-                    {{ __('View and manage tailoring orders.') }}
-                </flux:text>
+            <div class="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+                <div>
+                    <flux:heading size="xl" class="!text-white">{{ __('Orders Management') }}</flux:heading>
+                    <p class="mt-1 text-sm text-white/70">{{ __('View, track and manage tailoring orders.') }}</p>
+                </div>
+
+                <div class="flex flex-wrap items-center gap-2">
+                    @if ($canViewPayments)
+                        <flux:button variant="outline" icon="banknotes" :href="route('payments.index')" class="!border-white/25 !bg-white/10 !text-white hover:!bg-white/20" wire:navigate>
+                            {{ __('View Payments') }}
+                        </flux:button>
+                    @endif
+                    @can('orders.create')
+                        <flux:button variant="primary" icon="plus" :href="route('orders.create')" wire:navigate>
+                            {{ __('New Order') }}
+                        </flux:button>
+                    @endcan
+                </div>
             </div>
+        </section>
 
-            @can('orders.create')
-                <flux:button variant="primary" icon="plus" :href="route('orders.create')" wire:navigate>
-                    {{ __('New Order') }}
+        @php
+            $compactValue = static function (float|int $value, bool $money = false): string {
+                $absolute = abs((float) $value);
+                $formatted = number_format($value, 0);
+
+                foreach ([[1_000_000_000, 'B'], [1_000_000, 'M'], [1_000, 'K']] as [$threshold, $suffix]) {
+                    if ($absolute >= $threshold) {
+                        $formatted = rtrim(rtrim(number_format(round($value / $threshold, 1), 1, '.', ''), '0'), '.').$suffix;
+                        break;
+                    }
+                }
+
+                return $money ? 'Tsh '.$formatted : $formatted;
+            };
+            $kpiCards = [
+                ['key' => 'orders', 'label' => __('Orders'), 'icon' => 'fa-bag-shopping', 'money' => false, 'color' => 'text-sky-600 bg-sky-50 dark:bg-sky-950/50 dark:text-sky-300'],
+                ['key' => 'amount', 'label' => __('Amount'), 'icon' => 'fa-coins', 'money' => true, 'color' => 'text-violet-600 bg-violet-50 dark:bg-violet-950/50 dark:text-violet-300'],
+                ['key' => 'paid', 'label' => __('Paid'), 'icon' => 'fa-circle-check', 'money' => true, 'color' => 'text-emerald-600 bg-emerald-50 dark:bg-emerald-950/50 dark:text-emerald-300'],
+                ['key' => 'balance', 'label' => __('Balance'), 'icon' => 'fa-scale-balanced', 'money' => true, 'color' => 'text-amber-600 bg-amber-50 dark:bg-amber-950/50 dark:text-amber-300'],
+            ];
+        @endphp
+
+        <section class="mb-4" aria-labelledby="orders-kpis-heading">
+            <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <div>
+                    <h2 id="orders-kpis-heading" class="text-sm font-semibold text-zinc-900 dark:text-white">{{ __('Order overview') }}</h2>
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400">{{ $kpiPeriodLabel }} · {{ __('compared with the previous month') }}</p>
+                </div>
+                <flux:button variant="ghost" icon="funnel" x-on:click="filtersOpen = !filtersOpen" x-bind:aria-expanded="filtersOpen" aria-controls="orders-filters">
+                    <span x-text="filtersOpen ? @js(__('Hide filters')) : @js(__('Filters'))">{{ __('Filters') }}</span>
                 </flux:button>
-            @endcan
-        </div>
-
-        {{-- Payments Card (show when user can create payments) --}}
-        @if ($canCreatePayments)
-            <div class="mb-6">
-                <flux:card>
-                    <div class="flex items-center justify-between">
-                        <div>
-                            <flux:heading size="md">{{ __('Payments') }}</flux:heading>
-                            <flux:text class="text-zinc-500">{{ __('Record and view payments related to orders.') }}</flux:text>
-                        </div>
-
-                        @if ($canViewPayments)
-                            <div class="flex items-center gap-2">
-                                <flux:button variant="outline" :href="route('payments.index')" wire:navigate>
-                                    {{ __('View Payments') }}
-                                </flux:button>
-                            </div>
-                        @endif
-                    </div>
-                </flux:card>
             </div>
-        @endif
+
+            <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                @foreach ($kpiCards as $card)
+                    @continue($card['money'] && ! $canViewFinancials)
+                    @php
+                        $metric = $kpis[$card['key']];
+                        $growth = (float) $metric['growth'];
+                        $fullValue = $card['money'] ? money_tzs($metric['value']) : number_format($metric['value']);
+                    @endphp
+                    <flux:card class="relative overflow-hidden">
+                        <div class="flex items-start justify-between gap-3">
+                            <div>
+                                <p class="text-sm font-medium text-zinc-500 dark:text-zinc-400">{{ $card['label'] }}</p>
+                                <flux:tooltip :content="$fullValue" position="top">
+                                    <p class="mt-2 cursor-help text-2xl font-bold tracking-tight text-zinc-950 dark:text-white" aria-label="{{ $card['label'] }}: {{ $fullValue }}">
+                                        {{ $compactValue($metric['value'], $card['money']) }}
+                                    </p>
+                                </flux:tooltip>
+                            </div>
+                            <span class="inline-flex size-10 items-center justify-center rounded-xl {{ $card['color'] }}">
+                                <i class="fa-duotone {{ $card['icon'] }}" aria-hidden="true"></i>
+                            </span>
+                        </div>
+                        <div class="mt-4 flex items-center gap-1.5 text-xs">
+                            <span class="inline-flex items-center gap-1 font-semibold {{ $growth > 0 ? 'text-emerald-600 dark:text-emerald-400' : ($growth < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-zinc-500') }}">
+                                <i class="fa-solid {{ $growth > 0 ? 'fa-arrow-trend-up' : ($growth < 0 ? 'fa-arrow-trend-down' : 'fa-minus') }}" aria-hidden="true"></i>
+                                {{ number_format(abs($growth), 1) }}%
+                            </span>
+                            <span class="text-zinc-500 dark:text-zinc-400">{{ __('vs previous month') }}</span>
+                        </div>
+                    </flux:card>
+                @endforeach
+            </div>
+        </section>
 
         {{-- Flash Messages --}}
         @if (session('success'))
@@ -59,7 +108,7 @@
         @endif
 
         {{-- Filters --}}
-        <flux:card class="mb-6">
+        <flux:card id="orders-filters" x-show="filtersOpen" x-collapse x-cloak class="mb-6" wire:key="orders-filter-panel">
             <div class="grid gap-4 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
                 <flux:input
                     wire:model.live.debounce.300ms="search"

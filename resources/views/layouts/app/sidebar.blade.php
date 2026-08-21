@@ -300,7 +300,7 @@
 
                 {{-- Orders Group (Permission-based) --}}
                 @if ($ordersModuleEnabled)
-                @canany(['orders.view', 'users.view'])
+                @canany(['orders.view', 'order_catalog.view', 'users.view'])
                 <div class="nav-group">
                     <h3 class="px-3 mb-2 text-[0.65rem] font-semibold uppercase tracking-wider text-white/35">{{ __('Orders') }}</h3>
 
@@ -353,6 +353,17 @@
                         {{ __('Payments') }}
                     </a>
                     @endcan
+                    @endcan
+
+                    @can('order_catalog.view')
+                    <a
+                        href="{{ route('order-catalog.index') }}"
+                        wire:navigate
+                        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('order-catalog.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}"
+                    >
+                        <i class="fa-duotone fa-books size-5"></i>
+                        {{ __('Order Catalog') }}
+                    </a>
                     @endcan
 
                     @can('users.view')
@@ -927,7 +938,7 @@
                     </div>
 
                     @if ($ordersModuleEnabled)
-                    @canany(['orders.view', 'users.view'])
+                    @canany(['orders.view', 'order_catalog.view', 'users.view'])
                     <div class="nav-group">
                         <h3 class="px-3 mb-2 text-[0.65rem] font-semibold uppercase tracking-wider text-white/35">{{ __('Orders') }}</h3>
 
@@ -961,6 +972,13 @@
                             {{ __('Payments') }}
                         </a>
                         @endcan
+                        @endcan
+                        @can('order_catalog.view')
+                        <a href="{{ route('order-catalog.index') }}" wire:navigate @click="sidebarOpen = false"
+                           class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('order-catalog.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
+                            <i class="fa-duotone fa-books size-5"></i>
+                            {{ __('Order Catalog') }}
+                        </a>
                         @endcan
 
                         @can('users.view')
@@ -1261,7 +1279,7 @@
         </header>
 
         {{-- Main Content Area --}}
-        <main class="app-main-shell pt-0 min-h-screen overflow-x-hidden transition-[margin] duration-300 ease-out" :class="desktopSidebarCollapsed ? 'lg:ml-28' : 'lg:ml-72'">
+        <main class="app-main-shell pt-0 min-h-screen overflow-x-clip transition-[margin] duration-300 ease-out" :class="desktopSidebarCollapsed ? 'lg:ml-28' : 'lg:ml-72'">
             {{-- Desktop Header --}}
             <header class="top-frosted-nav hidden lg:flex sticky top-4 z-40 h-16 items-center justify-end gap-x-4 px-6 mx-4 mt-4 rounded-2xl">
                 {{-- Right side actions --}}

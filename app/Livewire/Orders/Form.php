@@ -17,12 +17,18 @@ use App\Models\Order;
 use App\Models\OrderExpense;
 use App\Models\OrderLine;
 use App\Models\OrderMeasurement;
+use App\Models\OrderCatalogItem;
+use App\Models\OrderPackageInstance;
+use App\Models\OrderPackageTemplate;
 use App\Models\OrderPayment;
 use App\Models\PaymentMethod;
 use App\Models\User;
 use App\Services\Inventory\StockMovementService;
+use App\Services\Orders\OrderCatalogCompositionService;
+use App\Services\Orders\OrderPackagePricingService;
 use App\Support\BranchContext;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
@@ -93,7 +99,32 @@ class Form extends Component
     // Order lines
     public array $lines = [];
 
-    public bool $showInventoryPicker = false;
+    public bool $showCatalogPicker = false;
+
+    public string $catalogTab = 'packages';
+
+    public string $catalogSearch = '';
+
+    public bool $showDirectCatalogConfigurator = false;
+
+    public ?int $selectedCatalogItemId = null;
+
+    public string $directCatalogQuantity = '1';
+
+    public bool $showPackageConfigurator = false;
+
+    public ?string $configuringPackageKey = null;
+
+    /** @var array<string, mixed> */
+    public array $packageConfigurator = [];
+
+    /** @var array<int|string, int|float|string> */
+    public array $packageQuantities = [];
+
+    /** @var array<string, array<string, mixed>> */
+    public array $packages = [];
+
+    public ?int $previousBranchId = null;
 
     public string $inventorySearch = '';
 
@@ -116,13 +147,15 @@ class Form extends Component
     {
         if ($order && $order->exists) {
             $this->authorize('update', $order);
-            $this->order = $order->load(['customer', 'lines.measurement', 'lines.assignedTailor', 'assignedTailor', 'orderExpenses']);
+            $this->order = $order->load(['customer', 'lines.measurement', 'lines.assignedTailor', 'packageInstances', 'assignedTailor', 'orderExpenses']);
             $this->isEdit = true;
             $this->branch_id = $order->branch_id;
+            $this->previousBranchId = $order->branch_id;
             $this->fillFromOrder();
         } else {
             $this->authorize('create', Order::class);
             $this->initializeBranchContext();
+            $this->previousBranchId = $this->branch_id;
             $this->order_date = now()->toDateString();
             $this->deposit_payment_method_id = $this->getDefaultPaymentMethodId();
             $this->addLine();
@@ -173,6 +206,40 @@ class Form extends Component
         $this->assigned_tailor_id = $this->order->assigned_tailor_id;
         $this->discount = (float) $this->order->discount;
 
+        $this->packages = [];
+        $packageKeysByInstance = [];
+        foreach ($this->order->packageInstances as $instance) {
+            $key = (string) Str::uuid();
+            $originalComponents = $instance->original_component_snapshot ?: $instance->component_snapshot ?: [];
+            $configuredComponents = $instance->configured_component_snapshot ?: $instance->component_snapshot ?: [];
+            $originalSnapshot = [
+                'template_id' => $instance->order_package_template_id,
+                'template_code' => null,
+                'revision' => $instance->source_template_revision,
+                'name' => $instance->package_name,
+                'description' => $instance->package_description,
+                'cover_image_path' => $instance->cover_image_path,
+                'original_package_total' => (string) $instance->original_package_total,
+                'configured_package_total' => (string) $instance->original_package_total,
+                'components' => $originalComponents,
+                'available_all_branches' => false,
+                'branch_ids' => [$this->order->branch_id],
+            ];
+            $configuredSnapshot = [
+                ...$originalSnapshot,
+                'configured_package_total' => (string) $instance->configured_package_total,
+                'components' => $configuredComponents,
+            ];
+            $this->packages[$key] = [
+                'instance_id' => $instance->id,
+                'template_id' => $instance->order_package_template_id,
+                'original_snapshot' => $originalSnapshot,
+                'configured_snapshot' => $configuredSnapshot,
+                'snapshot_signature' => $this->signPackageSnapshot($originalSnapshot),
+            ];
+            $packageKeysByInstance[$instance->id] = $key;
+        }
+
         $this->lines = [];
         foreach ($this->order->lines as $line) {
             $measurements = $line->measurement?->measurements ?? [];
@@ -189,6 +256,12 @@ class Form extends Component
             $this->lines[] = [
                 'id' => $line->id,
                 'inventory_item_id' => $line->inventory_item_id,
+                'order_catalog_item_id' => $line->order_catalog_item_id,
+                'order_package_instance_id' => $line->order_package_instance_id,
+                'order_package_template_item_id' => $line->order_package_template_item_id,
+                'package_key' => $packageKeysByInstance[$line->order_package_instance_id] ?? null,
+                'package_unit_index' => $line->meta['package_unit_index'] ?? null,
+                'requires_measurements' => (bool) ($line->meta['requires_measurements'] ?? false),
                 'sku' => $line->sku,
                 'assigned_tailor_id' => $line->assigned_tailor_id,
                 'item_name' => $line->item_name,
@@ -224,6 +297,12 @@ class Form extends Component
         $this->lines[] = [
             'id' => null,
             'inventory_item_id' => null,
+            'order_catalog_item_id' => null,
+            'order_package_instance_id' => null,
+            'order_package_template_item_id' => null,
+            'package_key' => null,
+            'package_unit_index' => null,
+            'requires_measurements' => false,
             'sku' => null,
             'assigned_tailor_id' => null,
             'item_name' => '',
@@ -239,9 +318,9 @@ class Form extends Component
         $this->syncOrderExpensesWithSelectedTailors();
     }
 
-    public function toggleInventoryPicker(): void
+    public function toggleCatalogPicker(): void
     {
-        $this->showInventoryPicker = ! $this->showInventoryPicker;
+        $this->showCatalogPicker = ! $this->showCatalogPicker;
     }
 
     public function addInventoryLine(int $inventoryItemId): void
@@ -270,6 +349,12 @@ class Form extends Component
         $newLine = [
             'id' => null,
             'inventory_item_id' => $item->id,
+            'order_catalog_item_id' => null,
+            'order_package_instance_id' => null,
+            'order_package_template_item_id' => null,
+            'package_key' => null,
+            'package_unit_index' => null,
+            'requires_measurements' => false,
             'sku' => $item->sku,
             'assigned_tailor_id' => null,
             'item_name' => $item->name,
@@ -295,8 +380,131 @@ class Form extends Component
         $this->syncOrderExpensesWithSelectedTailors();
     }
 
+    public function setCatalogTab(string $tab): void
+    {
+        abort_unless(in_array($tab, ['packages', 'catalog', 'inventory'], true), 404);
+        $this->catalogTab = $tab;
+        $this->catalogSearch = '';
+    }
+
+    public function configureDirectCatalogItem(int $itemId): void
+    {
+        $branchId = $this->getEffectiveBranchIdForInventory();
+        if (! $branchId) {
+            $this->addError('branch_id', __('Select a branch before adding catalog items.'));
+
+            return;
+        }
+
+        app(OrderCatalogCompositionService::class)->catalogItemForSelection($itemId, $branchId);
+        $this->selectedCatalogItemId = $itemId;
+        $this->directCatalogQuantity = '1';
+        $this->showDirectCatalogConfigurator = true;
+    }
+
+    public function confirmDirectCatalogItem(): void
+    {
+        $this->validate(['directCatalogQuantity' => ['required', 'numeric', 'min:0.01']]);
+        $branchId = $this->getEffectiveBranchIdForInventory();
+
+        try {
+            $item = app(OrderCatalogCompositionService::class)->catalogItemForSelection((int) $this->selectedCatalogItemId, (int) $branchId);
+            $newLines = app(OrderCatalogCompositionService::class)->directCatalogLines($item, $this->directCatalogQuantity);
+        } catch (\Throwable $exception) {
+            $this->addError('directCatalogQuantity', $exception->getMessage());
+
+            return;
+        }
+
+        $this->appendCompositionLines($newLines);
+        $this->showDirectCatalogConfigurator = false;
+        $this->showCatalogPicker = false;
+    }
+
+    public function configurePackage(int $templateId): void
+    {
+        $branchId = $this->getEffectiveBranchIdForInventory();
+        if (! $branchId) {
+            $this->addError('branch_id', __('Select a branch before adding packages.'));
+
+            return;
+        }
+
+        $template = app(OrderCatalogCompositionService::class)->packageForSelection($templateId, $branchId);
+        $snapshot = $template->snapshot();
+        $snapshot['available_all_branches'] = $template->available_all_branches;
+        $snapshot['branch_ids'] = $template->branches->pluck('id')->map(fn ($id) => (int) $id)->all();
+
+        $this->configuringPackageKey = null;
+        $this->packageConfigurator = $snapshot;
+        $this->packageQuantities = collect($snapshot['components'])
+            ->mapWithKeys(fn ($component) => [(int) $component['template_item_id'] => $component['default_quantity']])
+            ->all();
+        $this->showPackageConfigurator = true;
+    }
+
+    public function customizePackage(string $packageKey): void
+    {
+        abort_unless(isset($this->packages[$packageKey]), 404);
+        $package = $this->packages[$packageKey];
+        $this->configuringPackageKey = $packageKey;
+        $this->packageConfigurator = $package['original_snapshot'];
+        $this->packageQuantities = collect($package['configured_snapshot']['components'] ?? [])
+            ->mapWithKeys(fn ($component) => [(int) $component['template_item_id'] => $component['configured_quantity']])
+            ->all();
+        $this->showPackageConfigurator = true;
+    }
+
+    public function confirmPackageConfiguration(): void
+    {
+        try {
+            $configured = app(OrderPackagePricingService::class)->configureCapturedSnapshot(
+                $this->packageConfigurator,
+                $this->packageQuantities
+            );
+        } catch (\Throwable $exception) {
+            $this->addError('packageQuantities', $exception->getMessage());
+
+            return;
+        }
+
+        $key = $this->configuringPackageKey ?: (string) Str::uuid();
+        $existingInstanceId = $this->packages[$key]['instance_id'] ?? null;
+        $this->packages[$key] = [
+            'instance_id' => $existingInstanceId,
+            'template_id' => $this->packageConfigurator['template_id'],
+            'original_snapshot' => $this->packageConfigurator,
+            'configured_snapshot' => $configured,
+            'snapshot_signature' => $this->packages[$key]['snapshot_signature'] ?? $this->signPackageSnapshot($this->packageConfigurator),
+        ];
+        $this->reconcilePackageLines($key);
+        $this->showPackageConfigurator = false;
+        $this->showCatalogPicker = false;
+        $this->calculateTotals();
+    }
+
+    public function removePackage(string $packageKey): void
+    {
+        abort_unless(isset($this->packages[$packageKey]), 404);
+        unset($this->packages[$packageKey]);
+        $this->lines = array_values(array_filter(
+            $this->lines,
+            fn ($line) => ($line['package_key'] ?? null) !== $packageKey
+        ));
+        if ($this->lines === []) {
+            $this->addLine();
+        }
+        $this->calculateTotals();
+    }
+
     public function removeLine(int $index): void
     {
+        if (filled($this->lines[$index]['package_key'] ?? null)) {
+            $this->addError('lines', __('Package items must be changed or removed using the package controls.'));
+
+            return;
+        }
+
         if (count($this->lines) > 1) {
             unset($this->lines[$index]);
             $this->lines = array_values($this->lines);
@@ -432,15 +640,24 @@ class Form extends Component
     public function updatedBranchId($value): void
     {
         $branchId = (int) ($value ?? 0);
-        $this->branch_id = $branchId > 0 ? $branchId : null;
+        $candidateBranchId = $branchId > 0 ? $branchId : null;
+
+        if ($candidateBranchId && ! $this->contentsAreCompatibleWithBranch($candidateBranchId)) {
+            $attemptedBranch = Branch::query()->find($candidateBranchId)?->name ?? __('the selected branch');
+            $this->branch_id = $this->previousBranchId;
+            $this->addError('branch_id', __('This order contains items unavailable at :branch. Remove those items before changing the order branch.', ['branch' => $attemptedBranch]));
+
+            return;
+        }
+
+        $this->branch_id = $candidateBranchId;
+        $this->previousBranchId = $candidateBranchId;
         $this->mustSelectBranch = $this->showBranchSelector && ! $this->isEdit && $this->branch_id === null;
 
         // Prevent stale cross-branch assignments after branch change.
         $this->assigned_tailor_id = null;
         $this->lines = array_values(array_map(function ($line) {
             $line['assigned_tailor_id'] = null;
-            $line['inventory_item_id'] = null;
-            $line['sku'] = null;
 
             return $line;
         }, $this->lines));
@@ -566,6 +783,159 @@ class Form extends Component
         }
 
         $this->total = $this->subtotal - ($this->discount ?? 0);
+    }
+
+    /** @param array<int, array<string, mixed>> $newLines */
+    protected function appendCompositionLines(array $newLines): void
+    {
+        $hasOnlyBlankLine = count($this->lines) === 1
+            && empty($this->lines[0]['id'])
+            && empty($this->lines[0]['item_name'])
+            && empty($this->lines[0]['inventory_item_id'])
+            && empty($this->lines[0]['order_catalog_item_id']);
+
+        $this->lines = $hasOnlyBlankLine ? $newLines : [...$this->lines, ...$newLines];
+        $this->calculateTotals();
+        $this->syncOrderExpensesWithSelectedTailors();
+    }
+
+    protected function reconcilePackageLines(string $packageKey): void
+    {
+        $desiredLines = app(OrderCatalogCompositionService::class)->packageLines(
+            $this->packages[$packageKey]['configured_snapshot'],
+            $packageKey
+        );
+        $existingLines = collect($this->lines)
+            ->filter(fn ($line) => ($line['package_key'] ?? null) === $packageKey)
+            ->values();
+        $reconciled = [];
+
+        foreach ($desiredLines as $desired) {
+            $matchIndex = $existingLines->search(fn ($existing) =>
+                (int) ($existing['order_package_template_item_id'] ?? 0) === (int) $desired['order_package_template_item_id']
+                && (int) ($existing['package_unit_index'] ?? 0) === (int) ($desired['package_unit_index'] ?? 0)
+            );
+
+            if ($matchIndex !== false) {
+                $existing = $existingLines->get($matchIndex);
+                $desired['id'] = $existing['id'] ?? null;
+                $desired['assigned_tailor_id'] = $existing['assigned_tailor_id'] ?? null;
+                $desired['notes'] = $existing['notes'] ?? '';
+                $desired['measurements'] = $existing['measurements'] ?? [['key' => '', 'value' => '']];
+                $desired['order_package_instance_id'] = $existing['order_package_instance_id'] ?? null;
+                $existingLines->forget($matchIndex);
+            }
+
+            $reconciled[] = $desired;
+        }
+
+        $firstIndex = collect($this->lines)->search(fn ($line) => ($line['package_key'] ?? null) === $packageKey);
+        $ordinaryLines = array_values(array_filter($this->lines, fn ($line) => ($line['package_key'] ?? null) !== $packageKey));
+        $insertAt = $firstIndex === false ? count($ordinaryLines) : min((int) $firstIndex, count($ordinaryLines));
+        array_splice($ordinaryLines, $insertAt, 0, $reconciled);
+        $this->lines = $ordinaryLines;
+    }
+
+    protected function contentsAreCompatibleWithBranch(int $branchId): bool
+    {
+        $inventoryIds = collect($this->lines)->pluck('inventory_item_id')->filter()->map(fn ($id) => (int) $id)->unique();
+        if ($inventoryIds->isNotEmpty()) {
+            $validInventoryCount = InventoryItem::withoutBranchScope()
+                ->whereKey($inventoryIds)
+                ->where('branch_id', $branchId)
+                ->count();
+            if ($validInventoryCount !== $inventoryIds->count()) {
+                return false;
+            }
+        }
+
+        $catalogIds = collect($this->lines)
+            ->filter(fn ($line) => blank($line['package_key'] ?? null))
+            ->pluck('order_catalog_item_id')->filter()->map(fn ($id) => (int) $id)->unique();
+        if ($catalogIds->isNotEmpty() && OrderCatalogItem::query()->whereKey($catalogIds)->availableForBranch($branchId)->count() !== $catalogIds->count()) {
+            return false;
+        }
+
+        foreach ($this->packages as $package) {
+            $snapshot = $package['original_snapshot'];
+            if (! ($snapshot['available_all_branches'] ?? false)
+                && ! in_array($branchId, array_map('intval', $snapshot['branch_ids'] ?? []), true)) {
+                return false;
+            }
+
+            foreach ($snapshot['components'] ?? [] as $component) {
+                if (($component['source_type'] ?? null) === 'inventory_item') {
+                    $item = InventoryItem::withoutBranchScope()->find($component['source_id']);
+                    if (! $item || (int) $item->branch_id !== $branchId) {
+                        return false;
+                    }
+                }
+            }
+        }
+
+        return true;
+    }
+
+    protected function normalizePackageCompositionForSave(int $branchId): bool
+    {
+        try {
+            foreach (array_keys($this->packages) as $packageKey) {
+                $package = $this->packages[$packageKey];
+                $original = $package['original_snapshot'] ?? [];
+                if (! hash_equals((string) ($package['snapshot_signature'] ?? ''), $this->signPackageSnapshot($original))) {
+                    throw new \DomainException('Package snapshot validation failed. Remove the package and add it again.');
+                }
+
+                $quantities = collect($package['configured_snapshot']['components'] ?? [])
+                    ->mapWithKeys(fn ($component) => [(int) $component['template_item_id'] => $component['configured_quantity']])
+                    ->all();
+                $this->packages[$packageKey]['configured_snapshot'] = app(OrderPackagePricingService::class)
+                    ->configureCapturedSnapshot($original, $quantities);
+                $this->reconcilePackageLines($packageKey);
+            }
+
+            if (! $this->contentsAreCompatibleWithBranch($branchId)) {
+                throw new \DomainException('One or more catalog or package items are not available for this order branch.');
+            }
+        } catch (\Throwable $exception) {
+            $this->addError('lines', $exception->getMessage());
+
+            return false;
+        }
+
+        return true;
+    }
+
+    protected function validateDirectCatalogLines(int $branchId): bool
+    {
+        foreach ($this->lines as $index => $line) {
+            $catalogItemId = (int) ($line['order_catalog_item_id'] ?? 0);
+            if ($catalogItemId <= 0 || filled($line['package_key'] ?? null) || filled($line['id'] ?? null)) {
+                continue;
+            }
+
+            if (! OrderCatalogItem::query()->active()->availableForBranch($branchId)->whereKey($catalogItemId)->exists()) {
+                $this->addError("lines.{$index}.order_catalog_item_id", __('Selected catalog item is inactive or unavailable for this order branch.'));
+
+                return false;
+            }
+        }
+
+        foreach ($this->lines as $index => $line) {
+            $packageKey = $line['package_key'] ?? null;
+            if ($packageKey && ! isset($this->packages[$packageKey])) {
+                $this->addError("lines.{$index}.package_key", __('Package line provenance is invalid.'));
+
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    protected function signPackageSnapshot(array $snapshot): string
+    {
+        return hash_hmac('sha256', json_encode($snapshot, JSON_THROW_ON_ERROR), (string) config('app.key'));
     }
 
     public function updatedCustomerSearch(): void
@@ -698,6 +1068,8 @@ class Form extends Component
             'assigned_tailor_id' => ['nullable', 'integer', 'exists:users,id'],
             'lines' => ['required', 'array', 'min:1'],
             'lines.*.inventory_item_id' => ['nullable', 'integer', 'exists:inventory_items,id'],
+            'lines.*.order_catalog_item_id' => ['nullable', 'integer', 'exists:order_catalog_items,id'],
+            'lines.*.order_package_template_item_id' => ['nullable', 'integer', 'exists:order_package_template_items,id'],
             'lines.*.assigned_tailor_id' => ['nullable', 'integer', 'exists:users,id'],
             'lines.*.item_name' => ['required', 'string', 'max:191'],
             'lines.*.qty' => ['required', 'numeric', 'min:0.01'],
@@ -719,6 +1091,11 @@ class Form extends Component
         if (! $this->isEdit && ! $effectiveBranchId) {
             $this->addError('branch_id', 'Please select a branch to create this order.');
 
+            return;
+        }
+
+        if (! $this->normalizePackageCompositionForSave($effectiveBranchId)
+            || ! $this->validateDirectCatalogLines($effectiveBranchId)) {
             return;
         }
 
@@ -763,6 +1140,17 @@ class Form extends Component
         }
 
         $this->calculateTotals();
+
+        if ($this->isEdit) {
+            $paidAmount = (float) $this->order->payments()->sum('amount');
+            if ($this->total < $paidAmount) {
+                $this->addError('total', __('The order total cannot be reduced below :amount because that amount has already been paid.', [
+                    'amount' => money_currency($paidAmount, config('app.currency', 'TZS')),
+                ]));
+
+                return;
+            }
+        }
 
         // Deposit cannot exceed order total (create only)
         if (! $this->isEdit && $this->deposit_amount !== null && (float) $this->deposit_amount > 0) {
@@ -823,6 +1211,41 @@ class Form extends Component
                     $order = Order::create($orderData);
                 }
 
+                $packageInstanceIdsByKey = [];
+                foreach ($this->packages as $packageKey => $packageState) {
+                    $original = $packageState['original_snapshot'];
+                    $configured = $packageState['configured_snapshot'];
+                    $instance = filled($packageState['instance_id'] ?? null)
+                        ? $order->packageInstances()->findOrFail((int) $packageState['instance_id'])
+                        : new OrderPackageInstance(['order_id' => $order->id]);
+
+                    if ($instance->exists) {
+                        $instance->update([
+                            'configured_package_total' => $configured['configured_package_total'],
+                            'component_snapshot' => $configured['components'],
+                            'configured_component_snapshot' => $configured['components'],
+                            'configured_by' => auth()->id(),
+                        ]);
+                    } else {
+                        $instance->fill([
+                            'order_id' => $order->id,
+                            'order_package_template_id' => $packageState['template_id'],
+                            'source_template_revision' => $original['revision'],
+                            'package_name' => $original['name'],
+                            'package_description' => $original['description'],
+                            'cover_image_path' => $original['cover_image_path'],
+                            'original_package_total' => $original['original_package_total'],
+                            'configured_package_total' => $configured['configured_package_total'],
+                            'component_snapshot' => $configured['components'],
+                            'original_component_snapshot' => $original['components'],
+                            'configured_component_snapshot' => $configured['components'],
+                            'configured_by' => auth()->id(),
+                        ])->save();
+                    }
+
+                    $packageInstanceIdsByKey[$packageKey] = $instance->id;
+                }
+
                 // Handle lines
                 $existingLineIds = [];
 
@@ -834,6 +1257,11 @@ class Form extends Component
                     $lineAttributes = [
                         'order_id' => $order->id,
                         'inventory_item_id' => ($lineData['inventory_item_id'] ?? null) ?: null,
+                        'order_catalog_item_id' => ($lineData['order_catalog_item_id'] ?? null) ?: null,
+                        'order_package_instance_id' => filled($lineData['package_key'] ?? null)
+                            ? ($packageInstanceIdsByKey[$lineData['package_key']] ?? null)
+                            : null,
+                        'order_package_template_item_id' => ($lineData['order_package_template_item_id'] ?? null) ?: null,
                         'sku' => $lineData['sku'] ?? null,
                         'assigned_tailor_id' => $lineData['assigned_tailor_id'] ?: null,
                         'item_name' => $lineData['item_name'],
@@ -841,6 +1269,11 @@ class Form extends Component
                         'unit_price' => $lineData['unit_price'],
                         'line_total' => $lineData['line_total'],
                         'notes' => $lineData['notes'] ?? null,
+                        'meta' => [
+                            ...((array) ($lineData['meta'] ?? [])),
+                            'package_unit_index' => $lineData['package_unit_index'] ?? null,
+                            'requires_measurements' => (bool) ($lineData['requires_measurements'] ?? false),
+                        ],
                     ];
 
                     if (! empty($lineData['id'])) {
@@ -886,6 +1319,10 @@ class Form extends Component
                         $this->returnIssuedInventoryForLine($removedLine);
                         $removedLine->delete();
                     }
+
+                    $order->packageInstances()
+                        ->whereNotIn('id', array_values($packageInstanceIdsByKey))
+                        ->delete();
                 }
 
                 $depositPayment = null;
@@ -948,6 +1385,9 @@ class Form extends Component
                         ->whereNotIn('id', $existingExpenseIds)
                         ->delete();
                 }
+
+                $order->refresh();
+                $order->update(['payment_status' => $order->computed_payment_status]);
 
                 if (! $this->isEdit) {
                     event(new OrderCreated(
@@ -1135,14 +1575,16 @@ class Form extends Component
             ->get(['id', 'name', 'account_number', 'account_holder_name']);
 
         $inventoryItems = collect();
+        $catalogItems = collect();
+        $catalogPackages = collect();
         $inventoryBranchId = $this->getEffectiveBranchIdForInventory();
-        if ($inventoryBranchId) {
+        if ($this->showCatalogPicker && $inventoryBranchId && $this->catalogTab === 'inventory') {
             $inventoryItems = InventoryItem::query()
                 ->with('stock')
                 ->where('branch_id', $inventoryBranchId)
                 ->where('is_active', true)
-                ->when(trim($this->inventorySearch) !== '', function ($query) {
-                    $search = trim($this->inventorySearch);
+                ->when(trim($this->catalogSearch) !== '', function ($query) {
+                    $search = trim($this->catalogSearch);
                     $query->where(function ($q) use ($search) {
                         $q->where('name', 'like', "%{$search}%")
                             ->orWhere('sku', 'like', "%{$search}%");
@@ -1150,7 +1592,54 @@ class Form extends Component
                 })
                 ->orderBy('name')
                 ->limit(12)
-                ->get(['id', 'branch_id', 'sku', 'name', 'default_sell_price', 'unit']);
+                ->get(['id', 'branch_id', 'sku', 'name', 'default_sell_price', 'unit', 'featured_image_path']);
+        }
+
+        if ($this->showCatalogPicker && $inventoryBranchId && $this->catalogTab === 'catalog') {
+            $catalogItems = OrderCatalogItem::query()
+                ->active()
+                ->availableForBranch($inventoryBranchId)
+                ->when(trim($this->catalogSearch) !== '', function ($query) {
+                    $search = trim($this->catalogSearch);
+                    $query->where(fn ($searchQuery) => $searchQuery
+                        ->where('name', 'like', "%{$search}%")
+                        ->orWhere('code', 'like', "%{$search}%"));
+                })
+                ->orderBy('name')
+                ->limit(12)
+                ->get();
+        }
+
+        if ($this->showCatalogPicker && $inventoryBranchId && $this->catalogTab === 'packages') {
+            $catalogPackages = OrderPackageTemplate::query()
+                ->active()
+                ->availableForBranch($inventoryBranchId)
+                ->with(['items.catalogItem', 'items.inventoryItem'])
+                ->when(trim($this->catalogSearch) !== '', function ($query) {
+                    $search = trim($this->catalogSearch);
+                    $query->where(fn ($searchQuery) => $searchQuery
+                        ->where('name', 'like', "%{$search}%")
+                        ->orWhere('code', 'like', "%{$search}%"));
+                })
+                ->orderBy('name')
+                ->limit(12)
+                ->get();
+
+            $pricing = app(OrderPackagePricingService::class);
+            $catalogPackages->each(fn ($package) => $package->setAttribute('pricing_summary', $pricing->summary($package)));
+        }
+
+        $selectedCatalogItem = $this->selectedCatalogItemId
+            ? OrderCatalogItem::query()->find($this->selectedCatalogItemId)
+            : null;
+        $packageConfigurationPreview = null;
+        if ($this->showPackageConfigurator && $this->packageConfigurator !== []) {
+            try {
+                $packageConfigurationPreview = app(OrderPackagePricingService::class)
+                    ->configureCapturedSnapshot($this->packageConfigurator, $this->packageQuantities);
+            } catch (\Throwable) {
+                $packageConfigurationPreview = null;
+            }
         }
 
         // Get branches for global admin selector
@@ -1166,6 +1655,10 @@ class Form extends Component
             'branches' => $branches,
             'paymentMethods' => $paymentMethods,
             'inventoryItems' => $inventoryItems,
+            'catalogItems' => $catalogItems,
+            'catalogPackages' => $catalogPackages,
+            'selectedCatalogItem' => $selectedCatalogItem,
+            'packageConfigurationPreview' => $packageConfigurationPreview,
             'allowOrderDatesFlexibility' => $this->allowsOrderDatesFlexibility(),
         ])->title($this->getTitle());
     }

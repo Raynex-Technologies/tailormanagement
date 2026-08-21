@@ -6,8 +6,8 @@ use App\Models\Concerns\BranchScoped;
 use App\Support\StorefrontMedia;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
@@ -129,6 +129,11 @@ class InventoryItem extends Model
     public function stockRequestItems(): HasMany
     {
         return $this->hasMany(OrderStockRequestItem::class);
+    }
+
+    public function orderPackageComponents(): HasMany
+    {
+        return $this->hasMany(OrderPackageTemplateItem::class);
     }
 
     public function scopeStorefrontVisible($query)

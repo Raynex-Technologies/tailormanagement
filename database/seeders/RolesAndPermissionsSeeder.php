@@ -155,6 +155,9 @@ class RolesAndPermissionsSeeder extends Seeder
 
             // Orders
             'orders.view',
+            'order_catalog.view',
+            'order_catalog.items.manage',
+            'order_catalog.packages.manage',
             'orders.create',
             'orders.update',
             'orders.assign_tailor',
@@ -300,6 +303,9 @@ class RolesAndPermissionsSeeder extends Seeder
                 'branches.manage',
                 // Orders - FULL ACCESS
                 'orders.view',
+                'order_catalog.view',
+                'order_catalog.items.manage',
+                'order_catalog.packages.manage',
                 'orders.create',
                 'orders.update',
                 'orders.assign_tailor',
@@ -408,6 +414,9 @@ class RolesAndPermissionsSeeder extends Seeder
                 'branches.view',
                 // Orders - FULL ACCESS (within branch)
                 'orders.view',
+                'order_catalog.view',
+                'order_catalog.items.manage',
+                'order_catalog.packages.manage',
                 'orders.create',
                 'orders.update',
                 'orders.assign_tailor',

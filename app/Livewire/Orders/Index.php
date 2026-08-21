@@ -5,8 +5,11 @@ namespace App\Livewire\Orders;
 use App\Enums\OrderStatus;
 use App\Enums\Priority;
 use App\Models\Order;
+use App\Models\OrderPayment;
 use App\Models\User;
 use App\Support\PaymentPermissions;
+use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Builder;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Attributes\Url;
@@ -38,6 +41,14 @@ class Index extends Component
     public string $dateTo = '';
 
     public int $perPage = 15;
+
+    public function mount(): void
+    {
+        if ($this->dateFrom === '' && $this->dateTo === '') {
+            $this->dateFrom = now()->startOfMonth()->toDateString();
+            $this->dateTo = now()->endOfMonth()->toDateString();
+        }
+    }
 
     public function updatedSearch(): void
     {
@@ -76,7 +87,9 @@ class Index extends Component
 
     public function clearFilters(): void
     {
-        $this->reset(['search', 'statusFilter', 'tailorFilter', 'priorityFilter', 'dateFrom', 'dateTo']);
+        $this->reset(['search', 'statusFilter', 'tailorFilter', 'priorityFilter']);
+        $this->dateFrom = now()->startOfMonth()->toDateString();
+        $this->dateTo = now()->endOfMonth()->toDateString();
         $this->resetPage();
     }
 
@@ -84,25 +97,27 @@ class Index extends Component
     {
         $user = auth()->user();
 
-        $query = Order::query()
-            ->with(['customer', 'assignedTailor', 'lines.assignedTailor'])
-            ->search($this->search)
-            ->status($this->statusFilter)
-            ->assignedTo($this->tailorFilter ?: null)
-            ->when($this->priorityFilter !== '', fn ($q) => $q->where('priority', $this->priorityFilter));
+        $isTailor = $user->hasRole('tailor');
+        $query = $this->filteredOrdersQuery($user->id, $isTailor)
+            ->with(['customer', 'assignedTailor', 'lines.assignedTailor']);
 
         [$dateFrom, $dateTo] = $this->normalizedDateRange();
         $query->dateRange($dateFrom, $dateTo);
-
-        // For tailors, show only their assigned orders
-        if ($user->hasRole('tailor')) {
-            $query->forTailor($user->id);
-        }
 
         $orders = $query
             ->orderByDesc('order_date')
             ->orderByDesc('created_at')
             ->paginate($this->perPage);
+
+        $currentStats = $this->orderStats($dateFrom, $dateTo, $user->id, $isTailor);
+        [$previousFrom, $previousTo] = $this->previousMonthRange($dateFrom, $dateTo);
+        $previousStats = $this->orderStats($previousFrom, $previousTo, $user->id, $isTailor);
+        $kpis = collect($currentStats)->mapWithKeys(fn ($value, $key) => [
+            $key => [
+                'value' => $value,
+                'growth' => $this->percentageGrowth($value, $previousStats[$key]),
+            ],
+        ])->all();
 
         // Get statuses for filter
         $statuses = collect(OrderStatus::cases())
@@ -126,9 +141,79 @@ class Index extends Component
             'priorities' => $priorities,
             'tailors' => $tailors,
             'canViewFinancials' => $canViewFinancials,
-            'canCreatePayments' => PaymentPermissions::canCreate($user),
             'canViewPayments' => PaymentPermissions::canView($user),
+            'kpis' => $kpis,
+            'kpiPeriodLabel' => $this->periodLabel($dateFrom, $dateTo),
         ]);
+    }
+
+    protected function filteredOrdersQuery(int $userId, bool $isTailor): Builder
+    {
+        return Order::query()
+            ->search($this->search)
+            ->status($this->statusFilter)
+            ->assignedTo($this->tailorFilter ?: null)
+            ->when($this->priorityFilter !== '', fn ($query) => $query->where('priority', $this->priorityFilter))
+            ->when($isTailor, fn (Builder $query) => $query->forTailor($userId));
+    }
+
+    protected function orderStats(?string $from, ?string $to, int $userId, bool $isTailor): array
+    {
+        $paymentTotals = OrderPayment::query()
+            ->selectRaw('order_id, SUM(amount) as paid_amount')
+            ->groupBy('order_id');
+
+        $stats = $this->filteredOrdersQuery($userId, $isTailor)
+            ->dateRange($from, $to)
+            ->leftJoinSub($paymentTotals, 'payment_totals', 'payment_totals.order_id', '=', 'orders.id')
+            ->selectRaw('COUNT(*) as orders_count')
+            ->selectRaw('COALESCE(SUM(orders.total), 0) as total_amount')
+            ->selectRaw('COALESCE(SUM(payment_totals.paid_amount), 0) as payments_total')
+            ->first();
+
+        $total = (float) ($stats->total_amount ?? 0);
+        $paid = (float) ($stats->payments_total ?? 0);
+
+        return [
+            'orders' => (int) ($stats->orders_count ?? 0),
+            'amount' => $total,
+            'paid' => $paid,
+            'balance' => max(0, $total - $paid),
+        ];
+    }
+
+    protected function previousMonthRange(?string $from, ?string $to): array
+    {
+        $fromDate = $from ? CarbonImmutable::parse($from) : null;
+        $toDate = $to ? CarbonImmutable::parse($to) : null;
+        $previousTo = $toDate?->subMonthNoOverflow();
+
+        if ($toDate?->isLastOfMonth()) {
+            $previousTo = $previousTo?->endOfMonth();
+        }
+
+        return [
+            $fromDate?->subMonthNoOverflow()->toDateString(),
+            $previousTo?->toDateString(),
+        ];
+    }
+
+    protected function percentageGrowth(float|int $current, float|int $previous): float
+    {
+        if ((float) $previous === 0.0) {
+            return (float) $current === 0.0 ? 0.0 : 100.0;
+        }
+
+        return round((($current - $previous) / abs($previous)) * 100, 1);
+    }
+
+    protected function periodLabel(?string $from, ?string $to): string
+    {
+        if ($from && $to) {
+            return CarbonImmutable::parse($from)->format('M j').' – '.CarbonImmutable::parse($to)->format('M j, Y');
+        }
+
+        return __('All time');
     }
 
     protected function normalizedDateRange(): array

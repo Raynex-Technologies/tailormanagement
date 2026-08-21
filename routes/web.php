@@ -30,6 +30,9 @@ use App\Livewire\Inventory\Transactions\Index as TransactionsIndex;
 use App\Livewire\Inventory\Units\Index as UnitsIndex;
 use App\Livewire\Invoices\Index as InvoicesIndex;
 use App\Livewire\Invoices\Show as InvoicesShow;
+use App\Livewire\OrderCatalog\Index as OrderCatalogIndex;
+use App\Livewire\OrderCatalog\ItemForm as OrderCatalogItemForm;
+use App\Livewire\OrderCatalog\PackageForm as OrderCatalogPackageForm;
 use App\Livewire\Orders\Board as OrdersBoard;
 use App\Livewire\Orders\Form as OrdersForm;
 use App\Livewire\Orders\Index as OrdersIndex;
@@ -231,6 +234,21 @@ Route::middleware(['auth', 'verified', 'branch.context'])->group(function () {
             ->middleware('can:stock_requests.view')
             ->name('orders.stock-requests');
     });
+
+    Route::prefix('order-catalog')
+        ->middleware(['module.enabled:orders', 'can:order_catalog.view'])
+        ->name('order-catalog.')
+        ->group(function () {
+            Route::get('/', OrderCatalogIndex::class)->name('index');
+            Route::get('/items/create', OrderCatalogItemForm::class)
+                ->middleware('can:order_catalog.items.manage')->name('items.create');
+            Route::get('/items/{catalogItem}/edit', OrderCatalogItemForm::class)
+                ->middleware('can:order_catalog.items.manage')->name('items.edit');
+            Route::get('/packages/create', OrderCatalogPackageForm::class)
+                ->middleware('can:order_catalog.packages.manage')->name('packages.create');
+            Route::get('/packages/{package}/edit', OrderCatalogPackageForm::class)
+                ->middleware('can:order_catalog.packages.manage')->name('packages.edit');
+        });
 
     // Order Board (Sales/Receptionist view)
     Route::get('order-board', OrdersBoard::class)

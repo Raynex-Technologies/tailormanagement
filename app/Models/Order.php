@@ -11,10 +11,10 @@ use App\Support\DocNumber;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Support\Collection;
 
 class Order extends Model
@@ -142,6 +142,11 @@ class Order extends Model
     public function payments(): HasMany
     {
         return $this->hasMany(OrderPayment::class);
+    }
+
+    public function packageInstances(): HasMany
+    {
+        return $this->hasMany(OrderPackageInstance::class);
     }
 
     public function paymentTransactions(): HasMany

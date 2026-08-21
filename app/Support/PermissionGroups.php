@@ -40,6 +40,9 @@ class PermissionGroups
         ],
         'Orders' => [
             'orders.view',
+            'order_catalog.view',
+            'order_catalog.items.manage',
+            'order_catalog.packages.manage',
             'orders.create',
             'orders.update',
             'orders.assign_tailor',

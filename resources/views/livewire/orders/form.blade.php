@@ -267,74 +267,50 @@
                 </div>
             </flux:card>
 
-            {{-- Order Lines --}}
+            {{-- Order Contents --}}
             <flux:card>
                 <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <flux:heading size="lg">Order Lines</flux:heading>
+                    <div><flux:heading size="lg">{{ __('Order Contents') }}</flux:heading><p class="mt-1 text-sm text-zinc-500">{{ __('Combine catalog selections with custom order lines.') }}</p></div>
                     <div class="flex flex-wrap gap-2">
-                        <flux:button size="sm" variant="subtle" wire:click="toggleInventoryPicker" type="button">
-                            <x-icon name="inventory_2" class="mr-1 size-4" />
-                            Inventory Items
+                        <flux:button size="sm" variant="primary" wire:click="toggleCatalogPicker" type="button">
+                            <i class="fa-duotone fa-grid-2-plus mr-1.5"></i>
+                            {{ __('Add from Catalog') }}
                         </flux:button>
                         <flux:button size="sm" variant="subtle" wire:click="addLine" type="button">
                             <x-icon name="add" class="mr-1 size-4" />
-                            Add Item
+                            {{ __('Add Custom Item') }}
                         </flux:button>
                     </div>
                 </div>
 
-                @if ($showInventoryPicker)
-                    <div class="mb-5 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-800">
-                        <div class="mb-3 grid gap-3 md:grid-cols-[minmax(0,1fr)_auto] md:items-end">
-                            <flux:input
-                                wire:model.live.debounce.300ms="inventorySearch"
-                                label="Inventory search"
-                                placeholder="Search inventory by name or SKU"
-                                icon="magnifying-glass"
-                            />
-                            @if ($showBranchSelector && !$isEdit && !$branch_id)
-                                <p class="text-sm text-amber-600 dark:text-amber-300">Select a branch to list inventory.</p>
+                @if ($showCatalogPicker)
+                    <div class="mb-5 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-800">
+                        <div class="grid grid-cols-3 gap-1 rounded-xl bg-zinc-100 p-1 dark:bg-zinc-900/60">
+                            <button type="button" wire:click="setCatalogTab('packages')" class="rounded-lg px-2 py-2 text-sm font-medium {{ $catalogTab === 'packages' ? 'bg-white shadow dark:bg-zinc-700' : 'text-zinc-500' }}">{{ __('Packages') }}</button>
+                            <button type="button" wire:click="setCatalogTab('catalog')" class="rounded-lg px-2 py-2 text-sm font-medium {{ $catalogTab === 'catalog' ? 'bg-white shadow dark:bg-zinc-700' : 'text-zinc-500' }}">{{ __('Garments & Services') }}</button>
+                            <button type="button" wire:click="setCatalogTab('inventory')" class="rounded-lg px-2 py-2 text-sm font-medium {{ $catalogTab === 'inventory' ? 'bg-white shadow dark:bg-zinc-700' : 'text-zinc-500' }}">{{ __('Inventory Products') }}</button>
+                        </div>
+                        <flux:input wire:model.live.debounce.300ms="catalogSearch" class="mt-3" icon="magnifying-glass" placeholder="{{ __('Search the selected catalog source') }}" />
+                        @if ($showBranchSelector && ! $isEdit && ! $branch_id)<p class="mt-3 text-sm text-amber-600">{{ __('Select an order branch to browse catalog content.') }}</p>@endif
+
+                        <div class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+                            @if ($catalogTab === 'packages')
+                                @forelse ($catalogPackages as $catalogPackage)
+                                    <button type="button" wire:click="configurePackage({{ $catalogPackage->id }})" class="overflow-hidden rounded-xl border border-zinc-200 text-left transition hover:border-lime-400 dark:border-zinc-700">
+                                        <div class="flex gap-3 p-3"><div class="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-zinc-100 dark:bg-zinc-700">@if($catalogPackage->cover_image_url)<img src="{{ $catalogPackage->cover_image_url }}" alt="" class="size-full object-cover">@else<i class="fa-duotone fa-box-open-full text-zinc-400"></i>@endif</div><div class="min-w-0"><p class="truncate text-sm font-semibold">{{ $catalogPackage->name }}</p><p class="line-clamp-2 text-xs text-zinc-500">{{ $catalogPackage->description }}</p><p class="mt-1 text-xs">{{ money_currency($catalogPackage->pricing_summary['package_price']) }} · {{ trans_choice(':count component|:count components', $catalogPackage->items->count(), ['count' => $catalogPackage->items->count()]) }}</p>@if((float)$catalogPackage->pricing_summary['difference'] > 0)<p class="text-xs text-emerald-600">{{ __('Save :amount', ['amount' => money_currency($catalogPackage->pricing_summary['difference'])]) }}</p>@endif</div></div>
+                                    </button>
+                                @empty <p class="col-span-full rounded-xl border border-dashed p-5 text-center text-sm text-zinc-500">{{ __('No active packages found for this branch.') }}</p> @endforelse
+                            @elseif ($catalogTab === 'catalog')
+                                @forelse ($catalogItems as $catalogItem)
+                                    <button type="button" wire:click="configureDirectCatalogItem({{ $catalogItem->id }})" class="flex gap-3 rounded-xl border border-zinc-200 p-3 text-left transition hover:border-lime-400 dark:border-zinc-700"><div class="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-zinc-100 dark:bg-zinc-700">@if($catalogItem->image_url)<img src="{{ $catalogItem->image_url }}" alt="" class="size-full object-cover">@else<i class="fa-duotone fa-shirt text-zinc-400"></i>@endif</div><div class="min-w-0"><p class="truncate text-sm font-semibold">{{ $catalogItem->name }}</p><p class="text-xs text-zinc-500">{{ $catalogItem->code }} · {{ $catalogItem->type->label() }}</p><p class="mt-1 text-xs font-medium">{{ money_currency($catalogItem->default_selling_price) }}</p></div></button>
+                                @empty <p class="col-span-full rounded-xl border border-dashed p-5 text-center text-sm text-zinc-500">{{ __('No active garments or services found for this branch.') }}</p> @endforelse
+                            @else
+                                @forelse ($inventoryItems as $inventoryItem)
+                                    @php($availableQty = (float) ($inventoryItem->stock?->qty_on_hand ?? 0) - (float) ($inventoryItem->stock?->qty_reserved ?? 0))
+                                    <button type="button" wire:click="addInventoryLine({{ $inventoryItem->id }})" class="flex gap-3 rounded-xl border border-zinc-200 p-3 text-left transition hover:border-lime-400 dark:border-zinc-700"><div class="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-zinc-100 dark:bg-zinc-700">@if($inventoryItem->featured_image_url)<img src="{{ $inventoryItem->featured_image_url }}" alt="" class="size-full object-cover">@else<i class="fa-duotone fa-box text-zinc-400"></i>@endif</div><div class="min-w-0"><p class="truncate text-sm font-semibold">{{ $inventoryItem->name }}</p><p class="text-xs text-zinc-500">{{ $inventoryItem->sku ?: __('No SKU') }} · {{ __('Available: :qty', ['qty' => rtrim(rtrim(number_format($availableQty, 2), '0'), '.')]) }}</p><p class="mt-1 text-xs font-medium">{{ money_currency($inventoryItem->default_sell_price) }}</p></div></button>
+                                @empty <p class="col-span-full rounded-xl border border-dashed p-5 text-center text-sm text-zinc-500">{{ __('No active inventory products found for this branch.') }}</p> @endforelse
                             @endif
                         </div>
-
-                        @if ($inventoryItems->isNotEmpty())
-                            <div class="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
-                                @foreach ($inventoryItems as $item)
-                                    @php
-                                        $availableQty = (float) ($item->stock?->qty_on_hand ?? 0) - (float) ($item->stock?->qty_reserved ?? 0);
-                                    @endphp
-                                    <button
-                                        type="button"
-                                        wire:click="addInventoryLine({{ $item->id }})"
-                                        class="rounded-lg border border-zinc-200 bg-zinc-50 p-3 text-left transition hover:border-indigo-300 hover:bg-indigo-50 dark:border-zinc-700 dark:bg-zinc-900/40 dark:hover:border-indigo-700 dark:hover:bg-indigo-900/20"
-                                    >
-                                        <div class="flex items-start justify-between gap-3">
-                                            <div class="min-w-0">
-                                                <p class="truncate text-sm font-medium text-zinc-900 dark:text-white">{{ $item->name }}</p>
-                                                <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                                                    {{ $item->sku ?: 'No SKU' }} @if($item->unit) &bull; {{ $item->unit }} @endif
-                                                </p>
-                                            </div>
-                                            <span class="shrink-0 font-mono text-sm text-zinc-900 dark:text-white">{{ number_format((float) $item->default_sell_price, 0) }}</span>
-                                        </div>
-                                        <div class="mt-2 flex items-center justify-between text-xs">
-                                            <span class="text-zinc-500 dark:text-zinc-400">Available</span>
-                                            <span class="{{ $availableQty > 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400' }}">
-                                                {{ rtrim(rtrim(number_format($availableQty, 2), '0'), '.') }}
-                                            </span>
-                                        </div>
-                                    </button>
-                                @endforeach
-                            </div>
-                        @else
-                            <p class="rounded-lg border border-dashed border-zinc-300 p-4 text-sm text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
-                                No inventory items found for this branch.
-                            </p>
-                        @endif
-
-                        @error('inventorySearch')
-                            <p class="mt-2 text-sm text-red-500">{{ $message }}</p>
-                        @enderror
                     </div>
                 @endif
 
