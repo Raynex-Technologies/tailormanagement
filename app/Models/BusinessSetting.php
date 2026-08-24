@@ -103,7 +103,7 @@ class BusinessSetting extends Model
      */
     public static function instance(): self
     {
-        return self::firstOrCreate(
+        return self::unguarded(fn (): self => self::firstOrCreate(
             ['id' => 1],
             [
                 'business_name' => config('app.name', 'Tailoring Business'),
@@ -118,7 +118,7 @@ class BusinessSetting extends Model
                 'allow_cash_on_delivery' => false,
                 'storefront_currency' => 'TZS',
             ]
-        );
+        ));
     }
 
     public function getLogoUrlAttribute(): ?string

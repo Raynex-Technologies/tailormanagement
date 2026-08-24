@@ -3,6 +3,7 @@
 namespace App\Livewire\DeliveryNotes;
 
 use App\Models\DeliveryNote;
+use App\Support\Orders\OrderPackagePresenter;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 
@@ -17,6 +18,7 @@ class Show extends Component
         $this->deliveryNote = $deliveryNote->load([
             'order.customer',
             'order.lines',
+            'order.packageInstances',
             'deliveredBy',
             'branch',
         ]);
@@ -29,7 +31,9 @@ class Show extends Component
 
     public function render()
     {
-        return view('livewire.delivery-notes.show')
+        return view('livewire.delivery-notes.show', [
+            'deliveryPresentation' => app(OrderPackagePresenter::class)->forOrder($this->deliveryNote->order),
+        ])
             ->title($this->getTitle());
     }
 }

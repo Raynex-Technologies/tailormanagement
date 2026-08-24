@@ -7,7 +7,7 @@ use App\Models\InventoryItem;
 use App\Models\InventoryStock;
 use App\Models\InventoryTransaction;
 use App\Services\Inventory\StockMovementService;
-use Illuminate\Support\Facades\DB;
+use App\Support\Livewire\NormalizesMoneyInputs;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -19,6 +19,7 @@ use Livewire\WithPagination;
 #[Title('Stock Overview')]
 class Index extends Component
 {
+    use NormalizesMoneyInputs;
     use WithPagination;
 
     #[Url]
@@ -34,18 +35,28 @@ class Index extends Component
 
     // Receive Stock Modal
     public bool $showReceiveModal = false;
+
     public ?int $receiveItemId = null;
+
     public string $receiveItemName = '';
+
     public float $receiveQty = 1;
-    public ?float $receiveUnitCost = null;
+
+    public string|float|null $receiveUnitCost = null;
+
     public string $receiveNote = '';
 
     // Adjust Stock Modal
     public bool $showAdjustModal = false;
+
     public ?int $adjustItemId = null;
+
     public string $adjustItemName = '';
+
     public float $adjustCurrentQty = 0;
+
     public float $adjustQty = 0;
+
     public string $adjustNote = '';
 
     protected function receiveRules(): array
@@ -98,6 +109,7 @@ class Index extends Component
 
     public function receiveStock(StockMovementService $service): void
     {
+        $this->normalizeMoneyInputs();
         $this->authorize('inventory.stock.receive');
 
         $this->validate($this->receiveRules());
@@ -162,7 +174,7 @@ class Index extends Component
             );
 
             $direction = $this->adjustQty > 0 ? 'increased' : 'decreased';
-            session()->flash('success', "Stock {$direction} by " . abs($this->adjustQty) . " for {$item->name}.");
+            session()->flash('success', "Stock {$direction} by ".abs($this->adjustQty)." for {$item->name}.");
             $this->closeAdjustModal();
         } catch (ValidationException $e) {
             foreach ($e->errors() as $field => $messages) {

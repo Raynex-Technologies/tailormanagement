@@ -18,7 +18,24 @@ class OrderCatalogAdministrationTest extends TestCase
     public function test_authorized_staff_can_open_catalog_and_unauthorized_staff_are_rejected(): void
     {
         $this->actingAsRole('admin');
-        $this->get(route('order-catalog.index'))->assertOk()->assertSee('Order Catalog');
+        $this->get(route('order-catalog.index'))
+            ->assertOk()
+            ->assertSee('data-orders-workspace-header', false)
+            ->assertSeeInOrder(['Orders', 'Order Catalog']);
+
+        $this->get(route('order-catalog.items.create'))
+            ->assertOk()
+            ->assertSee('data-orders-workspace-header', false)
+            ->assertSee('data-form-actions="catalog-item"', false)
+            ->assertDontSee('form="catalog-item-form"', false)
+            ->assertSee('Create Item');
+
+        $this->get(route('order-catalog.packages.create'))
+            ->assertOk()
+            ->assertSee('data-orders-workspace-header', false)
+            ->assertSee('Package Pricing')
+            ->assertSee('data-form-actions="package-template"', false)
+            ->assertSee('Create Package');
 
         auth()->logout();
         $this->actingAsRole('tailor');

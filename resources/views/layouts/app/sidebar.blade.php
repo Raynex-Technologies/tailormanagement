@@ -40,9 +40,19 @@
 
             .desktop-sidebar-nav a.bg-lime-400,
             .app-mobile-sidebar a.bg-lime-400 {
-                background: var(--tailorpro-secondary) !important;
-                color: var(--tailorpro-secondary-foreground) !important;
-                box-shadow: 0 4px 12px color-mix(in srgb, var(--tailorpro-secondary) 35%, transparent) !important;
+                background: linear-gradient(135deg, var(--tailorpro-navigation-accent-start) 0%, var(--tailorpro-navigation-accent-end) 100%) !important;
+                color: var(--tailorpro-navigation-accent-foreground) !important;
+                box-shadow: 0 4px 12px rgb(163 230 53 / 24%) !important;
+            }
+
+            .desktop-sidebar-nav a.bg-lime-400:hover,
+            .app-mobile-sidebar a.bg-lime-400:hover {
+                background: linear-gradient(135deg, color-mix(in srgb, var(--tailorpro-navigation-accent-start) 88%, white 12%) 0%, var(--tailorpro-navigation-accent-end) 100%) !important;
+            }
+
+            .app-profile-accent {
+                background: linear-gradient(135deg, var(--tailorpro-navigation-accent-start) 0%, var(--tailorpro-navigation-accent-end) 100%) !important;
+                color: var(--tailorpro-navigation-accent-foreground) !important;
             }
 
             .desktop-sidebar .sidebar-header-link > div,
@@ -93,7 +103,7 @@
             }
 
             .top-frosted-nav {
-                overflow: hidden;
+                overflow: visible;
                 border: 1px solid rgba(255, 255, 255, 0.58);
                 background: linear-gradient(135deg, rgba(255, 255, 255, 0.52) 0%, rgba(246, 247, 249, 0.4) 52%, rgba(230, 232, 237, 0.34) 100%);
                 box-shadow: 0 12px 34px rgba(15, 23, 42, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.56);
@@ -106,6 +116,7 @@
                 position: absolute;
                 inset: 0;
                 pointer-events: none;
+                border-radius: inherit;
                 background:
                     radial-gradient(circle at 14% 18%, rgba(255, 255, 255, 0.44) 0%, rgba(255, 255, 255, 0) 38%),
                     radial-gradient(circle at 84% 28%, rgba(255, 255, 255, 0.34) 0%, rgba(255, 255, 255, 0) 32%);
@@ -116,6 +127,7 @@
                 position: absolute;
                 inset: 0;
                 pointer-events: none;
+                border-radius: inherit;
                 opacity: 0.52;
                 background:
                     repeating-linear-gradient(
@@ -318,6 +330,7 @@
                     <a 
                         href="{{ route('orders.index') }}" 
                         wire:navigate
+                        @if (request()->routeIs('orders.index') || request()->routeIs('orders.show') || request()->routeIs('orders.create') || request()->routeIs('orders.edit')) aria-current="page" data-sidebar-active @endif
                         class="orders-management-link relative flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ (request()->routeIs('orders.index') || request()->routeIs('orders.show') || request()->routeIs('orders.create') || request()->routeIs('orders.edit')) ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}"
                     >
                         <i class="fa-duotone fa-box-dollar size-5"></i>
@@ -815,45 +828,81 @@
                     </a>
                     @endcan
 
-                    @can('sms.logs.view')
-                    <a 
-                        href="{{ route('sms.logs.index') }}" 
-                        wire:navigate
-                        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('sms.logs.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}"
-                    >
-                        <i class="fa-duotone fa-comment-sms size-5"></i>
-                        {{ __('SMS Logs') }}
-                    </a>
-                    @endcan
+                    @if (auth()->user()->can('sms.logs.view') || auth()->user()->can('sms-settings.view'))
+                        <div
+                            x-data="{ messagesOpen: @js(request()->routeIs('sms.logs.*', 'beem-configurations.*', 'whatsapp-configurations.*', 'administration.email-setup')) }"
+                            data-messages-nav
+                        >
+                            <button
+                                type="button"
+                                @click="messagesOpen = ! messagesOpen"
+                                :aria-expanded="messagesOpen.toString()"
+                                aria-controls="desktop-messages-nav-menu"
+                                :title="desktopSidebarCollapsed ? @js(__('Messages')) : null"
+                                class="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-all duration-150 {{ request()->routeIs('sms.logs.*', 'beem-configurations.*', 'whatsapp-configurations.*', 'administration.email-setup') ? 'bg-white/10 text-white font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}"
+                                :class="desktopSidebarCollapsed ? 'justify-center gap-0 px-0 text-[0px]' : ''"
+                                data-messages-nav-trigger
+                            >
+                                <i class="fa-duotone fa-message-dots size-5 shrink-0 text-center"></i>
+                                <span class="min-w-0 flex-1 truncate">{{ __('Messages') }}</span>
+                                <i
+                                    class="fa-duotone fa-chevron-down text-xs transition-transform duration-200"
+                                    :class="messagesOpen ? 'rotate-180' : ''"
+                                    x-show="! desktopSidebarCollapsed"
+                                    aria-hidden="true"
+                                ></i>
+                            </button>
 
-                    @can('sms-settings.view')
-                    <a
-                        href="{{ route('beem-configurations.index') }}"
-                        wire:navigate
-                        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('beem-configurations.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}"
-                    >
-                        <i class="fa-duotone fa-sliders size-5"></i>
-                        {{ __('SMS Settings') }}
-                    </a>
-                    <a
-                        href="{{ route('whatsapp-configurations.index') }}"
-                        wire:navigate
-                        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('whatsapp-configurations.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}"
-                    >
-                        <i class="fa-brands fa-whatsapp size-5"></i>
-                        {{ __('WhatsApp Settings') }}
-                    </a>
-                    @can('roles.manage')
-                    <a
-                        href="{{ route('administration.email-setup') }}"
-                        wire:navigate
-                        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('administration.email-setup') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}"
-                    >
-                        <i class="fa-duotone fa-envelope-open-text size-5"></i>
-                        {{ __('Email Setup') }}
-                    </a>
-                    @endcan
-                    @endcan
+                            <div
+                                id="desktop-messages-nav-menu"
+                                x-show="messagesOpen && ! desktopSidebarCollapsed"
+                                x-transition.opacity.duration.150ms
+                                class="mt-1 ml-5 space-y-1 border-l border-white/10 pl-2"
+                                style="display: none;"
+                                data-messages-nav-menu="desktop"
+                            >
+                                @can('sms.logs.view')
+                                    <a
+                                        href="{{ route('sms.logs.index') }}"
+                                        wire:navigate
+                                        class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150 {{ request()->routeIs('sms.logs.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/65 hover:bg-white/5 hover:text-white' }}"
+                                    >
+                                        <i class="fa-duotone fa-comment-sms size-4"></i>
+                                        {{ __('SMS Logs') }}
+                                    </a>
+                                @endcan
+
+                                @can('sms-settings.view')
+                                    <a
+                                        href="{{ route('beem-configurations.index') }}"
+                                        wire:navigate
+                                        class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150 {{ request()->routeIs('beem-configurations.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/65 hover:bg-white/5 hover:text-white' }}"
+                                    >
+                                        <i class="fa-duotone fa-sliders size-4"></i>
+                                        {{ __('SMS Settings') }}
+                                    </a>
+                                    <a
+                                        href="{{ route('whatsapp-configurations.index') }}"
+                                        wire:navigate
+                                        class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150 {{ request()->routeIs('whatsapp-configurations.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/65 hover:bg-white/5 hover:text-white' }}"
+                                    >
+                                        <i class="fa-brands fa-whatsapp size-4"></i>
+                                        {{ __('WhatsApp Settings') }}
+                                    </a>
+                                    @can('roles.manage')
+                                        <a
+                                            href="{{ route('administration.email-setup') }}"
+                                            wire:navigate
+                                            class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150 {{ request()->routeIs('administration.email-setup') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/65 hover:bg-white/5 hover:text-white' }}"
+                                        >
+                                            <i class="fa-duotone fa-envelope-open-text size-4"></i>
+                                            {{ __('Email Setup') }}
+                                        </a>
+                                    @endcan
+                                @endcan
+                            </div>
+                        </div>
+                    @endif
                 </div>
                 @endcanany
             </nav>
@@ -950,6 +999,7 @@
                         </a>
                         @canany(['orders.create', 'orders.update'])
                         <a href="{{ route('orders.index') }}" wire:navigate @click="sidebarOpen = false"
+                           @if (request()->routeIs('orders.index') || request()->routeIs('orders.show') || request()->routeIs('orders.create') || request()->routeIs('orders.edit')) aria-current="page" data-sidebar-active @endif
                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ (request()->routeIs('orders.index') || request()->routeIs('orders.show') || request()->routeIs('orders.create') || request()->routeIs('orders.edit')) ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
                             <i class="fa-duotone fa-box-dollar size-5"></i>
                             <span class="flex-1">{{ __('Orders Management') }}</span>
@@ -1166,34 +1216,75 @@
                     @endcan
                     @endif
 
-                    @can('roles.manage')
+                    @canany(['roles.manage', 'sms.logs.view', 'sms-settings.view'])
                     <div class="nav-group">
                         <h3 class="px-3 mb-2 text-[0.65rem] font-semibold uppercase tracking-wider text-white/35">{{ __('Administration') }}</h3>
 
+                        @can('roles.manage')
                         <a href="{{ route('administration.settings') }}" wire:navigate @click="sidebarOpen = false"
                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('administration.settings') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
                             <i class="fa-duotone fa-gear size-5"></i>
                             {{ __('Settings') }}
                         </a>
-                        @can('sms-settings.view')
-                        <a href="{{ route('beem-configurations.index') }}" wire:navigate @click="sidebarOpen = false"
-                           class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('beem-configurations.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
-                            <i class="fa-duotone fa-sliders size-5"></i>
-                            {{ __('SMS Settings') }}
-                        </a>
-                        <a href="{{ route('whatsapp-configurations.index') }}" wire:navigate @click="sidebarOpen = false"
-                           class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('whatsapp-configurations.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
-                            <i class="fa-brands fa-whatsapp size-5"></i>
-                            {{ __('WhatsApp Settings') }}
-                        </a>
-                        <a href="{{ route('administration.email-setup') }}" wire:navigate @click="sidebarOpen = false"
-                           class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('administration.email-setup') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
-                            <i class="fa-duotone fa-envelope-open-text size-5"></i>
-                            {{ __('Email Setup') }}
-                        </a>
                         @endcan
+
+                        @if (auth()->user()->can('sms.logs.view') || auth()->user()->can('sms-settings.view'))
+                            <div
+                                x-data="{ messagesOpen: @js(request()->routeIs('sms.logs.*', 'beem-configurations.*', 'whatsapp-configurations.*', 'administration.email-setup')) }"
+                                data-messages-nav
+                            >
+                                <button
+                                    type="button"
+                                    @click="messagesOpen = ! messagesOpen"
+                                    :aria-expanded="messagesOpen.toString()"
+                                    aria-controls="mobile-messages-nav-menu"
+                                    class="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-all duration-150 {{ request()->routeIs('sms.logs.*', 'beem-configurations.*', 'whatsapp-configurations.*', 'administration.email-setup') ? 'bg-white/10 text-white font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}"
+                                    data-messages-nav-trigger
+                                >
+                                    <i class="fa-duotone fa-message-dots size-5"></i>
+                                    <span class="min-w-0 flex-1 truncate">{{ __('Messages') }}</span>
+                                    <i class="fa-duotone fa-chevron-down text-xs transition-transform duration-200" :class="messagesOpen ? 'rotate-180' : ''" aria-hidden="true"></i>
+                                </button>
+
+                                <div
+                                    id="mobile-messages-nav-menu"
+                                    x-show="messagesOpen"
+                                    x-transition.opacity.duration.150ms
+                                    class="mt-1 ml-5 space-y-1 border-l border-white/10 pl-2"
+                                    style="display: none;"
+                                    data-messages-nav-menu="mobile"
+                                >
+                                    @can('sms.logs.view')
+                                        <a href="{{ route('sms.logs.index') }}" wire:navigate @click="sidebarOpen = false"
+                                           class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150 {{ request()->routeIs('sms.logs.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/65 hover:bg-white/5 hover:text-white' }}">
+                                            <i class="fa-duotone fa-comment-sms size-4"></i>
+                                            {{ __('SMS Logs') }}
+                                        </a>
+                                    @endcan
+                                    @can('sms-settings.view')
+                                        <a href="{{ route('beem-configurations.index') }}" wire:navigate @click="sidebarOpen = false"
+                                           class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150 {{ request()->routeIs('beem-configurations.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/65 hover:bg-white/5 hover:text-white' }}">
+                                            <i class="fa-duotone fa-sliders size-4"></i>
+                                            {{ __('SMS Settings') }}
+                                        </a>
+                                        <a href="{{ route('whatsapp-configurations.index') }}" wire:navigate @click="sidebarOpen = false"
+                                           class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150 {{ request()->routeIs('whatsapp-configurations.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/65 hover:bg-white/5 hover:text-white' }}">
+                                            <i class="fa-brands fa-whatsapp size-4"></i>
+                                            {{ __('WhatsApp Settings') }}
+                                        </a>
+                                        @can('roles.manage')
+                                            <a href="{{ route('administration.email-setup') }}" wire:navigate @click="sidebarOpen = false"
+                                               class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-all duration-150 {{ request()->routeIs('administration.email-setup') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/65 hover:bg-white/5 hover:text-white' }}">
+                                                <i class="fa-duotone fa-envelope-open-text size-4"></i>
+                                                {{ __('Email Setup') }}
+                                            </a>
+                                        @endcan
+                                    @endcan
+                                </div>
+                            </div>
+                        @endif
                     </div>
-                    @endcan
+                    @endcanany
                 </nav>
             </aside>
         </div>
@@ -1230,7 +1321,7 @@
                 
                 {{-- Mobile Profile Dropdown --}}
                 <flux:dropdown position="bottom" align="end">
-                    <button class="flex items-center justify-center size-9 rounded-xl font-semibold text-sm shadow-lg transition-transform hover:scale-105" style="background: linear-gradient(135deg, #A3E635 0%, #84CC16 100%); color: #1E1F2E;">
+                    <button class="app-profile-accent flex items-center justify-center size-9 rounded-xl font-semibold text-sm shadow-lg transition-transform hover:scale-105">
                         {{ auth()->user()->initials() }}
                     </button>
 
@@ -1238,7 +1329,7 @@
                         {{-- User Info Header --}}
                         <div class="px-3 py-3 border-b border-zinc-200 dark:border-zinc-700">
                             <div class="flex items-center gap-3">
-                                <div class="flex items-center justify-center size-10 rounded-xl font-semibold text-sm" style="background: linear-gradient(135deg, #A3E635 0%, #84CC16 100%); color: #1E1F2E;">
+                                <div class="app-profile-accent flex items-center justify-center size-10 rounded-xl font-semibold text-sm">
                                     {{ auth()->user()->initials() }}
                                 </div>
                                 <div class="flex-1 min-w-0">
@@ -1303,7 +1394,7 @@
                     
                     {{-- Desktop Profile Dropdown --}}
                     <flux:dropdown position="bottom" align="end">
-                        <button class="flex items-center justify-center size-10 rounded-xl font-semibold text-sm shadow-lg transition-all hover:scale-105 hover:shadow-xl" style="background: linear-gradient(135deg, #A3E635 0%, #84CC16 100%); color: #1E1F2E;">
+                        <button class="app-profile-accent flex items-center justify-center size-10 rounded-xl font-semibold text-sm shadow-lg transition-all hover:scale-105 hover:shadow-xl">
                             {{ auth()->user()->initials() }}
                         </button>
 
@@ -1311,7 +1402,7 @@
                             {{-- User Info Header --}}
                             <div class="px-4 py-4 border-b border-zinc-200 dark:border-zinc-700">
                                 <div class="flex items-center gap-3">
-                                    <div class="flex items-center justify-center size-12 rounded-xl font-bold text-base" style="background: linear-gradient(135deg, #A3E635 0%, #84CC16 100%); color: #1E1F2E;">
+                                    <div class="app-profile-accent flex items-center justify-center size-12 rounded-xl font-bold text-base">
                                         {{ auth()->user()->initials() }}
                                     </div>
                                     <div class="flex-1 min-w-0">

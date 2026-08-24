@@ -88,6 +88,7 @@
         </thead>
         <tbody>
             @forelse ($invoice->lines as $line)
+                @include('invoices.partials.line-group-heading', ['line' => $line, 'columns' => 4])
                 @php($outlined = $loop->even)
                 <tr>
                     <td style="text-align: center; font-size: 14px; padding: 7px 6px; {{ $outlined ? 'border: 1.4px solid #2f3240; border-right: 0; border-radius: 999px 0 0 999px;' : 'border: 0;' }}">

@@ -154,15 +154,26 @@ class BookingSystemSeeder extends Seeder
         foreach ($definitions as $categorySlug => $fields) {
             $categoryId = $categorySlug ? GarmentCategory::query()->where('slug', $categorySlug)->value('id') : null;
             foreach ($fields as $sort => $field) {
-                MeasurementField::query()->updateOrCreate(
-                    ['garment_category_id' => $categoryId, 'slug' => Str::slug($field)],
+                $code = Str::upper(Str::snake($field));
+                $measurement = MeasurementField::query()->updateOrCreate(
+                    ['code' => $code],
                     [
                         'name' => $field,
+                        'slug' => Str::slug($field),
+                        'garment_category_id' => null,
                         'unit' => in_array($field, ['Weight'], true) ? 'kg' : 'cm',
+                        'default_unit' => in_array($field, ['Weight'], true) ? 'kg' : 'cm',
+                        'is_global' => $categoryId === null,
                         'is_active' => true,
                         'sort_order' => $sort + 1,
                     ]
                 );
+
+                if ($categoryId) {
+                    $measurement->garmentCategories()->syncWithoutDetaching([
+                        $categoryId => ['is_required' => false, 'sort_order' => $sort + 1],
+                    ]);
+                }
             }
         }
     }

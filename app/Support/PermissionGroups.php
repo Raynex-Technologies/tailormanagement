@@ -43,6 +43,7 @@ class PermissionGroups
             'order_catalog.view',
             'order_catalog.items.manage',
             'order_catalog.packages.manage',
+            'measurement_fields.manage',
             'orders.create',
             'orders.update',
             'orders.assign_tailor',

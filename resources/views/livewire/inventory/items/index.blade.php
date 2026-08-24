@@ -284,17 +284,15 @@
                 @error('inventory_unit_id') <p class="text-sm text-red-600 dark:text-red-400">{{ $message }}</p> @enderror
 
                 <div class="grid gap-4 sm:grid-cols-2">
-                    <flux:input
-                        wire:model="default_buy_price"
-                        type="number"
+                    <x-money-input
+                        wire:model.blur="default_buy_price"
                         step="1"
                         label="{{ __('Default Buy Price') }}"
                         min="0"
                     />
 
-                    <flux:input
-                        wire:model="default_sell_price"
-                        type="number"
+                    <x-money-input
+                        wire:model.blur="default_sell_price"
                         step="1"
                         label="{{ __('Default Sell Price') }}"
                         min="0"
@@ -341,9 +339,8 @@
                 />
                 @error('receiveQty') <p class="text-sm text-red-600 dark:text-red-400">{{ $message }}</p> @enderror
 
-                <flux:input
-                    wire:model="receiveUnitCost"
-                    type="number"
+                <x-money-input
+                    wire:model.blur="receiveUnitCost"
                     step="1"
                     min="0"
                     label="{{ __('Unit Cost (Optional)') }}"

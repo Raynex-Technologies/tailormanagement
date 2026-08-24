@@ -14,10 +14,10 @@ use App\Models\InventoryItem;
 use App\Models\InventoryTransaction;
 use App\Models\Invoice;
 use App\Models\Order;
+use App\Models\OrderCatalogItem;
 use App\Models\OrderExpense;
 use App\Models\OrderLine;
 use App\Models\OrderMeasurement;
-use App\Models\OrderCatalogItem;
 use App\Models\OrderPackageInstance;
 use App\Models\OrderPackageTemplate;
 use App\Models\OrderPayment;
@@ -27,6 +27,7 @@ use App\Services\Inventory\StockMovementService;
 use App\Services\Orders\OrderCatalogCompositionService;
 use App\Services\Orders\OrderPackagePricingService;
 use App\Support\BranchContext;
+use App\Support\Livewire\NormalizesMoneyInputs;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -38,6 +39,8 @@ use Livewire\Component;
 #[Layout('layouts.app.sidebar')]
 class Form extends Component
 {
+    use NormalizesMoneyInputs;
+
     private const ORDER_EXPENSE_DESCRIPTIONS = [
         'Labour Charge',
         'Additional Materials',
@@ -92,7 +95,7 @@ class Form extends Component
     public ?int $assigned_tailor_id = null;
 
     #[Validate('nullable|numeric|min:0', as: 'discount')]
-    public ?float $discount = 0;
+    public string|float|null $discount = 0;
 
     public array $order_expenses = [];
 
@@ -130,7 +133,7 @@ class Form extends Component
 
     // Deposit (create only, optional)
     #[Validate('nullable|numeric|min:0', as: 'deposit amount')]
-    public ?float $deposit_amount = null;
+    public string|float|null $deposit_amount = null;
 
     #[Validate('nullable|integer|exists:payment_methods,id', as: 'payment method')]
     public ?int $deposit_payment_method_id = null;
@@ -158,8 +161,6 @@ class Form extends Component
             $this->previousBranchId = $this->branch_id;
             $this->order_date = now()->toDateString();
             $this->deposit_payment_method_id = $this->getDefaultPaymentMethodId();
-            $this->addLine();
-            $this->syncOrderExpensesWithSelectedTailors();
         }
     }
 
@@ -273,10 +274,6 @@ class Form extends Component
             ];
         }
 
-        if (empty($this->lines)) {
-            $this->addLine();
-        }
-
         $this->order_expenses = [];
         foreach ($this->order->orderExpenses->sortBy('id') as $expense) {
             $this->order_expenses[] = [
@@ -333,7 +330,7 @@ class Form extends Component
             return;
         }
 
-        $item = InventoryItem::query()
+        $item = InventoryItem::withoutBranchScope()
             ->with('stock')
             ->whereKey($inventoryItemId)
             ->where('branch_id', $branchId)
@@ -462,6 +459,7 @@ class Form extends Component
                 $this->packageConfigurator,
                 $this->packageQuantities
             );
+            app(OrderCatalogCompositionService::class)->packageLines($configured, 'configuration-preview');
         } catch (\Throwable $exception) {
             $this->addError('packageQuantities', $exception->getMessage());
 
@@ -491,10 +489,8 @@ class Form extends Component
             $this->lines,
             fn ($line) => ($line['package_key'] ?? null) !== $packageKey
         ));
-        if ($this->lines === []) {
-            $this->addLine();
-        }
         $this->calculateTotals();
+        $this->syncOrderExpensesWithSelectedTailors();
     }
 
     public function removeLine(int $index): void
@@ -505,12 +501,10 @@ class Form extends Component
             return;
         }
 
-        if (count($this->lines) > 1) {
-            unset($this->lines[$index]);
-            $this->lines = array_values($this->lines);
-            $this->calculateTotals();
-            $this->syncOrderExpensesWithSelectedTailors();
-        }
+        unset($this->lines[$index]);
+        $this->lines = array_values($this->lines);
+        $this->calculateTotals();
+        $this->syncOrderExpensesWithSelectedTailors();
     }
 
     public function addMeasurement(int $lineIndex): void
@@ -541,14 +535,12 @@ class Form extends Component
             return;
         }
 
-        $this->order_expenses = [$this->emptyOrderExpenseRow()];
+        $this->order_expenses = [];
     }
 
     protected function normalizeOrderExpenses(): void
     {
         if (empty($this->order_expenses)) {
-            $this->order_expenses = [$this->emptyOrderExpenseRow()];
-
             return;
         }
 
@@ -642,6 +634,19 @@ class Form extends Component
         $branchId = (int) ($value ?? 0);
         $candidateBranchId = $branchId > 0 ? $branchId : null;
 
+        if ($candidateBranchId === $this->previousBranchId) {
+            $this->mustSelectBranch = $this->showBranchSelector && ! $this->isEdit && $candidateBranchId === null;
+
+            return;
+        }
+
+        if ($this->hasNewCustomerDraft()) {
+            $this->branch_id = $this->previousBranchId;
+            $this->addError('branch_id', __('Cancel the unsaved new customer details before changing the order branch.'));
+
+            return;
+        }
+
         if ($candidateBranchId && ! $this->contentsAreCompatibleWithBranch($candidateBranchId)) {
             $attemptedBranch = Branch::query()->find($candidateBranchId)?->name ?? __('the selected branch');
             $this->branch_id = $this->previousBranchId;
@@ -653,6 +658,19 @@ class Form extends Component
         $this->branch_id = $candidateBranchId;
         $this->previousBranchId = $candidateBranchId;
         $this->mustSelectBranch = $this->showBranchSelector && ! $this->isEdit && $this->branch_id === null;
+
+        $selectedCustomerBranchId = $this->customer_id
+            ? Customer::withoutBranchScope()->whereKey($this->customer_id)->value('branch_id')
+            : null;
+        if (! $candidateBranchId || ($selectedCustomerBranchId && (int) $selectedCustomerBranchId !== $candidateBranchId)) {
+            $this->clearSelectedCustomer();
+        } elseif (! $this->customer_id) {
+            $this->customerSearch = '';
+            $this->showCustomerDropdown = false;
+        }
+
+        $this->resetNewCustomerDraft();
+        $this->resetBranchDependentPickerState();
 
         // Prevent stale cross-branch assignments after branch change.
         $this->assigned_tailor_id = null;
@@ -751,17 +769,20 @@ class Form extends Component
 
     public function updatedLines(): void
     {
+        $this->normalizeMoneyInputs();
         $this->calculateTotals();
         $this->syncOrderExpensesWithSelectedTailors();
     }
 
     public function updatedDiscount(): void
     {
+        $this->normalizeMoneyInputProperty('discount');
         $this->calculateTotals();
     }
 
     public function updatedDepositAmount(): void
     {
+        $this->normalizeMoneyInputProperty('deposit_amount');
         $this->calculateTotals();
         $amount = $this->deposit_amount === null || $this->deposit_amount === '' ? 0 : (float) $this->deposit_amount;
         if ($amount > $this->total) {
@@ -811,8 +832,7 @@ class Form extends Component
         $reconciled = [];
 
         foreach ($desiredLines as $desired) {
-            $matchIndex = $existingLines->search(fn ($existing) =>
-                (int) ($existing['order_package_template_item_id'] ?? 0) === (int) $desired['order_package_template_item_id']
+            $matchIndex = $existingLines->search(fn ($existing) => (int) ($existing['order_package_template_item_id'] ?? 0) === (int) $desired['order_package_template_item_id']
                 && (int) ($existing['package_unit_index'] ?? 0) === (int) ($desired['package_unit_index'] ?? 0)
             );
 
@@ -831,6 +851,14 @@ class Form extends Component
 
         $firstIndex = collect($this->lines)->search(fn ($line) => ($line['package_key'] ?? null) === $packageKey);
         $ordinaryLines = array_values(array_filter($this->lines, fn ($line) => ($line['package_key'] ?? null) !== $packageKey));
+        if ($firstIndex === false
+            && count($ordinaryLines) === 1
+            && empty($ordinaryLines[0]['id'])
+            && empty($ordinaryLines[0]['item_name'])
+            && empty($ordinaryLines[0]['inventory_item_id'])
+            && empty($ordinaryLines[0]['order_catalog_item_id'])) {
+            $ordinaryLines = [];
+        }
         $insertAt = $firstIndex === false ? count($ordinaryLines) : min((int) $firstIndex, count($ordinaryLines));
         array_splice($ordinaryLines, $insertAt, 0, $reconciled);
         $this->lines = $ordinaryLines;
@@ -947,7 +975,7 @@ class Form extends Component
     public function selectCustomer(int $customerId): void
     {
         $branchId = $this->getEffectiveBranchIdForCustomerSearch();
-        $customer = Customer::query()
+        $customer = Customer::withoutBranchScope()
             ->where('branch_id', $branchId)
             ->where('id', $customerId)
             ->first();
@@ -967,12 +995,54 @@ class Form extends Component
 
     public function toggleNewCustomerForm(): void
     {
-        $this->showNewCustomerForm = ! $this->showNewCustomerForm;
         if ($this->showNewCustomerForm) {
-            $this->customer_id = null;
-            $this->customerSearch = '';
-            $this->showCustomerDropdown = false;
+            $this->resetNewCustomerDraft();
+
+            return;
         }
+
+        $this->clearSelectedCustomer();
+        $this->showNewCustomerForm = true;
+    }
+
+    protected function hasNewCustomerDraft(): bool
+    {
+        return $this->showNewCustomerForm && collect([
+            $this->newCustomerName,
+            $this->newCustomerPhone,
+            $this->newCustomerEmail,
+            $this->newCustomerAddress,
+        ])->contains(fn ($value) => trim((string) $value) !== '');
+    }
+
+    protected function resetNewCustomerDraft(): void
+    {
+        $this->showNewCustomerForm = false;
+        $this->newCustomerName = '';
+        $this->newCustomerPhone = '';
+        $this->newCustomerEmail = '';
+        $this->newCustomerAddress = '';
+        $this->resetValidation([
+            'newCustomerName',
+            'newCustomerPhone',
+            'newCustomerEmail',
+            'newCustomerAddress',
+        ]);
+    }
+
+    protected function resetBranchDependentPickerState(): void
+    {
+        $this->showCustomerDropdown = false;
+        $this->catalogSearch = '';
+        $this->inventorySearch = '';
+        $this->showCatalogPicker = false;
+        $this->showDirectCatalogConfigurator = false;
+        $this->selectedCatalogItemId = null;
+        $this->directCatalogQuantity = '1';
+        $this->showPackageConfigurator = false;
+        $this->configuringPackageKey = null;
+        $this->packageConfigurator = [];
+        $this->packageQuantities = [];
     }
 
     /**
@@ -1023,7 +1093,7 @@ class Form extends Component
         }
         $branchId = $this->getEffectiveBranchIdForCustomerSearch();
 
-        return Customer::query()
+        return Customer::withoutBranchScope()
             ->where('branch_id', $branchId)
             ->where('id', $this->customer_id)
             ->first();
@@ -1036,6 +1106,7 @@ class Form extends Component
 
     public function save(): void
     {
+        $this->normalizeMoneyInputs();
         $user = auth()->user();
         $this->normalizeLineTailorAssignments();
         $this->syncOrderExpensesWithSelectedTailors();
@@ -1108,6 +1179,15 @@ class Form extends Component
         }
 
         if (! $this->validateOrderExpenses()) {
+            return;
+        }
+
+        if ($this->customer_id && ! Customer::withoutBranchScope()
+            ->whereKey($this->customer_id)
+            ->where('branch_id', $effectiveBranchId)
+            ->exists()) {
+            $this->addError('customer_id', __('Select a customer that belongs to the order branch.'));
+
             return;
         }
 
@@ -1426,7 +1506,7 @@ class Form extends Component
             return true;
         }
 
-        $items = InventoryItem::query()
+        $items = InventoryItem::withoutBranchScope()
             ->with('stock')
             ->whereIn('id', $inventoryItemIds->all())
             ->where('branch_id', $branchId)
@@ -1491,7 +1571,7 @@ class Form extends Component
             return;
         }
 
-        $item = InventoryItem::query()
+        $item = InventoryItem::withoutBranchScope()
             ->whereKey($line->inventory_item_id)
             ->where('branch_id', $line->order?->branch_id)
             ->firstOrFail();
@@ -1521,7 +1601,7 @@ class Form extends Component
                 continue;
             }
 
-            $item = InventoryItem::query()->find($transaction->inventory_item_id);
+            $item = InventoryItem::withoutBranchScope()->find($transaction->inventory_item_id);
             if (! $item) {
                 continue;
             }
@@ -1547,7 +1627,7 @@ class Form extends Component
         $branchId = $this->getEffectiveBranchIdForCustomerSearch();
         if ($branchId && $this->showCustomerDropdown && strlen($this->customerSearch) >= 2) {
             $search = $this->customerSearch;
-            $customers = Customer::query()
+            $customers = Customer::withoutBranchScope()
                 ->where('branch_id', $branchId)
                 ->where(function ($q) use ($search) {
                     $q->where('name', 'like', "%{$search}%")
@@ -1579,7 +1659,7 @@ class Form extends Component
         $catalogPackages = collect();
         $inventoryBranchId = $this->getEffectiveBranchIdForInventory();
         if ($this->showCatalogPicker && $inventoryBranchId && $this->catalogTab === 'inventory') {
-            $inventoryItems = InventoryItem::query()
+            $inventoryItems = InventoryItem::withoutBranchScope()
                 ->with('stock')
                 ->where('branch_id', $inventoryBranchId)
                 ->where('is_active', true)
@@ -1646,6 +1726,9 @@ class Form extends Component
         $branches = $this->showBranchSelector
             ? Branch::active()->orderBy('name')->get(['id', 'name'])
             : collect();
+        $effectiveBranchName = $inventoryBranchId
+            ? Branch::query()->whereKey($inventoryBranchId)->value('name')
+            : null;
 
         return view('livewire.orders.form', [
             'customers' => $customers,
@@ -1660,6 +1743,7 @@ class Form extends Component
             'selectedCatalogItem' => $selectedCatalogItem,
             'packageConfigurationPreview' => $packageConfigurationPreview,
             'allowOrderDatesFlexibility' => $this->allowsOrderDatesFlexibility(),
+            'effectiveBranchName' => $effectiveBranchName,
         ])->title($this->getTitle());
     }
 }

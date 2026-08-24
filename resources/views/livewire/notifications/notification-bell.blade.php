@@ -1,9 +1,33 @@
-<div class="relative" x-data="{ open: @entangle('isOpen') }">
+<div
+    class="relative z-[60]"
+    x-data="{
+        open: @entangle('isOpen'),
+        browserPermission: 'checking',
+        syncBrowserPermission() {
+            this.browserPermission = typeof window.Notification === 'undefined'
+                ? 'unsupported'
+                : window.Notification.permission;
+        },
+        async requestBrowserPermission() {
+            if (typeof window.Notification === 'undefined') {
+                this.browserPermission = 'unsupported';
+                return;
+            }
+
+            this.browserPermission = await window.Notification.requestPermission();
+        },
+    }"
+    x-init="syncBrowserPermission()"
+    @visibilitychange.window="syncBrowserPermission()"
+    data-notification-bell
+>
     {{-- Notification Bell Button --}}
     <button
         wire:click="toggle"
         class="relative flex h-10 w-10 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-700 dark:text-zinc-400 dark:hover:bg-zinc-700/50 dark:hover:text-zinc-200"
         aria-label="Notifications"
+        aria-haspopup="dialog"
+        :aria-expanded="open.toString()"
     >
         <i class="fa-duotone fa-bell text-lg"></i>
 
@@ -25,8 +49,11 @@
         x-transition:leave-start="opacity-100 scale-100"
         x-transition:leave-end="opacity-0 scale-95"
         @click.outside="$wire.close()"
-        class="absolute right-0 z-50 mt-2 w-80 origin-top-right rounded-2xl border border-zinc-200 bg-white shadow-xl dark:border-zinc-700 dark:bg-zinc-800 sm:w-96"
+        class="absolute right-0 z-[70] mt-2 w-[min(24rem,calc(100vw-1.5rem))] origin-top-right rounded-2xl border border-zinc-200 bg-white shadow-2xl dark:border-zinc-700 dark:bg-zinc-800"
         style="display: none;"
+        role="dialog"
+        aria-label="{{ __('Recent notifications') }}"
+        data-notification-panel
     >
         {{-- Header --}}
         <div class="flex items-center justify-between border-b border-zinc-100 px-4 py-3 dark:border-zinc-700">
@@ -79,12 +106,34 @@
             @endforelse
         </div>
 
-        {{-- Footer (optional - for future link to all notifications) --}}
-        @if($this->notifications->count() > 0)
-            <div class="border-t border-zinc-100 p-2 dark:border-zinc-700">
-                <button class="w-full rounded-lg py-2 text-center text-sm font-medium text-zinc-600 transition-colors hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-400 dark:hover:bg-zinc-700/50 dark:hover:text-white">
-                    View all notifications
+        <div class="border-b border-zinc-100 px-4 py-3 dark:border-zinc-700" data-browser-notification-permission>
+            <template x-if="browserPermission === 'default'">
+                <button
+                    type="button"
+                    @click="requestBrowserPermission()"
+                    class="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-lime-400 px-3 py-2 text-sm font-semibold text-navy-900 transition hover:bg-lime-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime-500 focus-visible:ring-offset-2 dark:ring-offset-zinc-800"
+                >
+                    <i class="fa-duotone fa-bell-on" aria-hidden="true"></i>
+                    {{ __('Enable browser notifications') }}
                 </button>
+            </template>
+
+            <p x-cloak x-show="browserPermission === 'granted'" class="text-sm text-emerald-700 dark:text-emerald-300" role="status">
+                <i class="fa-duotone fa-circle-check mr-1" aria-hidden="true"></i>
+                {{ __('Browser notifications enabled') }}
+            </p>
+            <p x-cloak x-show="browserPermission === 'denied'" class="text-sm text-amber-700 dark:text-amber-300" role="status">
+                {{ __('Browser notifications are blocked. Enable them from your browser/site settings.') }}
+            </p>
+            <p x-cloak x-show="browserPermission === 'unsupported'" class="text-sm text-zinc-500 dark:text-zinc-400" role="status">
+                {{ __('This browser does not support browser notifications.') }}
+            </p>
+        </div>
+
+        {{-- Compact dropdown only; there is currently no dedicated notification index. --}}
+        @if($this->notifications->count() > 0)
+            <div class="border-t border-zinc-100 px-4 py-2.5 text-center text-xs text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+                {{ __('Showing the 8 most recent notifications') }}
             </div>
         @endif
     </div>

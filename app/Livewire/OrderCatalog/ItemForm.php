@@ -4,9 +4,11 @@ namespace App\Livewire\OrderCatalog;
 
 use App\Enums\OrderCatalogItemType;
 use App\Enums\OrderCatalogQuantityBehavior;
+use App\Models\GarmentCategory;
 use App\Models\OrderCatalogItem;
 use App\Services\Media\ImageUploadService;
 use App\Services\Orders\OrderCatalogAdministrationService;
+use App\Support\Livewire\NormalizesMoneyInputs;
 use DomainException;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Enum;
@@ -19,6 +21,7 @@ use Livewire\WithFileUploads;
 #[Title('Catalog Item')]
 class ItemForm extends Component
 {
+    use NormalizesMoneyInputs;
     use WithFileUploads;
 
     public ?int $itemId = null;
@@ -28,6 +31,8 @@ class ItemForm extends Component
     public string $description = '';
 
     public string $type = 'garment';
+
+    public ?int $garmentCategoryId = null;
 
     public string $defaultSellingPrice = '';
 
@@ -60,6 +65,7 @@ class ItemForm extends Component
             $this->name = $catalogItem->name;
             $this->description = (string) $catalogItem->description;
             $this->type = $catalogItem->type->value;
+            $this->garmentCategoryId = $catalogItem->garment_category_id;
             $this->defaultSellingPrice = (string) $catalogItem->default_selling_price;
             $this->requiresMeasurements = $catalogItem->requires_measurements;
             $this->quantityBehavior = $catalogItem->quantity_behavior->value;
@@ -75,6 +81,10 @@ class ItemForm extends Component
 
     public function updatedType(string $type): void
     {
+        if ($type === OrderCatalogItemType::Service->value) {
+            $this->garmentCategoryId = null;
+        }
+
         if ($this->quantityBehaviorExplicit || ! OrderCatalogItemType::tryFrom($type)) {
             return;
         }
@@ -90,11 +100,18 @@ class ItemForm extends Component
 
     public function save()
     {
+        $this->normalizeMoneyInputs();
         $this->authorize('order_catalog.items.manage');
         $validated = $this->validate([
             'name' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string', 'max:3000'],
             'type' => ['required', new Enum(OrderCatalogItemType::class)],
+            'garmentCategoryId' => [
+                Rule::excludeIf($this->type === OrderCatalogItemType::Service->value),
+                'nullable',
+                'integer',
+                Rule::exists('garment_categories', 'id')->where('is_active', true),
+            ],
             'defaultSellingPrice' => ['required', 'numeric', 'min:0', 'max:999999999999.99'],
             'requiresMeasurements' => ['boolean'],
             'quantityBehavior' => ['required', new Enum(OrderCatalogQuantityBehavior::class)],
@@ -135,6 +152,9 @@ class ItemForm extends Component
             'name' => trim($validated['name']),
             'description' => filled($validated['description']) ? trim($validated['description']) : null,
             'type' => $validated['type'],
+            'garment_category_id' => $validated['type'] === OrderCatalogItemType::Garment->value
+                ? ($validated['garmentCategoryId'] ?? null)
+                : null,
             'default_selling_price' => $validated['defaultSellingPrice'],
             'requires_measurements' => $validated['requiresMeasurements'],
             'quantity_behavior' => $validated['quantityBehavior'],
@@ -153,6 +173,7 @@ class ItemForm extends Component
         return view('livewire.order-catalog.item-form', [
             'branches' => app(OrderCatalogAdministrationService::class)->permittedBranches(auth()->user()),
             'isGlobalAdmin' => auth()->user()->isGlobalAdmin(),
+            'garmentCategories' => GarmentCategory::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'name']),
         ]);
     }
 

@@ -100,29 +100,26 @@
             </template>
         </div>
 
-        <div class="mb-6">
-            <flux:breadcrumbs>
-                <flux:breadcrumbs.item :href="route('dashboard')" icon="home" wire:navigate />
-                <flux:breadcrumbs.item :href="route('orders.index')" wire:navigate>{{ __('Orders') }}</flux:breadcrumbs.item>
-                <flux:breadcrumbs.item>{{ __('Board') }}</flux:breadcrumbs.item>
-            </flux:breadcrumbs>
-        </div>
-
-        {{-- Page Header --}}
-        <div class="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-                <flux:heading size="xl">{{ __('Order Board') }}</flux:heading>
-                <flux:text class="mt-1 text-zinc-600 dark:text-zinc-400">
-                    {{ __('Quick overview of order status across stages.') }}
-                </flux:text>
-            </div>
+        <x-orders.workspace-header
+            :title="__('Order Board')"
+            :subtitle="__('Quick overview of order status across stages.')"
+        >
+            <x-slot:breadcrumbs>
+                <flux:breadcrumbs class="text-white/70">
+                    <flux:breadcrumbs.item :href="route('dashboard')" icon="home" class="!text-white/70 hover:!text-white" wire:navigate />
+                    <flux:breadcrumbs.item :href="route('orders.index')" class="!text-white/70 hover:!text-white" wire:navigate>{{ __('Orders') }}</flux:breadcrumbs.item>
+                    <flux:breadcrumbs.item class="!text-white">{{ __('Board') }}</flux:breadcrumbs.item>
+                </flux:breadcrumbs>
+            </x-slot:breadcrumbs>
 
             @can('orders.create')
-                <flux:button variant="primary" icon="plus" :href="route('orders.create')" wire:navigate>
-                    {{ __('New Order') }}
-                </flux:button>
+                <x-slot:actions>
+                    <flux:button variant="primary" icon="plus" :href="route('orders.create')" class="w-full sm:w-auto" wire:navigate>
+                        {{ __('New Order') }}
+                    </flux:button>
+                </x-slot:actions>
             @endcan
-        </div>
+        </x-orders.workspace-header>
 
         {{-- Search --}}
         <div class="mb-6">

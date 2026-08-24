@@ -13,7 +13,7 @@
                 <div>
                     <flux:heading size="xl">Stock Requests</flux:heading>
                     <flux:text class="mt-1 text-zinc-600 dark:text-zinc-400">
-                        Order: {{ $order->order_no }} â€¢ Customer: {{ $order->customer?->name }}
+                        Order: {{ $order->order_no }} <span aria-hidden="true">&bull;</span> Customer: {{ $order->customer?->name ?? 'N/A' }}
                     </flux:text>
                 </div>
 
@@ -107,7 +107,7 @@
                                             </td>
                                             <td class="py-2 text-center">{{ number_format($item->qty_requested, 0) }}</td>
                                             <td class="py-2 text-center">
-                                                {{ $item->qty_approved !== null ? number_format($item->qty_approved, 0) : 'â€”' }}
+                                                {{ $item->qty_approved !== null ? number_format($item->qty_approved, 0) : 'N/A' }}
                                             </td>
                                             <td class="py-2 text-center">
                                                 @if ($item->qty_issued > 0)
@@ -115,7 +115,7 @@
                                                         {{ number_format($item->qty_issued, 0) }}
                                                     </span>
                                                 @else
-                                                    â€”
+                                                    N/A
                                                 @endif
                                             </td>
                                         </tr>

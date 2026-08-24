@@ -6,6 +6,7 @@ use App\Models\InventoryCategory;
 use App\Models\InventoryItem;
 use App\Models\InventoryItemMedia;
 use App\Support\BranchContext;
+use App\Support\Livewire\NormalizesMoneyInputs;
 use App\Support\StorefrontMedia;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -21,6 +22,7 @@ use Throwable;
 #[Title('Storefront Product Form')]
 class ProductForm extends Component
 {
+    use NormalizesMoneyInputs;
     use WithFileUploads;
 
     public ?int $editingProductId = null;
@@ -37,9 +39,9 @@ class ProductForm extends Component
 
     public ?int $productCategoryId = null;
 
-    public ?float $productPrice = null;
+    public string|float|null $productPrice = null;
 
-    public ?float $productCompareAtPrice = null;
+    public string|float|null $productCompareAtPrice = null;
 
     public bool $productTrackStock = true;
 
@@ -91,6 +93,7 @@ class ProductForm extends Component
 
     public function save()
     {
+        $this->normalizeMoneyInputs();
         $this->authorize('storefront.catalog.manage');
         $this->resetErrorBag('save');
         $this->productColorOptions = $this->normalizeProductColors($this->productColorOptions);

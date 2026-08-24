@@ -140,16 +140,15 @@
                                     </flux:table.cell>
                                     <flux:table.cell>
                                         <flux:input
-                                            type="number"
                                             wire:model.blur="reviewedItems.{{ $item->id }}.qty"
+                                            type="number"
                                             step="0.01"
                                             min="0.01"
                                             class="w-24"
                                         />
                                     </flux:table.cell>
                                     <flux:table.cell>
-                                        <flux:input
-                                            type="number"
+                                        <x-money-input
                                             wire:model.blur="reviewedItems.{{ $item->id }}.unit_price_est"
                                             step="0.01"
                                             min="0"

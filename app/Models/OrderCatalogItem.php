@@ -9,6 +9,7 @@ use App\Support\DocNumber;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
@@ -21,6 +22,7 @@ class OrderCatalogItem extends Model
         'name',
         'description',
         'type',
+        'garment_category_id',
         'default_selling_price',
         'image_path',
         'requires_measurements',
@@ -60,6 +62,11 @@ class OrderCatalogItem extends Model
     public function branches(): BelongsToMany
     {
         return $this->belongsToMany(Branch::class, 'order_catalog_item_branch')->withTimestamps();
+    }
+
+    public function garmentCategory(): BelongsTo
+    {
+        return $this->belongsTo(GarmentCategory::class);
     }
 
     public function packageComponents(): HasMany

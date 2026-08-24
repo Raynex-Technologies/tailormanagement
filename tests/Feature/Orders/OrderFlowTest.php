@@ -22,6 +22,49 @@ use Tests\TestCase;
 
 class OrderFlowTest extends TestCase
 {
+    public function test_order_workspaces_render_the_consistent_header_and_contextual_actions(): void
+    {
+        $user = $this->actingAsRole('admin', $this->branch);
+        $customer = Customer::factory()->create([
+            'branch_id' => $this->branch->id,
+            'name' => 'Header Test Customer',
+        ]);
+        $order = Order::create([
+            'branch_id' => $this->branch->id,
+            'customer_id' => $customer->id,
+            'status' => OrderStatus::New,
+            'due_date' => now()->addDays(7),
+            'subtotal' => 50000,
+            'discount' => 0,
+            'total' => 50000,
+            'payment_status' => PaymentStatus::Unpaid,
+            'created_by' => $user->id,
+        ]);
+
+        $this->get(route('orders.index'))
+            ->assertOk()
+            ->assertSee('data-orders-workspace-header', false)
+            ->assertSee('New Order');
+
+        $this->get(route('orders.create'))
+            ->assertOk()
+            ->assertSee('data-orders-workspace-header', false)
+            ->assertSee('data-form-actions="order"', false)
+            ->assertDontSee('form="order-form"', false)
+            ->assertSee('Create Order');
+
+        $this->get(route('orders.board'))
+            ->assertOk()
+            ->assertSee('data-orders-workspace-header', false)
+            ->assertSee('Order Board');
+
+        $this->get(route('orders.show', $order))
+            ->assertOk()
+            ->assertSee('data-orders-workspace-header', false)
+            ->assertSee('Header Test Customer')
+            ->assertSee('Payment: Unpaid');
+    }
+
     public function test_order_show_record_payment_panel_requires_create_not_view_permission(): void
     {
         PaymentMethod::query()->updateOrCreate(
@@ -136,6 +179,7 @@ class OrderFlowTest extends TestCase
 
         Livewire::test(OrderForm::class)
             ->set('customer_id', $customer->id)
+            ->call('addLine')
             ->set('lines.0.item_name', 'Suit')
             ->set('lines.0.qty', 1)
             ->set('lines.0.unit_price', 90000)
@@ -160,6 +204,7 @@ class OrderFlowTest extends TestCase
         $this->actingAsRole('branch_manager', $this->branch);
 
         Livewire::test(OrderForm::class)
+            ->call('addLine')
             ->set('lines.0.qty', 2)
             ->set('lines.0.unit_price', 2500)
             ->assertSet('lines.0.line_total', 5000.0)
@@ -457,6 +502,7 @@ class OrderFlowTest extends TestCase
         Livewire::test(OrderForm::class)
             ->set('customer_id', $customer->id)
             ->set('assigned_tailor_id', $tailor->id)
+            ->call('addLine')
             ->set('lines.0.item_name', 'Three-piece suit')
             ->set('lines.0.qty', 1)
             ->set('lines.0.unit_price', 150000)
@@ -530,6 +576,7 @@ class OrderFlowTest extends TestCase
         Livewire::test(OrderForm::class)
             ->set('customer_id', $customer->id)
             ->set('assigned_tailor_id', 0)
+            ->call('addLine')
             ->set('lines.0.item_name', 'Blazer')
             ->set('lines.0.qty', 1)
             ->set('lines.0.unit_price', 85000)
@@ -661,6 +708,7 @@ class OrderFlowTest extends TestCase
             ->call('toggleNewCustomerForm')
             ->set('newCustomerName', 'Order Customer')
             ->set('newCustomerPhone', '+255700888111')
+            ->call('addLine')
             ->set('lines.0.item_name', 'Wedding Suit')
             ->set('lines.0.qty', 1)
             ->set('lines.0.unit_price', 220000)
@@ -947,6 +995,7 @@ class OrderFlowTest extends TestCase
         $orderTailor = $this->createUserWithRole('tailor', $this->branch);
 
         Livewire::test(OrderForm::class)
+            ->call('addLine')
             ->assertSee('Line Tailor')
             ->set('assigned_tailor_id', $orderTailor->id)
             ->assertDontSee('Line Tailor');

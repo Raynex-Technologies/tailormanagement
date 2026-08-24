@@ -9,6 +9,7 @@ use App\Models\InventoryUnit;
 use App\Services\Inventory\StockMovementService;
 use App\Services\Media\ImageUploadService;
 use App\Support\BranchContext;
+use App\Support\Livewire\NormalizesMoneyInputs;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
@@ -22,6 +23,7 @@ use Livewire\WithPagination;
 #[Title('Inventory Items')]
 class Index extends Component
 {
+    use NormalizesMoneyInputs;
     use WithFileUploads, WithPagination;
 
     #[Url]
@@ -37,39 +39,59 @@ class Index extends Component
 
     // Item Modal
     public bool $showItemModal = false;
+
     public bool $isEditing = false;
+
     public ?int $editingId = null;
 
     // Branch (for global admins)
     public ?int $branch_id = null;
+
     public bool $showBranchSelector = false;
 
     // Item form fields
     public string $sku = '';
+
     public string $name = '';
+
     public ?int $inventory_category_id = null;
+
     public ?int $inventory_unit_id = null;
+
     public int $reorder_level = 10;
-    public ?float $default_buy_price = null;
-    public ?float $default_sell_price = null;
+
+    public string|float|null $default_buy_price = null;
+
+    public string|float|null $default_sell_price = null;
+
     public bool $is_active = true;
 
     public array $itemImages = [];
 
     // Receive Stock Modal
     public bool $showReceiveModal = false;
+
     public ?int $receiveItemId = null;
+
     public string $receiveItemName = '';
+
     public float $receiveQty = 1;
-    public ?float $receiveUnitCost = null;
+
+    public string|float|null $receiveUnitCost = null;
+
     public string $receiveNote = '';
 
     // Adjust Stock Modal
     public bool $showAdjustModal = false;
+
     public ?int $adjustItemId = null;
+
     public string $adjustItemName = '';
+
     public float $adjustCurrentQty = 0;
+
     public float $adjustQty = 0;
+
     public string $adjustNote = '';
 
     protected function rules(): array
@@ -176,6 +198,7 @@ class Index extends Component
 
     public function saveItem(): void
     {
+        $this->normalizeMoneyInputs();
         $this->authorize('inventory.items.manage');
 
         $user = auth()->user();
@@ -278,7 +301,7 @@ class Index extends Component
         $code = (string) ($branch?->code ?? '');
         $normalized = Str::upper(preg_replace('/[^A-Za-z0-9]/', '', $code) ?? '');
 
-        return $normalized !== '' ? $normalized : 'BRANCH' . $branchId;
+        return $normalized !== '' ? $normalized : 'BRANCH'.$branchId;
     }
 
     protected function skuCodeFromName(string $itemName): string
@@ -355,6 +378,7 @@ class Index extends Component
 
     public function receiveStock(StockMovementService $service): void
     {
+        $this->normalizeMoneyInputs();
         $this->authorize('inventory.stock.receive');
 
         $this->validate($this->receiveRules());
@@ -419,7 +443,7 @@ class Index extends Component
             );
 
             $direction = $this->adjustQty > 0 ? 'increased' : 'decreased';
-            session()->flash('success', "Stock {$direction} by " . abs($this->adjustQty) . " for {$item->name}.");
+            session()->flash('success', "Stock {$direction} by ".abs($this->adjustQty)." for {$item->name}.");
             $this->closeAdjustModal();
         } catch (ValidationException $e) {
             foreach ($e->errors() as $field => $messages) {

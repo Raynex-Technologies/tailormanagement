@@ -6,6 +6,7 @@ use App\Models\BusinessSetting;
 use App\Models\Invoice;
 use App\Models\InvoiceTemplate;
 use App\Models\PaymentMethod;
+use App\Support\Orders\OrderPackagePresenter;
 use Illuminate\Support\Collection;
 
 class InvoicePdfRenderer
@@ -36,8 +37,7 @@ class InvoicePdfRenderer
         BusinessSetting $settings,
         Collection $paymentMethods,
         ?InvoiceTemplate $template = null
-    ): string
-    {
+    ): string {
         $paymentMethods = $paymentMethods->isNotEmpty()
             ? $paymentMethods->take(3)->values()
             : PaymentMethod::forInvoiceDocument();
@@ -57,8 +57,7 @@ class InvoicePdfRenderer
         BusinessSetting $settings,
         Collection $paymentMethods,
         InvoiceTemplate $template
-    ): array
-    {
+    ): array {
         $maxLines = (int) floor((self::TOP_BASELINE - self::BOTTOM_MARGIN) / self::LINE_HEIGHT);
         $pages = [[]];
 
@@ -86,7 +85,7 @@ class InvoicePdfRenderer
             $lines = explode("\n", $wrapped);
 
             foreach ($lines as $index => $line) {
-                $appendLine(($index === 0 ? $prefix : str_repeat(' ', strlen($prefix))) . $line);
+                $appendLine(($index === 0 ? $prefix : str_repeat(' ', strlen($prefix))).$line);
             }
         };
 
@@ -120,7 +119,7 @@ class InvoicePdfRenderer
         $this->appendBusinessHeader($settings, $appendLine, $appendWrapped);
 
         $appendLine();
-        $appendLine('TEMPLATE: '.strtoupper($template->name));
+        $appendLine('TEMPLATE: '.$template->name);
         $appendLine('INVOICE '.$invoice->invoice_no);
         $appendLine(str_repeat('=', self::MAX_LINE_LENGTH));
         $this->appendMetaBlock($invoice, $appendKeyValue);
@@ -355,24 +354,40 @@ class InvoicePdfRenderer
         $appendLine(sprintf('%-44s %8s %16s %16s', 'Item', 'Qty', 'Unit Price', 'Line Total'));
         $appendLine(str_repeat('-', self::MAX_LINE_LENGTH));
 
-        foreach ($invoice->lines as $line) {
-            $nameLines = explode("\n", wordwrap((string) $line->item_name, 44, "\n", true));
-            $firstName = array_shift($nameLines) ?? '';
+        $presentation = app(OrderPackagePresenter::class)->forInvoice($invoice);
 
-            $appendLine(sprintf(
-                '%-44s %8s %16s %16s',
-                $firstName,
-                number_format((float) $line->qty, 2),
-                money_tzs($line->unit_price),
-                money_tzs($line->line_total)
-            ));
-
-            foreach ($nameLines as $nameLine) {
-                $appendLine($nameLine);
+        foreach ($presentation['groups'] as $group) {
+            if ($group['type'] === 'package') {
+                $appendLine();
+                $appendWrapped(
+                    $group['package']['name'].' - Configured package value: '.money_tzs($group['package']['configured_total']),
+                    self::MAX_LINE_LENGTH
+                );
+            } elseif ($presentation['has_packages']) {
+                $appendLine();
+                $appendLine('ADDITIONAL ITEMS');
             }
 
-            if ($line->notes) {
-                $appendWrapped('Notes: '.$line->notes, 80, '  ');
+            foreach ($group['lines'] as $displayLine) {
+                $line = $displayLine['record'];
+                $nameLines = explode("\n", wordwrap((string) $displayLine['display_name'], 44, "\n", true));
+                $firstName = array_shift($nameLines) ?? '';
+
+                $appendLine(sprintf(
+                    '%-44s %8s %16s %16s',
+                    $firstName,
+                    number_format((float) $line->qty, 2),
+                    money_tzs($line->unit_price),
+                    money_tzs($line->line_total)
+                ));
+
+                foreach ($nameLines as $nameLine) {
+                    $appendLine($nameLine);
+                }
+
+                if ($line->notes) {
+                    $appendWrapped('Notes: '.$line->notes, 80, '  ');
+                }
             }
         }
     }
@@ -426,7 +441,7 @@ class InvoicePdfRenderer
             $contentStream = $this->buildContentStream($pageLines);
 
             $objects[$pageObjectNumber] = '<< /Type /Page /Parent 2 0 R /MediaBox [0 0 '.self::PAGE_WIDTH.' '.self::PAGE_HEIGHT.'] /Resources << /Font << /F1 '.$fontObjectNumber.' 0 R >> >> /Contents '.$contentObjectNumber.' 0 R >>';
-            $objects[$contentObjectNumber] = "<< /Length ".strlen($contentStream)." >>\nstream\n".$contentStream."\nendstream";
+            $objects[$contentObjectNumber] = '<< /Length '.strlen($contentStream)." >>\nstream\n".$contentStream."\nendstream";
         }
 
         ksort($objects);

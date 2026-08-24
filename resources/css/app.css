@@ -1,6 +1,88 @@
 @import 'tailwindcss';
 @import '../../vendor/livewire/flux/dist/flux.css';
 
+:root {
+    --tailorpro-navigation-accent-start: #A3E635;
+    --tailorpro-navigation-accent-end: #84CC16;
+    --tailorpro-navigation-accent-foreground: #1E1F2E;
+    --tailorpro-breadcrumb-accent: color-mix(in srgb, var(--tailorpro-navigation-accent-end) 48%, var(--tailorpro-navigation-accent-foreground) 52%);
+    --tailorpro-breadcrumb-accent-hover: color-mix(in srgb, var(--tailorpro-navigation-accent-end) 58%, var(--tailorpro-navigation-accent-foreground) 42%);
+}
+
+/* Shared application breadcrumb treatment. */
+[data-flux-breadcrumbs] [data-flux-breadcrumbs-item] > a,
+[data-flux-breadcrumbs] [data-flux-breadcrumbs-item] > div {
+    color: var(--tailorpro-breadcrumb-accent) !important;
+}
+
+[data-flux-breadcrumbs] [data-flux-breadcrumbs-item] > div {
+    font-weight: 600;
+}
+
+[data-flux-breadcrumbs] [data-flux-breadcrumbs-item] > a:hover,
+[data-flux-breadcrumbs] [data-flux-breadcrumbs-item] > a:focus-visible {
+    color: var(--tailorpro-breadcrumb-accent-hover) !important;
+}
+
+[data-flux-breadcrumbs] [data-flux-breadcrumbs-item] > a:focus-visible {
+    border-radius: 0.25rem;
+    outline: 2px solid var(--tailorpro-breadcrumb-accent);
+    outline-offset: 3px;
+}
+
+[data-flux-breadcrumbs] [data-flux-breadcrumbs-item] > svg {
+    color: rgb(113 113 122 / 58%) !important;
+}
+
+.dark [data-flux-breadcrumbs] [data-flux-breadcrumbs-item] > a,
+.dark [data-flux-breadcrumbs] [data-flux-breadcrumbs-item] > div {
+    color: var(--tailorpro-navigation-accent-start) !important;
+}
+
+.dark [data-flux-breadcrumbs] [data-flux-breadcrumbs-item] > a:hover,
+.dark [data-flux-breadcrumbs] [data-flux-breadcrumbs-item] > a:focus-visible {
+    color: color-mix(in srgb, var(--tailorpro-navigation-accent-start) 82%, white 18%) !important;
+}
+
+.dark [data-flux-breadcrumbs] [data-flux-breadcrumbs-item] > a:focus-visible {
+    outline-color: var(--tailorpro-navigation-accent-start);
+}
+
+.dark [data-flux-breadcrumbs] [data-flux-breadcrumbs-item] > svg {
+    color: rgb(255 255 255 / 38%) !important;
+}
+
+/* Dark workspace headers use the brighter member of the same lime family. */
+[data-workspace-breadcrumb-accent="secondary"] [data-flux-breadcrumbs-item] > a {
+    color: var(--tailorpro-navigation-accent-start) !important;
+}
+
+[data-workspace-breadcrumb-accent="secondary"] [data-flux-breadcrumbs-item] > a:hover,
+[data-workspace-breadcrumb-accent="secondary"] [data-flux-breadcrumbs-item] > a:focus-visible,
+[data-workspace-breadcrumb-accent="secondary"] [data-flux-breadcrumbs-item] > div {
+    color: color-mix(in srgb, var(--tailorpro-navigation-accent-start) 82%, white 18%) !important;
+}
+
+[data-workspace-breadcrumb-accent="secondary"] [data-flux-breadcrumbs-item] > a:focus-visible {
+    border-radius: 0.25rem;
+    outline: 2px solid color-mix(in srgb, var(--tailorpro-navigation-accent-start) 78%, white 22%);
+    outline-offset: 3px;
+}
+
+[data-workspace-breadcrumb-accent="secondary"] [data-flux-breadcrumbs-item] > svg {
+    color: rgb(255 255 255 / 34%) !important;
+}
+
+[data-workspace-breadcrumb-accent="secondary"] [data-flux-breadcrumbs-item] > a svg {
+    color: var(--tailorpro-navigation-accent-start) !important;
+}
+
+[data-sidebar-active] {
+    background: linear-gradient(135deg, var(--tailorpro-navigation-accent-start) 0%, var(--tailorpro-navigation-accent-end) 100%) !important;
+    color: var(--tailorpro-navigation-accent-foreground) !important;
+    box-shadow: 0 4px 12px rgb(163 230 53 / 24%) !important;
+}
+
 @source '../views';
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../vendor/livewire/flux-pro/stubs/**/*.blade.php';
@@ -113,6 +195,53 @@
     box-shadow: 
         0 25px 50px -12px rgba(0, 0, 0, 0.5),
         0 0 0 1px rgba(255, 255, 255, 0.03);
+}
+
+/*
+ * TailorPro sidebar textile surface.
+ *
+ * Two slightly irregular fibre intervals keep the weave from reading as a
+ * grid while preserving the primary sidebar colour as the dominant surface.
+ * The layer belongs to the shell so the independently scrolling navigation
+ * does not produce seams.
+ */
+.desktop-sidebar::before,
+.app-mobile-sidebar::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    background-image:
+        repeating-linear-gradient(
+            32deg,
+            rgba(255, 255, 255, 0.017) 0,
+            rgba(255, 255, 255, 0.017) 1px,
+            transparent 1px,
+            transparent 5px,
+            rgba(0, 0, 0, 0.011) 5px,
+            rgba(0, 0, 0, 0.011) 6px,
+            transparent 6px,
+            transparent 10px
+        ),
+        repeating-linear-gradient(
+            148deg,
+            rgba(255, 255, 255, 0.013) 0,
+            rgba(255, 255, 255, 0.013) 1px,
+            transparent 1px,
+            transparent 6px,
+            rgba(0, 0, 0, 0.009) 6px,
+            rgba(0, 0, 0, 0.009) 7px,
+            transparent 7px,
+            transparent 12px
+        );
+    background-position: 0 0, 2px 1px;
+}
+
+.desktop-sidebar > *,
+.app-mobile-sidebar > * {
+    z-index: 1;
 }
 
 /* Sidebar header with logo */
@@ -390,15 +519,15 @@
 
 [data-flux-sidebar-item][data-current="true"],
 [data-flux-sidebar-item].active {
-    background: var(--color-lime-400) !important;
-    color: #1E1F2E !important;
+    background: linear-gradient(135deg, var(--tailorpro-navigation-accent-start) 0%, var(--tailorpro-navigation-accent-end) 100%) !important;
+    color: var(--tailorpro-navigation-accent-foreground) !important;
     font-weight: 600 !important;
-    box-shadow: 0 4px 12px rgba(191, 255, 0, 0.25) !important;
+    box-shadow: 0 4px 12px rgb(163 230 53 / 24%) !important;
 }
 
 [data-flux-sidebar-item][data-current="true"]:hover,
 [data-flux-sidebar-item].active:hover {
-    background: var(--color-lime-500) !important;
+    background: linear-gradient(135deg, color-mix(in srgb, var(--tailorpro-navigation-accent-start) 88%, white 12%) 0%, var(--tailorpro-navigation-accent-end) 100%) !important;
 }
 
 /* Sidebar group headings */

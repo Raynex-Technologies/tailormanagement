@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class GarmentCategory extends Model
@@ -28,8 +29,17 @@ class GarmentCategory extends Model
         return $this->hasMany(GarmentOptionGroup::class);
     }
 
-    public function measurementFields(): HasMany
+    public function legacyMeasurementFields(): HasMany
     {
         return $this->hasMany(MeasurementField::class);
+    }
+
+    public function measurementFields(): BelongsToMany
+    {
+        return $this->belongsToMany(MeasurementField::class)
+            ->withPivot(['is_required', 'sort_order'])
+            ->withTimestamps()
+            ->orderByPivot('sort_order')
+            ->orderBy('measurement_fields.name');
     }
 }

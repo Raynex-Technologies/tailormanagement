@@ -215,8 +215,8 @@
                         <span class="font-mono">{{ money_tzs($this->subtotal) }}</span>
                     </div>
                     <div class="grid grid-cols-2 gap-3">
-                        <flux:input wire:model.live="discountAmount" type="number" min="0" step="0.01" label="{{ __('Discount') }}" />
-                        <flux:input wire:model.live="taxAmount" type="number" min="0" step="0.01" label="{{ __('Tax') }}" />
+                        <x-money-input wire:model.blur="discountAmount" min="0" step="0.01" label="{{ __('Discount') }}" />
+                        <x-money-input wire:model.blur="taxAmount" min="0" step="0.01" label="{{ __('Tax') }}" />
                     </div>
                     <div class="flex justify-between border-t border-zinc-200 pt-3 text-lg font-bold dark:border-zinc-700">
                         <span>{{ __('Total') }}</span>
@@ -233,7 +233,7 @@
                         <flux:select.option value="other">{{ __('Other') }}</flux:select.option>
                     </flux:select>
 
-                    <flux:input wire:model.blur="amountPaid" type="number" min="0" step="0.01" label="{{ __('Amount Paid') }}" required />
+                    <x-money-input wire:model.blur="amountPaid" min="0" step="0.01" label="{{ __('Amount Paid') }}" required />
                 </div>
                 @error('amountPaid') <p class="text-sm text-red-600 dark:text-red-400">{{ $message }}</p> @enderror
 

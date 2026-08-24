@@ -178,12 +178,11 @@
             <form wire:submit="updateAmount" class="space-y-4">
                 <div>
                     <flux:label for="editingAmount">{{ __('Amount') }}</flux:label>
-                    <flux:input
+                    <x-money-input
                         id="editingAmount"
-                        type="number"
                         step="0.01"
                         min="0.01"
-                        wire:model="editingAmount"
+                        wire:model.blur="editingAmount"
                     />
                     @error('editingAmount')
                         <flux:text class="mt-1 text-sm text-red-500">{{ $message }}</flux:text>

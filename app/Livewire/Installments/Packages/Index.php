@@ -7,6 +7,7 @@ use App\Models\Package;
 use App\Models\PackageItem;
 use App\Services\Media\ImageUploadService;
 use App\Support\BranchContext;
+use App\Support\Livewire\NormalizesMoneyInputs;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -19,6 +20,7 @@ use Livewire\WithPagination;
 #[Title('Installment Packages')]
 class Index extends Component
 {
+    use NormalizesMoneyInputs;
     use WithFileUploads;
     use WithPagination;
 
@@ -42,7 +44,7 @@ class Index extends Component
 
     public string $name = '';
 
-    public ?float $price = null;
+    public string|float|null $price = null;
 
     public int $duration_value = 1;
 
@@ -141,6 +143,7 @@ class Index extends Component
 
     public function savePackage(): void
     {
+        $this->normalizeMoneyInputs();
         $this->validate($this->packageRules());
 
         $payload = [

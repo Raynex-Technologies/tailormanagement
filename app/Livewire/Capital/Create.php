@@ -6,6 +6,7 @@ use App\Models\Branch;
 use App\Models\User;
 use App\Services\Capital\CapitalAllocationService;
 use App\Support\BranchContext;
+use App\Support\Livewire\NormalizesMoneyInputs;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
@@ -14,15 +15,21 @@ use Livewire\Component;
 class Create extends Component
 {
     use AuthorizesRequests;
+    use NormalizesMoneyInputs;
 
     public ?int $accountantId = null;
+
     public ?string $startsOn = null;
+
     public ?string $endsOn = null;
-    public ?float $initialAmount = null;
+
+    public string|float|null $initialAmount = null;
+
     public ?string $note = null;
 
     // Branch selection for global admins
     public ?int $branchId = null;
+
     public bool $showBranchSelector = false;
 
     protected function rules(): array
@@ -65,6 +72,7 @@ class Create extends Component
 
     public function save(CapitalAllocationService $service): void
     {
+        $this->normalizeMoneyInputs();
         $this->authorize('capital.assign');
         $this->validate();
 
@@ -83,7 +91,7 @@ class Create extends Component
         } catch (\Illuminate\Validation\ValidationException $e) {
             throw $e;
         } catch (\Exception $e) {
-            session()->flash('error', 'Failed to create allocation: ' . $e->getMessage());
+            session()->flash('error', 'Failed to create allocation: '.$e->getMessage());
         }
     }
 

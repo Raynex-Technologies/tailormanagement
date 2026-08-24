@@ -2,11 +2,11 @@
 
 namespace App\Livewire\Procurement\Requests;
 
-use App\Enums\PurchaseRequestStatus;
 use App\Models\PurchaseRequest;
 use App\Models\Supplier;
 use App\Services\Capital\CapitalAllocationService;
 use App\Services\Procurement\PurchaseRequestService;
+use App\Support\Livewire\NormalizesMoneyInputs;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
@@ -15,17 +15,22 @@ use Livewire\Component;
 class Show extends Component
 {
     use AuthorizesRequests;
+    use NormalizesMoneyInputs;
 
     public PurchaseRequest $purchaseRequest;
 
     // Review form
     public array $reviewedItems = [];
+
     public ?string $reviewNote = null;
 
     // Convert to PO form
     public bool $showConvertModal = false;
+
     public ?int $supplierId = null;
+
     public ?string $expectedDate = null;
+
     public ?string $poNote = null;
 
     public function mount(PurchaseRequest $purchaseRequest): void
@@ -66,6 +71,7 @@ class Show extends Component
 
     public function approve(PurchaseRequestService $service): void
     {
+        $this->normalizeMoneyInputs();
         $this->authorize('approve', $this->purchaseRequest);
 
         try {

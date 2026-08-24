@@ -4,6 +4,7 @@ namespace App\Livewire\Procurement\Receiving;
 
 use App\Models\PurchaseOrder;
 use App\Services\Procurement\ReceivingService;
+use App\Support\Livewire\NormalizesMoneyInputs;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
@@ -12,11 +13,13 @@ use Livewire\Component;
 class Show extends Component
 {
     use AuthorizesRequests;
+    use NormalizesMoneyInputs;
 
     public PurchaseOrder $purchaseOrder;
 
     // Receiving form
     public array $receivingItems = [];
+
     public ?string $note = null;
 
     public function mount(PurchaseOrder $purchaseOrder): void
@@ -41,6 +44,7 @@ class Show extends Component
 
     public function receive(ReceivingService $service): void
     {
+        $this->normalizeMoneyInputs();
         $this->authorize('receive', $this->purchaseOrder);
 
         // Filter out items with zero qty
@@ -51,6 +55,7 @@ class Show extends Component
 
         if (empty($itemsToReceive)) {
             session()->flash('error', 'Please enter quantities to receive.');
+
             return;
         }
 
@@ -69,7 +74,7 @@ class Show extends Component
         } catch (\Illuminate\Validation\ValidationException $e) {
             throw $e;
         } catch (\Exception $e) {
-            session()->flash('error', 'Failed to receive goods: ' . $e->getMessage());
+            session()->flash('error', 'Failed to receive goods: '.$e->getMessage());
         }
     }
 

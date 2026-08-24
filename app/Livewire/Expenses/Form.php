@@ -12,6 +12,7 @@ use App\Models\Supplier;
 use App\Services\Capital\CapitalAllocationService;
 use App\Services\Expenses\ExpenseService;
 use App\Support\BranchContext;
+use App\Support\Livewire\NormalizesMoneyInputs;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
@@ -21,27 +22,42 @@ use Livewire\Component;
 class Form extends Component
 {
     use AuthorizesRequests;
+    use NormalizesMoneyInputs;
 
     public ?Expense $expense = null;
+
     public bool $isEdit = false;
+
     public bool $isLinkedToCapital = false;
 
     // Branch (for global admins)
     public ?int $branchId = null;
+
     public bool $showBranchSelector = false;
 
     // Form fields
     public ?string $expenseDate = null;
+
     public ?int $expenseCategoryId = null;
+
     public ?int $expenseSubcategoryId = null;
+
     public ?string $vendor = null;
+
     public ?int $supplierId = null;
+
     public string $supplierSearch = '';
+
     public bool $showSupplierDropdown = false;
+
     public bool $preserveExistingVendor = false;
-    public ?float $amount = null;
+
+    public string|float|null $amount = null;
+
     public ?string $reference = null;
+
     public ?int $capitalAllocationId = null;
+
     public ?string $note = null;
 
     // For allocation preview
@@ -245,6 +261,7 @@ class Form extends Component
 
     public function save(ExpenseService $service): void
     {
+        $this->normalizeMoneyInputs();
         $this->validate();
 
         $user = auth()->user();

@@ -6,12 +6,14 @@ use App\Enums\OrderStatus;
 use App\Models\Order;
 use App\Models\PaymentMethod;
 use App\Services\Orders\OrderPaymentService;
+use App\Support\Livewire\NormalizesMoneyInputs;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Component;
 
 class Panel extends Component
 {
     use AuthorizesRequests;
+    use NormalizesMoneyInputs;
 
     public Order $order;
 
@@ -23,7 +25,7 @@ class Panel extends Component
     // Payment form fields
     public bool $showPaymentModal = false;
 
-    public ?float $amount = null;
+    public string|float|null $amount = null;
 
     public ?int $payment_method_id = null;
 
@@ -111,6 +113,7 @@ class Panel extends Component
 
     public function recordPayment(OrderPaymentService $paymentService): void
     {
+        $this->normalizeMoneyInputs();
         if ($this->order->status === OrderStatus::Cancelled) {
             session()->flash('error', 'Cannot record payment for a cancelled order.');
 

@@ -5,6 +5,7 @@ namespace App\Livewire\Installments\Plans;
 use App\Models\InstallmentPlan;
 use App\Models\PaymentMethod;
 use App\Services\Installments\InstallmentPlanService;
+use App\Support\Livewire\NormalizesMoneyInputs;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
@@ -12,11 +13,13 @@ use Livewire\Component;
 #[Layout('layouts.app.sidebar')]
 class Show extends Component
 {
+    use NormalizesMoneyInputs;
+
     public InstallmentPlan $plan;
 
     public bool $showPaymentModal = false;
 
-    public ?float $paymentAmount = null;
+    public string|float|null $paymentAmount = null;
 
     public ?int $paymentMethodId = null;
 
@@ -70,6 +73,7 @@ class Show extends Component
 
     public function savePayment(InstallmentPlanService $service): void
     {
+        $this->normalizeMoneyInputs();
         $this->authorize('recordPayment', $this->plan);
 
         $validated = $this->validate($this->paymentRules());

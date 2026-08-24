@@ -1,14 +1,5 @@
 <div>
     <flux:main class="p-0">
-        {{-- Page Header --}}
-        <div class="mb-6">
-            <flux:breadcrumbs>
-                <flux:breadcrumbs.item :href="route('dashboard')" icon="home" wire:navigate />
-                <flux:breadcrumbs.item :href="route('orders.index')" wire:navigate>Orders</flux:breadcrumbs.item>
-                <flux:breadcrumbs.item>{{ $order->order_no }}</flux:breadcrumbs.item>
-            </flux:breadcrumbs>
-        </div>
-
         {{-- Flash Messages --}}
         @if (session('success'))
             <div class="mb-4 rounded-2xl p-4 border border-green-200 dark:border-green-800/50 bg-green-50 dark:bg-green-900/20">
@@ -33,7 +24,13 @@
         @endif
 
         {{-- Order Header Card --}}
-        <div class="mb-6 rounded-2xl p-5 shadow-sm border border-zinc-700/30 relative overflow-hidden" style="background: linear-gradient(135deg, #1E1F2E 0%, #252637 100%);">
+        <div class="relative mb-6 overflow-hidden rounded-2xl border border-zinc-700/30 p-5 text-white shadow-lg sm:p-6" style="background: linear-gradient(135deg, var(--tailorpro-primary) 0%, color-mix(in srgb, var(--tailorpro-primary) 88%, #ffffff 12%) 100%);" data-orders-workspace-header>
+            <flux:breadcrumbs class="relative z-10 mb-5 text-white/70">
+                <flux:breadcrumbs.item :href="route('dashboard')" icon="home" class="!text-white/70 hover:!text-white" wire:navigate />
+                <flux:breadcrumbs.item :href="route('orders.index')" class="!text-white/70 hover:!text-white" wire:navigate>{{ __('Orders') }}</flux:breadcrumbs.item>
+                <flux:breadcrumbs.item class="!text-white">{{ $order->order_no }}</flux:breadcrumbs.item>
+            </flux:breadcrumbs>
+
             {{-- Subtle sewing pattern overlay --}}
             <svg class="absolute inset-0 w-full h-full pointer-events-none opacity-[0.03]" xmlns="http://www.w3.org/2000/svg">
                 <defs>
@@ -62,12 +59,19 @@
             <div class="relative z-10 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                 <div>
                     <div class="flex items-center gap-3 flex-wrap">
-                        <h1 class="text-xl font-bold text-white">{{ $order->order_no }}</h1>
+                        <h1 class="text-2xl font-semibold tracking-tight text-white">{{ __('Order :order', ['order' => $order->order_no]) }}</h1>
                         <flux:badge color="{{ $order->status->color() }}" size="lg">
                             {{ $order->status->label() }}
                         </flux:badge>
                         @if ($order->isOverdue())
                             <flux:badge color="red" size="lg">Overdue</flux:badge>
+                        @endif
+                    </div>
+                    <div class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-white/75">
+                        <span><i class="fa-duotone fa-user mr-1.5 text-white/50" aria-hidden="true"></i>{{ $order->customer?->name ?? __('Unknown customer') }}</span>
+                        <span><i class="fa-duotone fa-calendar mr-1.5 text-white/50" aria-hidden="true"></i>{{ __('Due :date', ['date' => $order->due_date?->format('M d, Y') ?? __('N/A')]) }}</span>
+                        @if ($canViewFinancials)
+                            <span><i class="fa-duotone fa-wallet mr-1.5 text-white/50" aria-hidden="true"></i>{{ __('Payment: :status', ['status' => $order->computed_payment_status->label()]) }}</span>
                         @endif
                     </div>
                     @if ($order->assignedTailor || $tailorDisplay !== 'Unassigned')
@@ -79,11 +83,11 @@
                 </div>
 
                 {{-- Primary actions + 3-dot menu --}}
-                <div class="flex flex-wrap items-center gap-2">
+                <div class="grid w-full gap-2 sm:w-auto sm:grid-flow-col sm:auto-cols-max sm:items-center">
                     {{-- Invoice --}}
                     @if ($order->invoice)
                         <a href="{{ route('invoices.show', $order->invoice) }}" wire:navigate
-                           class="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold transition-colors shadow-sm" style="background: linear-gradient(135deg, #A3E635 0%, #84CC16 100%); color: #1E1F2E;">
+                           class="inline-flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold shadow-sm transition-colors sm:w-auto" style="background: linear-gradient(135deg, #A3E635 0%, #84CC16 100%); color: #1E1F2E;">
                             <i class="fa-duotone fa-file-invoice size-3.5"></i>
                             Invoice
                         </a>
@@ -91,7 +95,7 @@
 
                     {{-- Change Status --}}
                     @if ($canChangeStatus && $nextStatuses->isNotEmpty())
-                        <flux:button size="sm" wire:click="openStatusModal">
+                        <flux:button size="sm" class="w-full sm:w-auto" wire:click="openStatusModal">
                             <i class="fa-duotone fa-arrow-rotate-right size-3.5 mr-1"></i>
                             Change Status
                         </flux:button>
@@ -99,7 +103,7 @@
 
                     {{-- Assign Tailor --}}
                     @if ($showAssignTailorButton)
-                        <flux:button size="sm" variant="subtle" wire:click="openAssignTailorModal">
+                        <flux:button size="sm" variant="subtle" class="w-full sm:w-auto" wire:click="openAssignTailorModal">
                             <x-icon name="person" class="mr-1 size-4" />
                             Assign Tailor
                         </flux:button>
@@ -107,7 +111,7 @@
 
                     {{-- Create Delivery Note --}}
                     @if ($canCreateDeliveryNote)
-                        <flux:button size="sm" variant="subtle" wire:click="openDeliveryNoteModal">
+                        <flux:button size="sm" variant="subtle" class="w-full sm:w-auto" wire:click="openDeliveryNoteModal">
                             <i class="fa-duotone fa-truck size-3.5 mr-1"></i>
                             Create Delivery Note
                         </flux:button>
@@ -115,7 +119,7 @@
 
                     {{-- Mark Completed --}}
                     @if ($canMarkCompleted && $order->status === \App\Enums\OrderStatus::Delivered)
-                        <flux:button size="sm" variant="primary" wire:click="markCompleted" wire:confirm="Are you sure you want to mark this order as completed?">
+                        <flux:button size="sm" variant="primary" class="w-full sm:w-auto" wire:click="markCompleted" wire:confirm="Are you sure you want to mark this order as completed?">
                             <x-icon name="check" class="mr-1 size-4" />
                             Mark Completed
                         </flux:button>
@@ -124,7 +128,7 @@
                     {{-- 3-dot menu for Edit / Cancel / Delete --}}
                     @if ($canEdit || $canDelete || ($canChangeStatus && !in_array($order->status, [\App\Enums\OrderStatus::Completed, \App\Enums\OrderStatus::Cancelled])))
                         <flux:dropdown position="bottom" align="end">
-                            <button type="button" class="flex items-center justify-center size-8 rounded-lg bg-white/10 text-white/70 hover:bg-white/20 hover:text-white transition-colors">
+                            <button type="button" class="flex h-9 w-full items-center justify-center rounded-lg bg-white/10 text-white/70 transition-colors hover:bg-white/20 hover:text-white sm:size-8" aria-label="{{ __('More order actions') }}">
                                 <i class="fa-duotone fa-ellipsis-vertical size-4"></i>
                             </button>
 
@@ -204,7 +208,7 @@
                         <i class="fa-duotone fa-calendar size-5 text-amber-500"></i>
                     </div>
                     <div class="mt-3">
-                        <p class="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">{{ $order->due_date?->format('M d, Y') ?? 'â€”' }}</p>
+                        <p class="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">{{ $order->due_date?->format('M d, Y') ?? 'N/A' }}</p>
                         <p class="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">Due Date</p>
                     </div>
                     @if ($canEdit)
@@ -224,7 +228,7 @@
                         <i class="fa-duotone fa-calendar size-5 text-amber-500"></i>
                     </div>
                     <div class="mt-3">
-                        <p class="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">{{ $order->due_date?->format('M d, Y') ?? 'â€”' }}</p>
+                        <p class="text-2xl font-bold tracking-tight text-zinc-900 dark:text-white">{{ $order->due_date?->format('M d, Y') ?? 'N/A' }}</p>
                         <p class="mt-0.5 text-sm text-zinc-500 dark:text-zinc-400">Due Date</p>
                     </div>
                 </div>
@@ -256,65 +260,87 @@
                         <h3 class="text-lg font-semibold text-zinc-900 dark:text-white">Order Items</h3>
                     </div>
 
-                    <div class="space-y-3">
-                        @forelse ($order->lines as $line)
-                            <div class="rounded-xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-800/50 border-l-4 border-l-lime-400 dark:border-l-lime-500">
-                                <div class="flex items-start justify-between">
-                                    <div>
-                                        <span class="font-medium text-zinc-900 dark:text-white">{{ $line->item_name }}</span>
-                                        @if ($line->notes)
-                                            <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">{{ $line->notes }}</p>
-                                        @endif
-                                        @if ($line->assignedTailor?->name || $order->assignedTailor?->name)
-                                            <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                                                <i class="fa-duotone fa-user size-3 text-zinc-400 dark:text-zinc-500"></i>
-                                                Tailor: {{ $line->assignedTailor?->name ?? $order->assignedTailor?->name }}
-                                            </p>
-                                        @endif
-                                    </div>
-                                    @if ($canViewFinancials)
-                                        <div class="text-right">
-                                            <div class="text-sm text-zinc-600 dark:text-zinc-400">
-                                                {{ number_format($line->qty, 0) }} &times; {{ number_format($line->unit_price, 0) }}
-                                            </div>
-                                            <div class="font-mono font-medium text-zinc-900 dark:text-white">
-                                                {{ number_format($line->line_total, 0) }}
+                    <div class="space-y-4">
+                        @forelse ($orderPresentation['groups'] as $group)
+                            @if ($group['type'] === 'package')
+                                @php($package = $group['package'])
+                                <article class="overflow-hidden rounded-2xl border border-violet-200 bg-violet-50/40 dark:border-violet-800/60 dark:bg-violet-950/20" data-order-package-group="{{ $package['id'] }}">
+                                    <div class="flex flex-col gap-4 border-b border-violet-200/80 p-4 dark:border-violet-800/60 sm:flex-row sm:items-start sm:justify-between">
+                                        <div class="flex min-w-0 gap-3">
+                                            @if ($package['image_url'])
+                                                <img src="{{ $package['image_url'] }}" alt="" class="size-14 shrink-0 rounded-xl object-cover">
+                                            @else
+                                                <span class="flex size-11 shrink-0 items-center justify-center rounded-xl bg-violet-100 text-violet-600 dark:bg-violet-900/40 dark:text-violet-300">
+                                                    <i class="fa-duotone fa-box-open-full" aria-hidden="true"></i>
+                                                </span>
+                                            @endif
+                                            <div class="min-w-0">
+                                                <h4 class="font-semibold text-zinc-950 dark:text-white">{{ $package['name'] }}</h4>
+                                                <p class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">{{ __('Package revision :revision', ['revision' => $package['revision']]) }}</p>
+                                                @if ($package['description'])
+                                                    <p class="mt-2 line-clamp-2 text-sm text-zinc-600 dark:text-zinc-300">{{ $package['description'] }}</p>
+                                                @endif
                                             </div>
                                         </div>
-                                    @else
-                                        <div class="text-right">
-                                            <div class="text-sm text-zinc-600 dark:text-zinc-400">
-                                                Qty: {{ number_format($line->qty, 0) }}
+                                        @if ($canViewFinancials)
+                                            <div class="shrink-0 sm:text-right">
+                                                <p class="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">{{ __('Configured package value') }}</p>
+                                                <p class="mt-1 font-mono text-lg font-semibold text-violet-700 dark:text-violet-300">{{ money_currency($package['configured_total'], config('app.currency', 'TZS')) }}</p>
+                                                <p class="mt-1 text-xs text-zinc-500">{{ __('Informational grouping total') }}</p>
                                             </div>
+                                        @endif
+                                    </div>
+
+                                    <div class="space-y-3 p-4">
+                                        @foreach ($group['lines'] as $displayLine)
+                                            @include('livewire.orders.partials.display-line', ['displayLine' => $displayLine])
+                                        @endforeach
+                                    </div>
+
+                                    @if ($package['is_customized'])
+                                        @php($adjustment = (float) $package['adjustment'])
+                                        <div class="border-t border-violet-200/80 bg-white/60 p-4 dark:border-violet-800/60 dark:bg-zinc-900/30" data-package-customization>
+                                            @if ($canViewFinancials)
+                                                <div class="grid gap-2 text-sm sm:grid-cols-2">
+                                                    <div>
+                                                        <span class="text-zinc-500 dark:text-zinc-400">{{ __('Original package value') }}</span>
+                                                        <strong class="ml-1 font-mono text-zinc-800 dark:text-zinc-100">{{ money_currency($package['original_total'], config('app.currency', 'TZS')) }}</strong>
+                                                    </div>
+                                                    <div class="sm:text-right">
+                                                        <span class="text-zinc-500 dark:text-zinc-400">{{ __('Adjustment') }}</span>
+                                                        <strong class="ml-1 font-mono {{ $adjustment > 0 ? 'text-amber-600' : 'text-emerald-600' }}">{{ $adjustment > 0 ? '+' : ($adjustment < 0 ? '−' : '') }}{{ money_currency(abs($adjustment), config('app.currency', 'TZS')) }}</strong>
+                                                    </div>
+                                                </div>
+                                            @endif
+                                            @if ($package['customizations'])
+                                                <div class="mt-3 space-y-1 text-sm text-zinc-600 dark:text-zinc-300">
+                                                    @foreach ($package['customizations'] as $customization)
+                                                        <p><span class="font-medium text-violet-700 dark:text-violet-300">{{ __('Customized:') }}</span> {{ $customization }}</p>
+                                                    @endforeach
+                                                </div>
+                                            @endif
                                         </div>
                                     @endif
-                                </div>
-
-                                {{-- Measurements --}}
-                                @if ($line->measurement && !empty($line->measurement->measurements))
-                                    <div class="mt-3 border-t border-zinc-200 pt-3 dark:border-zinc-700">
-                                        <span class="text-xs font-medium uppercase text-zinc-500 dark:text-zinc-400">
-                                            <i class="fa-duotone fa-ruler size-3 text-zinc-400 dark:text-zinc-500"></i>
-                                            Measurements
-                                        </span>
-                                        <div class="mt-2 flex flex-wrap gap-2">
-                                            @foreach ($line->measurement->measurements as $key => $value)
-                                                <span class="inline-flex items-center rounded-full bg-blue-50 dark:bg-blue-900/20 border border-blue-200/60 dark:border-blue-800/40 px-3 py-1 text-sm">
-                                                    <span class="font-medium text-blue-700 dark:text-blue-300">{{ $key }}:</span>
-                                                    <span class="ml-1 text-blue-600 dark:text-blue-400">{{ $value }}</span>
-                                                </span>
-                                            @endforeach
-                                        </div>
+                                </article>
+                            @else
+                                @if ($orderPresentation['has_packages'])
+                                    <div class="flex items-center gap-3 pt-2">
+                                        <span class="h-px flex-1 bg-zinc-200 dark:bg-zinc-700"></span>
+                                        <h4 class="text-xs font-semibold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">{{ $group['label'] }}</h4>
+                                        <span class="h-px flex-1 bg-zinc-200 dark:bg-zinc-700"></span>
                                     </div>
                                 @endif
-                            </div>
+                                @foreach ($group['lines'] as $displayLine)
+                                    @include('livewire.orders.partials.display-line', ['displayLine' => $displayLine])
+                                @endforeach
+                            @endif
                         @empty
                             <div class="py-10 text-center">
-                                <div class="flex items-center justify-center size-14 rounded-2xl mx-auto mb-3 bg-zinc-100 dark:bg-zinc-800">
-                                    <i class="fa-duotone fa-shirt size-7 text-zinc-400 dark:text-zinc-500"></i>
+                                <div class="mx-auto mb-3 flex size-14 items-center justify-center rounded-2xl bg-zinc-100 dark:bg-zinc-800">
+                                    <i class="fa-duotone fa-shirt size-7 text-zinc-400 dark:text-zinc-500" aria-hidden="true"></i>
                                 </div>
-                                <p class="text-sm font-medium text-zinc-900 dark:text-white">No order items</p>
-                                <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">No order lines have been added yet.</p>
+                                <p class="text-sm font-medium text-zinc-900 dark:text-white">{{ __('No order items') }}</p>
+                                <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">{{ __('No order lines have been added yet.') }}</p>
                             </div>
                         @endforelse
                     </div>
@@ -433,7 +459,7 @@
                                                 <p class="text-xs text-zinc-500 dark:text-zinc-400">
                                                     {{ $shipment->carrier_name ?: 'Carrier pending' }}
                                                     @if ($shipment->tracking_number)
-                                                        â€¢ {{ $shipment->tracking_number }}
+                                                        &bull; {{ $shipment->tracking_number }}
                                                     @endif
                                                 </p>
                                             </div>
@@ -467,7 +493,7 @@
                                     @endforeach
                                 </flux:select>
                                 <flux:input wire:model="customStageLabel" label="Stage Label Override (optional)" />
-                                <flux:input wire:model="customRequestedPaymentAmount" type="number" step="0.01" min="0" label="Requested Payment Amount (optional)" />
+                                <x-money-input wire:model.blur="customRequestedPaymentAmount" step="0.01" min="0" label="Requested Payment Amount (optional)" />
                                 <flux:input wire:model="customRequestedPaymentNote" label="Requested Payment Note (optional)" />
                             </div>
                             <flux:textarea class="mt-4" wire:model="customProgressNote" label="Progress Note" rows="3" />
@@ -511,7 +537,7 @@
                                                     <p class="mt-1 text-sm font-medium text-amber-600 dark:text-amber-400">
                                                         Payment Request: {{ number_format((float) $progress->requested_payment_amount, 2) }}
                                                         @if ($progress->requested_payment_note)
-                                                            â€¢ {{ $progress->requested_payment_note }}
+                                                            &bull; {{ $progress->requested_payment_note }}
                                                         @endif
                                                     </p>
                                                 @endif
@@ -876,7 +902,7 @@
                 <div class="rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-sm dark:border-zinc-700 dark:bg-zinc-800/50">
                     <div class="text-zinc-500 dark:text-zinc-400">Current Due Date</div>
                     <div class="mt-1 font-medium text-zinc-900 dark:text-white">
-                        {{ $order->due_date?->format('M d, Y') ?? 'Not set' }}
+                        {{ $order->due_date?->format('M d, Y') ?? 'N/A' }}
                     </div>
                 </div>
 

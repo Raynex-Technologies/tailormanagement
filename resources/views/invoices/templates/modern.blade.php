@@ -7,6 +7,7 @@
 
 @if ($isPdf)
     <div style="font-family: DejaVu Sans, Arial, sans-serif; background: #ffffff; border: 1px solid #d2d5cf; border-radius: 16px; overflow: hidden; color: #121713;">
+        <span style="display: none;">[MODERN TEMPLATE]</span>
         <table style="width: 100%; border-collapse: collapse; table-layout: fixed;">
             <tr>
                 <td style="width: 27%; vertical-align: top; background: #ffffff; padding: 16px 0 16px 0;">
@@ -80,6 +81,7 @@
                         </thead>
                         <tbody>
                             @forelse ($invoice->lines as $line)
+                                @include('invoices.partials.line-group-heading', ['line' => $line, 'columns' => 5])
                                 @php($striped = $loop->even)
                                 <tr style="page-break-inside: avoid;">
                                     <td style="padding: 8px 6px; font-size: 13px; {{ $striped ? 'background:#dfe1de; border-radius:8px 0 0 8px;' : '' }}">
@@ -270,6 +272,7 @@
                     </thead>
                     <tbody>
                         @forelse ($invoice->lines as $line)
+                            @include('invoices.partials.line-group-heading', ['line' => $line, 'columns' => 5])
                             @php($striped = $loop->even)
                             <tr>
                                 <td style="padding: 10px 8px; font-size: 18px; {{ $striped ? 'background: #dfe1de; border-radius: 8px 0 0 8px;' : '' }}">

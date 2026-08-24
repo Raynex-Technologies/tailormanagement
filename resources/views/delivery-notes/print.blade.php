@@ -1,3 +1,8 @@
+@php
+    use App\Support\Orders\OrderPackagePresenter;
+
+    $deliveryPresentation = app(OrderPackagePresenter::class)->forOrder($deliveryNote->order);
+@endphp
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -234,13 +239,25 @@
             </tr>
         </thead>
         <tbody>
-            @foreach ($deliveryNote->order?->lines ?? [] as $line)
-                <tr>
-                    <td>{{ $line->item_name }}</td>
-                    <td>{{ number_format($line->qty, 0) }}</td>
-                    <td>{{ number_format($line->unit_price, 0) }}</td>
-                    <td>{{ number_format($line->line_total, 0) }}</td>
-                </tr>
+            @foreach ($deliveryPresentation['groups'] as $group)
+                @if ($group['type'] === 'package')
+                    <tr>
+                        <td colspan="4" style="padding-top: 12px; padding-bottom: 6px; background: #f5f3ff; color: #4c1d95; font-weight: 700;">{{ $group['package']['name'] }}</td>
+                    </tr>
+                @elseif ($deliveryPresentation['has_packages'])
+                    <tr>
+                        <td colspan="4" style="padding-top: 12px; padding-bottom: 6px; background: #f4f4f5; color: #52525b; font-size: 10px; font-weight: 700; text-transform: uppercase;">{{ __('Additional Items') }}</td>
+                    </tr>
+                @endif
+                @foreach ($group['lines'] as $displayLine)
+                    @php($line = $displayLine['record'])
+                    <tr>
+                        <td>{{ $displayLine['display_name'] }}</td>
+                        <td>{{ rtrim(rtrim(number_format((float) $line->qty, 2, '.', ''), '0'), '.') }}</td>
+                        <td>{{ number_format($line->unit_price, 0) }}</td>
+                        <td>{{ number_format($line->line_total, 0) }}</td>
+                    </tr>
+                @endforeach
             @endforeach
             @if ($deliveryNote->order?->discount > 0)
                 <tr>

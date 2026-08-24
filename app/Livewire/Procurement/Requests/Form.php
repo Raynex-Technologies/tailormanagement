@@ -4,10 +4,11 @@ namespace App\Livewire\Procurement\Requests;
 
 use App\Models\Branch;
 use App\Models\InventoryItem;
-use App\Models\Scopes\BranchScope;
 use App\Models\PurchaseRequest;
+use App\Models\Scopes\BranchScope;
 use App\Services\Procurement\PurchaseRequestService;
 use App\Support\BranchContext;
+use App\Support\Livewire\NormalizesMoneyInputs;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
@@ -16,21 +17,28 @@ use Livewire\Component;
 class Form extends Component
 {
     use AuthorizesRequests;
+    use NormalizesMoneyInputs;
 
     public ?PurchaseRequest $purchaseRequest = null;
+
     public bool $isEdit = false;
 
     // Branch (for global admins)
     public ?int $branchId = null;
+
     public bool $showBranchSelector = false;
 
     public ?string $note = null;
+
     public array $items = [];
 
     // Product search (single search bar at top)
     public string $productSearch = '';
+
     public array $searchResults = [];
+
     public bool $showSearchDropdown = false;
+
     public ?string $branchChangeMessage = null;
 
     protected function rules(): array
@@ -314,6 +322,7 @@ class Form extends Component
      */
     public function save(PurchaseRequestService $service): void
     {
+        $this->normalizeMoneyInputs();
         $this->validate();
 
         $user = auth()->user();

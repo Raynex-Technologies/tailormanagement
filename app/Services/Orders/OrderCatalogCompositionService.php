@@ -59,7 +59,7 @@ class OrderCatalogCompositionService
             ]];
         }
 
-        if (! $quantityValue->isEqualTo($quantityValue->toScale(0))) {
+        if ($quantityValue->stripTrailingZeros()->getScale() > 0) {
             throw new DomainException('Individual catalog items require a whole-number quantity.');
         }
 
@@ -104,7 +104,7 @@ class OrderCatalogCompositionService
             ];
 
             if (($component['quantity_behavior'] ?? 'bulk') === OrderCatalogQuantityBehavior::Individual->value) {
-                if (! $quantity->isEqualTo($quantity->toScale(0))) {
+                if ($quantity->stripTrailingZeros()->getScale() > 0) {
                     throw new DomainException("{$component['name']} requires a whole-number quantity.");
                 }
 

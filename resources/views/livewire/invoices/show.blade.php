@@ -135,7 +135,7 @@
                     <div class="mb-4 grid gap-4 sm:grid-cols-3">
                         <flux:input wire:model="issue_date" type="date" label="{{ __('Issue Date') }}" :disabled="!$isEditing" />
                         <flux:input wire:model="due_date" type="date" label="{{ __('Due Date') }}" :disabled="!$isEditing" />
-                        <flux:input wire:model.live="discount" type="number" min="0" step="1" label="{{ __('Discount') }}" :disabled="!$isEditing" />
+                        <x-money-input wire:model.blur="discount" min="0" step="1" label="{{ __('Discount') }}" :disabled="!$isEditing" />
                     </div>
 
                     <flux:textarea
@@ -167,10 +167,33 @@
 
                     <div class="space-y-4">
                         @foreach ($lines as $index => $line)
+                            @php($packageLinked = (bool) ($line['is_package_linked'] ?? false))
+                            @php($packageContext = $line['package_context'] ?? [])
+                            @if ($packageContext['starts_package'] ?? false)
+                                @php($invoicePackage = $packageContext['package'])
+                                <div class="rounded-xl border border-violet-200 bg-violet-50 p-4 dark:border-violet-800/60 dark:bg-violet-950/20" data-invoice-package-group="{{ $invoicePackage['id'] }}">
+                                    <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                        <div>
+                                            <p class="font-semibold text-zinc-950 dark:text-white">{{ $invoicePackage['name'] }}</p>
+                                            <p class="mt-0.5 text-xs text-zinc-500">{{ __('Package-linked invoice items are grouped below and remain read-only.') }}</p>
+                                        </div>
+                                        <div class="sm:text-right">
+                                            <p class="text-xs uppercase tracking-wide text-zinc-500">{{ __('Configured package value') }}</p>
+                                            <p class="font-mono font-semibold text-violet-700 dark:text-violet-300">{{ money_currency($invoicePackage['configured_total'], config('app.currency', 'TZS')) }}</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            @elseif ($packageContext['starts_ordinary'] ?? false)
+                                <div class="flex items-center gap-3 pt-2">
+                                    <span class="h-px flex-1 bg-zinc-200 dark:bg-zinc-700"></span>
+                                    <p class="text-xs font-semibold uppercase tracking-wider text-zinc-500">{{ __('Additional Items') }}</p>
+                                    <span class="h-px flex-1 bg-zinc-200 dark:bg-zinc-700"></span>
+                                </div>
+                            @endif
                             <div class="rounded-xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-800/50" wire:key="invoice-line-{{ $index }}">
                                 <div class="mb-3 flex items-start justify-between">
-                                    <flux:badge size="sm">{{ __('Item') }} {{ $index + 1 }}</flux:badge>
-                                    @if ($isEditing && count($lines) > 1)
+                                    <div class="flex items-center gap-2"><flux:badge size="sm">{{ __('Item') }} {{ $index + 1 }}</flux:badge>@if($packageLinked)<flux:badge size="sm" color="violet">{{ __('Package item') }}</flux:badge>@endif</div>
+                                    @if ($isEditing && count($lines) > 1 && ! $packageLinked)
                                         <flux:button size="xs" variant="ghost" type="button" wire:click="removeLine({{ $index }})">
                                             <i class="fa-duotone fa-trash-can text-red-500" aria-hidden="true"></i>
                                         </flux:button>
@@ -183,6 +206,7 @@
                                             wire:model="lines.{{ $index }}.item_name"
                                             label="{{ __('Item Name') }}"
                                             :disabled="!$isEditing"
+                                            :readonly="$packageLinked"
                                         />
                                     </div>
                                     <flux:input
@@ -192,14 +216,15 @@
                                         step="0.01"
                                         label="{{ __('Qty') }}"
                                         :disabled="!$isEditing"
+                                        :readonly="$packageLinked"
                                     />
-                                    <flux:input
-                                        wire:model.live="lines.{{ $index }}.unit_price"
-                                        type="number"
+                                    <x-money-input
+                                        wire:model.blur="lines.{{ $index }}.unit_price"
                                         min="0"
                                         step="0.01"
                                         label="{{ __('Unit Price') }}"
                                         :disabled="!$isEditing"
+                                        :readonly="$packageLinked"
                                     />
                                     <div>
                                         <label class="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">{{ __('Line Total') }}</label>
@@ -214,8 +239,10 @@
                                         wire:model="lines.{{ $index }}.notes"
                                         label="{{ __('Notes') }}"
                                         :disabled="!$isEditing"
+                                        :readonly="$packageLinked"
                                     />
                                 </div>
+                                @if($packageLinked && $isEditing)<p class="mt-2 text-xs text-amber-600">{{ __('Package composition is read-only here. Use Edit Order to make changes.') }}</p>@endif
                             </div>
                         @endforeach
                     </div>
@@ -238,6 +265,8 @@
                     </div>
 
                     @if ($isEditing)
+                        @error('lines')<p class="mt-3 text-sm text-red-600">{{ $message }}</p>@enderror
+                        @error('total')<p class="mt-3 text-sm text-red-600">{{ $message }}</p>@enderror
                         <div class="mt-6 flex justify-end gap-2">
                             <flux:button variant="ghost" wire:click="cancelEditing" type="button">
                                 <i class="fa-duotone fa-xmark mr-1.5" aria-hidden="true"></i>

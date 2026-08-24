@@ -8,6 +8,7 @@ use App\Models\Order;
 use App\Models\OrderPayment;
 use App\Models\SmsTemplate;
 use App\Services\Sms\SmsTemplateRenderer;
+use App\Support\Orders\OrderPackagePresenter;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Carbon;
 
@@ -59,21 +60,7 @@ class OrderSmsTemplates
         $order->loadMissing(['customer', 'lines']);
         $orderDate = $order->order_date?->format('M d, Y') ?? $order->created_at?->format('M d, Y') ?? '';
         $dueDate = $order->due_date?->format('M d, Y') ?? '';
-        $garments = $order->lines
-            ->map(function ($line) {
-                $itemName = trim((string) $line->item_name);
-                $qty = self::formatQuantity($line->qty);
-
-                if ($itemName === '') {
-                    return null;
-                }
-
-                return $qty === '1'
-                    ? $itemName
-                    : "{$itemName} x{$qty}";
-            })
-            ->filter()
-            ->implode(', ');
+        $garments = app(OrderPackagePresenter::class)->messageSummary($order);
 
         $replacements = [
             'customer_name' => $order->customer?->name ?? 'Customer',
@@ -224,16 +211,5 @@ class OrderSmsTemplates
         }
 
         return Carbon::parse($value)->format('M d, Y');
-    }
-
-    protected static function formatQuantity(mixed $value): string
-    {
-        $quantity = (float) $value;
-
-        if (fmod($quantity, 1.0) === 0.0) {
-            return (string) (int) $quantity;
-        }
-
-        return rtrim(rtrim(number_format($quantity, 2, '.', ''), '0'), '.');
     }
 }

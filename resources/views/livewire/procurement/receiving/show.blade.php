@@ -86,9 +86,8 @@
                             </flux:table.cell>
                             <flux:table.cell>
                                 @if ($pendingQty > 0)
-                                    <flux:input
-                                        type="number"
-                                        wire:model="receivingItems.{{ $item->id }}.unit_cost"
+                                    <x-money-input
+                                        wire:model.blur="receivingItems.{{ $item->id }}.unit_cost"
                                         step="1"
                                         min="0"
                                         class="w-28"

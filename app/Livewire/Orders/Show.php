@@ -12,19 +12,21 @@ use App\Models\DeliveryNote;
 use App\Models\Order;
 use App\Models\OrderStockRequest;
 use App\Models\Shipment;
+use App\Models\User;
 use App\Notifications\CustomOrderProgressUpdatedNotification;
 use App\Notifications\StorefrontOrderStatusUpdatedNotification;
 use App\Notifications\StorefrontShipmentUpdatedNotification;
-use App\Models\User;
 use App\Services\Orders\OrderDeletionService;
 use App\Services\Sms\SmsService;
 use App\Services\Sms\Templates\OrderSmsTemplates;
 use App\Support\DocNumber;
-use Illuminate\Support\Carbon;
-use Illuminate\Support\Str;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\Rule;
+use App\Support\Livewire\NormalizesMoneyInputs;
+use App\Support\Orders\OrderPackagePresenter;
 use Illuminate\Notifications\Notification;
+use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\On;
 use Livewire\Component;
@@ -32,14 +34,21 @@ use Livewire\Component;
 #[Layout('layouts.app.sidebar')]
 class Show extends Component
 {
+    use NormalizesMoneyInputs;
+
     public Order $order;
 
     // Role-based visibility flags
     public bool $canViewFinancials = false;
+
     public bool $canViewMaterials = false;
+
     public bool $canManageMaterials = false;
+
     public bool $canViewPayments = false;
+
     public bool $canRecordPayments = false;
+
     public bool $canManageStorefrontOperations = false;
 
     /**
@@ -67,30 +76,52 @@ class Show extends Component
 
     // Modals
     public bool $showStatusModal = false;
+
     public bool $showAssignTailorModal = false;
+
     public bool $showDeliveryNoteModal = false;
+
     public bool $showDueDateModal = false;
 
     // Form data
     public string $newStatus = '';
+
     public ?int $selectedTailorId = null;
+
     public string $receivedByName = '';
+
     public string $receivedByPhone = '';
+
     public ?string $updatedDueDate = null;
+
     public string $newFulfillmentStatus = '';
+
     public string $fulfillmentNote = '';
+
     public string $shipmentStatus = 'pending';
+
     public string $shipmentCarrierName = '';
+
     public string $shipmentTrackingNumber = '';
+
     public string $shipmentTrackingUrl = '';
+
     public string $shipmentNotes = '';
+
     public ?string $shipmentShippedAt = null;
+
     public ?string $shipmentDeliveredAt = null;
+
     public string $customStageKey = '';
+
     public string $customStageLabel = '';
+
     public string $customProgressNote = '';
+
     public bool $customProgressVisible = true;
-    public ?float $customRequestedPaymentAmount = null;
+
+    public string|float|null $customRequestedPaymentAmount = null;
+
     public string $customRequestedPaymentNote = '';
 
     public function mount(Order $order): void
@@ -113,6 +144,7 @@ class Show extends Component
             'creator',
             'lines.measurement',
             'lines.assignedTailor',
+            'packageInstances',
             'deliveryNote.deliveredBy',
             'invoice',
             'branch',
@@ -188,6 +220,7 @@ class Show extends Component
 
         if (empty($this->newStatus)) {
             $this->addError('newStatus', 'Please select a status.');
+
             return;
         }
 
@@ -202,6 +235,7 @@ class Show extends Component
 
         if (! $this->order->canTransitionTo($newStatusEnum)) {
             $this->addError('newStatus', 'Invalid status transition.');
+
             return;
         }
 
@@ -221,6 +255,7 @@ class Show extends Component
 
         if (! $this->order->canTransitionTo(OrderStatus::Completed)) {
             session()->flash('error', 'Cannot mark this order as completed.');
+
             return;
         }
 
@@ -240,6 +275,7 @@ class Show extends Component
 
         if (in_array($this->order->status, [OrderStatus::Completed, OrderStatus::Cancelled])) {
             session()->flash('error', 'Cannot cancel this order.');
+
             return;
         }
 
@@ -506,6 +542,7 @@ class Show extends Component
 
     public function publishCustomProgressUpdate(): void
     {
+        $this->normalizeMoneyInputs();
         $this->authorizeStorefrontOperations();
 
         if ($this->order->order_type !== 'tailoring') {
@@ -584,6 +621,7 @@ class Show extends Component
 
         if (! $this->order->canCreateDeliveryNote()) {
             session()->flash('error', 'Cannot create delivery note for this order.');
+
             return;
         }
 
@@ -604,6 +642,7 @@ class Show extends Component
 
         if (! $this->order->canCreateDeliveryNote()) {
             session()->flash('error', 'Cannot create delivery note for this order.');
+
             return;
         }
 
@@ -662,6 +701,7 @@ class Show extends Component
             ->groupBy('inventory_item_id')
             ->map(function ($items) {
                 $first = $items->first();
+
                 return [
                     'inventory_item' => $first->inventoryItem,
                     'qty_requested' => $items->sum('qty_requested'),
@@ -775,6 +815,7 @@ class Show extends Component
             'materials' => $this->materials,
             'stockRequests' => $this->stockRequests,
             'allowOrderDatesFlexibility' => $this->allowsOrderDatesFlexibility(),
+            'orderPresentation' => app(OrderPackagePresenter::class)->forOrder($this->order),
         ])->title($this->getTitle());
     }
 }

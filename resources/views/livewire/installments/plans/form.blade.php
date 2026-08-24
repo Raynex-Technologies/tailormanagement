@@ -49,7 +49,7 @@
                         </div>
 
                         <div>
-                            <flux:input wire:model.live="package_price" type="number" step="0.01" label="{{ __('Package Price') }}" />
+                            <x-money-input wire:model.blur="package_price" step="0.01" label="{{ __('Package Price') }}" />
                             @error('package_price') <p class="text-sm text-red-600 dark:text-red-400">{{ $message }}</p> @enderror
                         </div>
 

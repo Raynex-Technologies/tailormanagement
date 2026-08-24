@@ -32,6 +32,7 @@ use App\Livewire\Invoices\Index as InvoicesIndex;
 use App\Livewire\Invoices\Show as InvoicesShow;
 use App\Livewire\OrderCatalog\Index as OrderCatalogIndex;
 use App\Livewire\OrderCatalog\ItemForm as OrderCatalogItemForm;
+use App\Livewire\OrderCatalog\MeasurementForm as OrderCatalogMeasurementForm;
 use App\Livewire\OrderCatalog\PackageForm as OrderCatalogPackageForm;
 use App\Livewire\Orders\Board as OrdersBoard;
 use App\Livewire\Orders\Form as OrdersForm;
@@ -53,6 +54,7 @@ use App\Models\BusinessSetting;
 use App\Models\Invoice;
 use App\Models\PaymentMethod;
 use App\Support\BranchContext;
+use App\Support\InvoicePdfRenderer;
 use App\Support\InvoiceTemplateResolver;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -248,6 +250,10 @@ Route::middleware(['auth', 'verified', 'branch.context'])->group(function () {
                 ->middleware('can:order_catalog.packages.manage')->name('packages.create');
             Route::get('/packages/{package}/edit', OrderCatalogPackageForm::class)
                 ->middleware('can:order_catalog.packages.manage')->name('packages.edit');
+            Route::get('/measurements/create', OrderCatalogMeasurementForm::class)
+                ->middleware('can:measurement_fields.manage')->name('measurements.create');
+            Route::get('/measurements/{measurementField}/edit', OrderCatalogMeasurementForm::class)
+                ->middleware('can:measurement_fields.manage')->name('measurements.edit');
         });
 
     // Order Board (Sales/Receptionist view)
@@ -288,7 +294,13 @@ Route::middleware(['auth', 'verified', 'branch.context'])->group(function () {
             $settings = BusinessSetting::instance();
 
             return [
-                'invoice' => $invoice->load(['order.customer', 'order.branch', 'lines', 'branch']),
+                'invoice' => $invoice->load([
+                    'order.customer',
+                    'order.branch',
+                    'order.packageInstances',
+                    'lines.orderLine',
+                    'branch',
+                ]),
                 'settings' => $settings,
                 'template' => app(InvoiceTemplateResolver::class)->resolve($settings),
                 'paymentMethods' => PaymentMethod::forInvoiceDocument(),
@@ -312,11 +324,12 @@ Route::middleware(['auth', 'verified', 'branch.context'])->group(function () {
             }
 
             $data = $invoiceDocumentData($invoice);
-            $data['downloadMode'] = true;
-
-            $pdf = \Barryvdh\DomPDF\Facade\Pdf::loadView('invoices.print', $data)
-                ->setPaper('a4')
-                ->output();
+            $pdf = app(InvoicePdfRenderer::class)->render(
+                $data['invoice'],
+                $data['settings'],
+                $data['paymentMethods'],
+                $data['template'],
+            );
 
             return response()->streamDownload(
                 fn () => print ($pdf),
@@ -347,7 +360,12 @@ Route::middleware(['auth', 'verified', 'branch.context'])->group(function () {
                 abort(403, 'You cannot view delivery notes from other branches.');
             }
 
-            return view('delivery-notes.print', ['deliveryNote' => $deliveryNote->load('order.customer', 'order.lines', 'deliveredBy')]);
+            return view('delivery-notes.print', ['deliveryNote' => $deliveryNote->load(
+                'order.customer',
+                'order.lines',
+                'order.packageInstances',
+                'deliveredBy'
+            )]);
         })->middleware('can:delivery_notes.view')->name('delivery-notes.print');
     });
 

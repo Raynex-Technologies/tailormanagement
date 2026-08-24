@@ -30,74 +30,133 @@ class OnlineBookingWizard extends Component
     use WithFileUploads;
 
     public int $step = 1;
+
     public ?string $confirmationNumber = null;
+
     public ?string $confirmationMessage = null;
 
     public string $booking_type = 'new_custom_order';
+
     public ?int $branch_id = null;
+
     public string $customer_name = '';
+
     public string $customer_phone = '';
+
     public string $customer_whatsapp = '';
+
     public string $customer_email = '';
+
     public string $customer_location = '';
+
     public string $preferred_contact_method = 'phone';
+
     public string $preferred_language = 'en';
+
     public string $notes = '';
+
     public string $needed_by_date = '';
+
     public string $event_date = '';
+
     public bool $is_urgent = false;
 
     public string $previous_order_no = '';
+
     public string $repeat_mode = 'repeat_exactly';
+
     public array $matchingOrders = [];
 
     public ?int $garment_category_id = null;
+
     public string $garment_name = '';
+
     public int $quantity = 1;
+
     public string $fabric_source = 'undecided';
+
     public string $fabric_type = '';
+
     public string $primary_color = '';
+
     public string $secondary_color = '';
+
     public string $preferred_fit = '';
+
     public string $occasion = '';
+
     public string $style_description = '';
+
     public string $special_instructions = '';
+
     public string $budget_min = '';
+
     public string $budget_max = '';
+
     public string $measurement_option = 'measurements_not_sure';
+
     public array $selectedOptions = [];
+
     public array $measurements = [];
+
     public array $uploads = [];
 
     public string $alteration_type = 'resize';
+
     public string $dropoff_method = 'customer_visits_branch';
+
     public string $measurement_purpose = 'not_sure';
+
     public string $fitting_type = 'first_fitting';
+
     public string $consultation_purpose = 'not_sure';
+
     public string $consultation_mode = 'physical';
+
     public string $organization_name = '';
+
     public string $order_type = 'corporate_uniform';
+
     public string $estimated_quantity = '';
+
     public string $male_quantity = '';
+
     public string $female_quantity = '';
+
     public string $children_quantity = '';
+
     public bool $size_list_available = false;
+
     public bool $measurement_appointment_needed = false;
+
     public bool $embroidery_needed = false;
+
     public bool $printing_needed = false;
+
     public string $brand_colors = '';
+
     public string $logo_position = '';
+
     public string $delivery_location = '';
 
     public string $appointment_date = '';
+
     public string $selectedSlot = '';
+
     public array $availableSlots = [];
+
     public string $verification_code = '';
+
     public bool $verificationSent = false;
+
     public bool $verificationVerified = false;
+
     public ?int $verificationExpiresAt = null;
+
     public ?int $verificationRetryAt = null;
+
     public string $verificationChannel = 'sms';
+
     public string $verificationTarget = '';
 
     public function mount(): void
@@ -155,6 +214,7 @@ class OnlineBookingWizard extends Component
 
         if ($state && ($state['retry_at'] ?? 0) > $now) {
             $this->hydrateVerificationState($state);
+
             return;
         }
 
@@ -197,6 +257,7 @@ class OnlineBookingWizard extends Component
 
         if ($state && ($state['retry_at'] ?? 0) > now()->timestamp) {
             $this->hydrateVerificationState($state);
+
             return;
         }
 
@@ -265,6 +326,7 @@ class OnlineBookingWizard extends Component
     {
         if (! $this->requiresAppointment() || ! $this->appointmentTypeId() || ! $this->appointment_date) {
             $this->availableSlots = [];
+
             return;
         }
 
@@ -341,16 +403,7 @@ class OnlineBookingWizard extends Component
                     ->orderBy('sort_order')
                     ->get()
                 : collect(),
-            'measurementFields' => $this->garment_category_id
-                ? MeasurementField::query()
-                    ->where('is_active', true)
-                    ->where(function ($query) {
-                        $query->whereNull('garment_category_id')->orWhere('garment_category_id', $this->garment_category_id);
-                    })
-                    ->orderByRaw('garment_category_id is null desc')
-                    ->orderBy('sort_order')
-                    ->get()
-                : collect(),
+            'measurementFields' => $this->measurementFieldsForSelectedCategory(),
             'requiresAppointment' => $this->requiresAppointment(),
         ]);
     }
@@ -581,6 +634,27 @@ class OnlineBookingWizard extends Component
         ];
     }
 
+    protected function measurementFieldsForSelectedCategory()
+    {
+        if (! $this->garment_category_id) {
+            return collect();
+        }
+
+        $global = MeasurementField::query()
+            ->active()
+            ->globallyApplicable()
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get();
+
+        $category = GarmentCategory::query()->find($this->garment_category_id);
+        $specific = $category
+            ? $category->measurementFields()->active()->get()
+            : collect();
+
+        return $global->concat($specific)->unique('id')->values();
+    }
+
     protected function matchedCustomerId(): ?int
     {
         return Customer::query()->where('phone', $this->customer_phone)->value('id');
@@ -590,6 +664,7 @@ class OnlineBookingWizard extends Component
     {
         if (! in_array($this->booking_type, ['repeat_previous_order', 'fitting_appointment'], true) || $this->customer_phone === '') {
             $this->matchingOrders = [];
+
             return;
         }
 

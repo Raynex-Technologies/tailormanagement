@@ -109,10 +109,9 @@
                 {{-- Amount --}}
                 <div>
                     <flux:label for="amount">{{ __('Amount') }} *</flux:label>
-                    <flux:input
-                        type="number"
+                    <x-money-input
                         id="amount"
-                        wire:model="amount"
+                        wire:model.blur="amount"
                         step="0.01"
                         min="0.01"
                         :max="$balanceAmount"

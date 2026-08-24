@@ -3,6 +3,8 @@
 namespace App\Livewire\OrderCatalog;
 
 use App\Enums\OrderCatalogItemType;
+use App\Models\GarmentCategory;
+use App\Models\MeasurementField;
 use App\Models\OrderCatalogItem;
 use App\Models\OrderPackageTemplate;
 use App\Services\Orders\OrderCatalogAdministrationService;
@@ -36,25 +38,33 @@ class Index extends Component
     #[Url]
     public string $branchFilter = '';
 
+    #[Url]
+    public string $unitFilter = '';
+
+    #[Url]
+    public string $categoryFilter = '';
+
     public function mount(): void
     {
         $this->authorize('order_catalog.view');
-        $this->tab = in_array($this->tab, ['items', 'packages'], true) ? $this->tab : 'items';
+        $this->tab = in_array($this->tab, ['items', 'packages', 'measurements'], true) ? $this->tab : 'items';
     }
 
     public function setTab(string $tab): void
     {
-        abort_unless(in_array($tab, ['items', 'packages'], true), 404);
+        abort_unless(in_array($tab, ['items', 'packages', 'measurements'], true), 404);
         $this->tab = $tab;
         $this->search = '';
         $this->statusFilter = 'active';
         $this->typeFilter = '';
+        $this->unitFilter = '';
+        $this->categoryFilter = '';
         $this->resetPage();
     }
 
     public function updated(string $property): void
     {
-        if (in_array($property, ['search', 'typeFilter', 'statusFilter', 'branchFilter'], true)) {
+        if (in_array($property, ['search', 'typeFilter', 'statusFilter', 'branchFilter', 'unitFilter', 'categoryFilter'], true)) {
             $this->resetPage();
         }
     }
@@ -95,6 +105,20 @@ class Index extends Component
         session()->flash('success', __('Package reactivated.'));
     }
 
+    public function archiveMeasurement(int $measurementId): void
+    {
+        $this->authorize('measurement_fields.manage');
+        MeasurementField::query()->findOrFail($measurementId)->update(['is_active' => false]);
+        session()->flash('success', __('Measurement definition archived.'));
+    }
+
+    public function reactivateMeasurement(int $measurementId): void
+    {
+        $this->authorize('measurement_fields.manage');
+        MeasurementField::query()->findOrFail($measurementId)->update(['is_active' => true]);
+        session()->flash('success', __('Measurement definition reactivated.'));
+    }
+
     public function render()
     {
         $user = auth()->user();
@@ -106,10 +130,11 @@ class Index extends Component
 
         $items = null;
         $packages = null;
+        $measurements = null;
 
         if ($this->tab === 'items') {
             $items = OrderCatalogItem::query()
-                ->with('branches:id,name')
+                ->with(['branches:id,name', 'garmentCategory:id,name'])
                 ->when($this->search !== '', fn (Builder $query) => $query->where(fn (Builder $search) => $search
                     ->where('name', 'like', '%'.$this->search.'%')
                     ->orWhere('code', 'like', '%'.$this->search.'%')))
@@ -119,7 +144,7 @@ class Index extends Component
                 ->when(! $user->isGlobalAdmin(), fn (Builder $query) => $query->availableForBranch((int) $user->branch_id))
                 ->orderBy('name')
                 ->paginate(12, pageName: 'itemsPage');
-        } else {
+        } elseif ($this->tab === 'packages') {
             $packages = OrderPackageTemplate::query()
                 ->with(['branches:id,name', 'items.catalogItem', 'items.inventoryItem'])
                 ->when($this->search !== '', fn (Builder $query) => $query->where(fn (Builder $search) => $search
@@ -135,15 +160,30 @@ class Index extends Component
             $packages->getCollection()->each(function (OrderPackageTemplate $template) use ($pricing): void {
                 $template->setAttribute('pricing_summary', $pricing->summary($template));
             });
+        } else {
+            $measurements = MeasurementField::query()
+                ->with('garmentCategories:id,name')
+                ->when($this->search !== '', fn (Builder $query) => $query->where(fn (Builder $search) => $search
+                    ->where('name', 'like', '%'.$this->search.'%')
+                    ->orWhere('code', 'like', '%'.$this->search.'%')))
+                ->when($this->statusFilter === 'archived', fn (Builder $query) => $query->where('is_active', false), fn (Builder $query) => $query->where('is_active', true))
+                ->when($this->unitFilter !== '', fn (Builder $query) => $query->where('default_unit', $this->unitFilter))
+                ->when($this->categoryFilter !== '', fn (Builder $query) => $query->whereHas('garmentCategories', fn (Builder $categories) => $categories->whereKey((int) $this->categoryFilter)))
+                ->orderBy('name')
+                ->paginate(12, pageName: 'measurementsPage');
         }
 
         return view('livewire.order-catalog.index', [
             'items' => $items,
             'packages' => $packages,
+            'measurements' => $measurements,
             'branches' => $branches,
+            'garmentCategories' => GarmentCategory::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'name']),
+            'measurementUnits' => ['cm', 'in', 'kg'],
             'types' => OrderCatalogItemType::cases(),
             'canManageItems' => $user->can('order_catalog.items.manage'),
             'canManagePackages' => $user->can('order_catalog.packages.manage'),
+            'canManageMeasurements' => $user->can('measurement_fields.manage'),
         ]);
     }
 

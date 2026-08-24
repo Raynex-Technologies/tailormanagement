@@ -178,7 +178,7 @@
 
             <form wire:submit="savePayment" class="space-y-4">
                 <div>
-                    <flux:input wire:model="paymentAmount" type="number" step="0.01" label="{{ __('Amount') }}" />
+                    <x-money-input wire:model.blur="paymentAmount" step="0.01" label="{{ __('Amount') }}" />
                     @error('paymentAmount') <p class="text-sm text-red-600 dark:text-red-400">{{ $message }}</p> @enderror
                 </div>
 

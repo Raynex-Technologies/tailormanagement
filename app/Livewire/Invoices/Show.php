@@ -6,6 +6,9 @@ use App\Mail\InvoiceMailable;
 use App\Models\BusinessSetting;
 use App\Models\Invoice;
 use App\Models\OrderLine;
+use App\Support\Livewire\NormalizesMoneyInputs;
+use App\Support\Orders\OrderPackagePresenter;
+use Brick\Math\BigDecimal;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
 use Livewire\Attributes\Layout;
@@ -14,6 +17,8 @@ use Livewire\Component;
 #[Layout('layouts.app.sidebar')]
 class Show extends Component
 {
+    use NormalizesMoneyInputs;
+
     public Invoice $invoice;
 
     public bool $isEditing = false;
@@ -24,7 +29,7 @@ class Show extends Component
 
     public string $notes = '';
 
-    public ?float $discount = 0;
+    public string|float|null $discount = 0;
 
     public array $lines = [];
 
@@ -37,7 +42,12 @@ class Show extends Component
     public function mount(Invoice $invoice): void
     {
         $this->authorize('view', $invoice);
-        $this->invoice = $invoice->load(['order.customer', 'lines', 'branch']);
+        $this->invoice = $invoice->load([
+            'order.customer',
+            'order.packageInstances',
+            'lines.orderLine',
+            'branch',
+        ]);
         $this->fillFormFromInvoice();
     }
 
@@ -56,7 +66,10 @@ class Show extends Component
 
         $this->lines = [];
 
+        $presentation = app(OrderPackagePresenter::class)->forInvoice($this->invoice);
+
         foreach ($this->invoice->lines as $line) {
+            $context = $presentation['line_context'][$line->id] ?? [];
             $this->lines[] = [
                 'id' => $line->id,
                 'order_line_id' => $line->order_line_id,
@@ -65,6 +78,18 @@ class Show extends Component
                 'unit_price' => (float) $line->unit_price,
                 'line_total' => (float) $line->line_total,
                 'notes' => $line->notes ?? '',
+                'is_package_linked' => filled($context['package'] ?? null),
+                'package_context' => [
+                    'starts_package' => (bool) ($context['starts_package'] ?? false),
+                    'starts_ordinary' => (bool) ($context['starts_ordinary'] ?? false),
+                    'package' => filled($context['package'] ?? null)
+                        ? [
+                            'id' => $context['package']['id'],
+                            'name' => $context['package']['name'],
+                            'configured_total' => $context['package']['configured_total'],
+                        ]
+                        : null,
+                ],
             ];
         }
 
@@ -103,6 +128,12 @@ class Show extends Component
 
     public function removeLine(int $index): void
     {
+        if ($this->lines[$index]['is_package_linked'] ?? false) {
+            $this->addError('lines', __('Package items must be changed from the Order edit screen.'));
+
+            return;
+        }
+
         if (count($this->lines) <= 1) {
             return;
         }
@@ -114,11 +145,13 @@ class Show extends Component
 
     public function updatedLines(): void
     {
+        $this->normalizeMoneyInputs();
         $this->calculateTotals();
     }
 
     public function updatedDiscount(): void
     {
+        $this->normalizeMoneyInputProperty('discount');
         $this->calculateTotals();
     }
 
@@ -140,6 +173,7 @@ class Show extends Component
 
     public function save(): void
     {
+        $this->normalizeMoneyInputs();
         $this->authorize('update', $this->invoice);
 
         $this->validate([
@@ -163,6 +197,19 @@ class Show extends Component
         $this->calculateTotals();
         if ($this->total < 0) {
             $this->addError('discount', 'Discount cannot exceed subtotal.');
+
+            return;
+        }
+
+        if (! $this->packageLinesRemainCanonical()) {
+            return;
+        }
+
+        $paidAmount = (float) ($this->invoice->order?->payments()->sum('amount') ?? 0);
+        if ($this->total < $paidAmount) {
+            $this->addError('total', __('The order total cannot be reduced below :amount because that amount has already been paid.', [
+                'amount' => money_currency($paidAmount, config('app.currency', 'TZS')),
+            ]));
 
             return;
         }
@@ -230,6 +277,28 @@ class Show extends Component
         $this->isEditing = false;
         $this->fillFormFromInvoice();
         session()->flash('success', 'Invoice updated successfully.');
+    }
+
+    protected function packageLinesRemainCanonical(): bool
+    {
+        $order = $this->invoice->order()->with('lines')->firstOrFail();
+        $packageLines = $order->lines->whereNotNull('order_package_instance_id');
+        $submitted = collect($this->lines)->keyBy(fn ($line) => (int) ($line['order_line_id'] ?? 0));
+
+        foreach ($packageLines as $packageLine) {
+            $line = $submitted->get($packageLine->id);
+            if (! $line
+                || (string) $line['item_name'] !== (string) $packageLine->item_name
+                || ! BigDecimal::of((string) $line['qty'])->isEqualTo((string) $packageLine->qty)
+                || ! BigDecimal::of((string) $line['unit_price'])->isEqualTo((string) $packageLine->unit_price)
+                || (string) ($line['notes'] ?? '') !== (string) ($packageLine->notes ?? '')) {
+                $this->addError('lines', __('Package items are read-only on invoices. Edit the Order to customize or remove a package.'));
+
+                return false;
+            }
+        }
+
+        return true;
     }
 
     public function sendByEmail(): void

@@ -123,20 +123,20 @@
                     </flux:select>
 
                     <div class="grid gap-4 sm:grid-cols-2">
-                        <flux:input wire:model.blur="methodAmount" type="number" step="0.01" min="0" label="{{ __('Base Amount') }}" />
+                        <x-money-input wire:model.blur="methodAmount" step="0.01" min="0" label="{{ __('Base Amount') }}" />
                         <flux:input wire:model.blur="methodCurrency" maxlength="3" label="{{ __('Currency') }}" />
                     </div>
 
                     <div class="grid gap-4 sm:grid-cols-2">
-                        <flux:input wire:model.blur="methodMinSubtotal" type="number" step="0.01" min="0" label="{{ __('Min Subtotal') }}" />
-                        <flux:input wire:model.blur="methodMaxSubtotal" type="number" step="0.01" min="0" label="{{ __('Max Subtotal') }}" />
+                        <x-money-input wire:model.blur="methodMinSubtotal" step="0.01" min="0" label="{{ __('Min Subtotal') }}" />
+                        <x-money-input wire:model.blur="methodMaxSubtotal" step="0.01" min="0" label="{{ __('Max Subtotal') }}" />
                         <flux:input wire:model.blur="methodMinWeight" type="number" step="0.001" min="0" label="{{ __('Min Weight') }}" />
                         <flux:input wire:model.blur="methodMaxWeight" type="number" step="0.001" min="0" label="{{ __('Max Weight') }}" />
                         <flux:input wire:model.blur="methodMinItems" type="number" min="0" label="{{ __('Min Items') }}" />
                         <flux:input wire:model.blur="methodMaxItems" type="number" min="0" label="{{ __('Max Items') }}" />
                     </div>
 
-                    <flux:input wire:model.blur="methodFreeShippingThreshold" type="number" step="0.01" min="0" label="{{ __('Free Shipping Threshold') }}" />
+                    <x-money-input wire:model.blur="methodFreeShippingThreshold" step="0.01" min="0" label="{{ __('Free Shipping Threshold') }}" />
                     <flux:input wire:model.blur="methodEstimatedDeliveryWindow" label="{{ __('Estimated Delivery Window') }}" placeholder="2-5 business days" />
                     <flux:textarea wire:model.blur="methodSettingsJson" rows="4" label="{{ __('Method Settings JSON') }}" />
                     <flux:input wire:model.blur="methodSort" type="number" min="0" label="{{ __('Sort Order') }}" />
@@ -209,7 +209,7 @@
                     <flux:heading size="lg">{{ $editingProfileId ? __('Edit Shipping Profile') : __('Create Shipping Profile') }}</flux:heading>
                     <flux:input wire:model.blur="profileName" label="{{ __('Profile Name') }}" required />
                     <flux:textarea wire:model.blur="profileDescription" rows="3" label="{{ __('Description') }}" />
-                    <flux:input wire:model.blur="profileHandlingFee" type="number" step="0.01" min="0" label="{{ __('Handling Fee') }}" />
+                    <x-money-input wire:model.blur="profileHandlingFee" step="0.01" min="0" label="{{ __('Handling Fee') }}" />
 
                     <div class="grid gap-3 sm:grid-cols-2">
                         <label class="flex items-center justify-between rounded-xl border border-zinc-200 px-3 py-2 text-sm dark:border-zinc-700">

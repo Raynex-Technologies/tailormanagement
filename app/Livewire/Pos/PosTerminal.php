@@ -6,6 +6,7 @@ use App\Models\Customer;
 use App\Models\InventoryItem;
 use App\Services\Pos\PosSaleService;
 use App\Support\BranchContext;
+use App\Support\Livewire\NormalizesMoneyInputs;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -16,6 +17,7 @@ use Livewire\Component;
 class PosTerminal extends Component
 {
     use AuthorizesRequests;
+    use NormalizesMoneyInputs;
 
     public string $itemSearch = '';
 
@@ -28,11 +30,11 @@ class PosTerminal extends Component
     /** @var array<int, array{id:int, sku:?string, name:string, price:float, quantity:float, stock:float, discount_amount:float}> */
     public array $cart = [];
 
-    public float $discountAmount = 0;
+    public string|float $discountAmount = 0;
 
-    public float $taxAmount = 0;
+    public string|float $taxAmount = 0;
 
-    public float $amountPaid = 0;
+    public string|float $amountPaid = 0;
 
     public string $paymentMethod = 'cash';
 
@@ -62,11 +64,13 @@ class PosTerminal extends Component
 
     public function updatedDiscountAmount(): void
     {
+        $this->normalizeMoneyInputProperty('discountAmount');
         $this->syncAmountPaidToTotal();
     }
 
     public function updatedTaxAmount(): void
     {
+        $this->normalizeMoneyInputProperty('taxAmount');
         $this->syncAmountPaidToTotal();
     }
 
@@ -235,6 +239,7 @@ class PosTerminal extends Component
 
     public function completeSale(PosSaleService $service): mixed
     {
+        $this->normalizeMoneyInputs();
         $this->authorize('pos.sell');
 
         $this->validate([

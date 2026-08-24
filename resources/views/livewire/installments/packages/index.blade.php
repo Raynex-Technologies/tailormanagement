@@ -155,7 +155,7 @@
                         @error('name') <p class="text-sm text-red-600 dark:text-red-400">{{ $message }}</p> @enderror
                     </div>
                     <div>
-                        <flux:input wire:model="price" type="number" step="0.01" label="{{ __('Price') }}" required />
+                        <x-money-input wire:model.blur="price" step="0.01" label="{{ __('Price') }}" required />
                         @error('price') <p class="text-sm text-red-600 dark:text-red-400">{{ $message }}</p> @enderror
                     </div>
                 </div>

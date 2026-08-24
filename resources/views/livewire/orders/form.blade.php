@@ -1,17 +1,23 @@
 <div>
     <flux:main class="p-0">
-        {{-- Page Header --}}
-        <div class="mb-6">
-            <flux:breadcrumbs>
-                <flux:breadcrumbs.item :href="route('dashboard')" icon="home" wire:navigate />
-                <flux:breadcrumbs.item :href="route('orders.index')" wire:navigate>Orders</flux:breadcrumbs.item>
-                <flux:breadcrumbs.item>{{ $isEdit ? 'Edit' : 'Create' }}</flux:breadcrumbs.item>
-            </flux:breadcrumbs>
+        <x-orders.workspace-header
+            :title="$isEdit ? __('Edit Order :order', ['order' => $order->order_no]) : __('Create New Order')"
+            :subtitle="$isEdit ? __('Update customer, order contents and fulfillment details.') : __('Create a customer order and configure its contents in one guided workspace.')"
+        >
+            <x-slot:breadcrumbs>
+                <flux:breadcrumbs class="text-white/70">
+                    <flux:breadcrumbs.item :href="route('dashboard')" icon="home" class="!text-white/70 hover:!text-white" wire:navigate />
+                    <flux:breadcrumbs.item :href="route('orders.index')" class="!text-white/70 hover:!text-white" wire:navigate>{{ __('Orders') }}</flux:breadcrumbs.item>
+                    <flux:breadcrumbs.item class="!text-white">{{ $isEdit ? __('Edit Order') : __('New Order') }}</flux:breadcrumbs.item>
+                </flux:breadcrumbs>
+            </x-slot:breadcrumbs>
 
-            <flux:heading size="xl" class="mt-2">
-                {{ $isEdit ? "Edit Order {$order->order_no}" : 'Create New Order' }}
-            </flux:heading>
-        </div>
+            <x-slot:actions>
+                <flux:button variant="outline" :href="route('orders.index')" class="w-full !border-white/25 !bg-white/10 !text-white hover:!bg-white/20 sm:w-auto" wire:navigate>
+                    {{ __('Back to Orders') }}
+                </flux:button>
+            </x-slot:actions>
+        </x-orders.workspace-header>
 
         {{-- Error Display --}}
         @if ($errors->any())
@@ -45,161 +51,173 @@
             </div>
         @endif
 
-        <form wire:submit.prevent="save" class="space-y-6">
-            {{-- Branch Selector for Global Admins (Create only) --}}
-            @if ($showBranchSelector && !$isEdit)
-                <flux:card>
-                    <flux:heading size="lg" class="mb-4">Branch Assignment</flux:heading>
-                    <div class="max-w-md">
-                        <flux:select wire:model.live="branch_id" label="Branch" required>
-                            <flux:select.option value="">-- Select Branch --</flux:select.option>
-                            @foreach ($branches as $branch)
-                                <flux:select.option value="{{ $branch->id }}">{{ $branch->name }}</flux:select.option>
-                            @endforeach
-                        </flux:select>
-                        <p class="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
-                            The order and any new customer will be assigned to this branch.
-                        </p>
-                        @error('branch_id')
-                            <p class="mt-1 text-sm text-red-500">{{ $message }}</p>
-                        @enderror
+        <form id="order-form" wire:submit.prevent="save" class="space-y-6">
+            {{-- Compact order context and scheduling --}}
+            <flux:card class="overflow-visible" data-order-setup>
+                <div class="mb-5 flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                        <flux:heading size="lg">{{ __('Order Setup') }}</flux:heading>
+                        <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">{{ __('Set the customer, schedule and responsibility before adding order contents.') }}</p>
                     </div>
-                </flux:card>
-            @endif
+                    @if ((!$showBranchSelector || $isEdit) && $effectiveBranchName)
+                        <span class="inline-flex items-center gap-2 rounded-full bg-zinc-100 px-3 py-1.5 text-xs font-medium text-zinc-600 dark:bg-white/5 dark:text-zinc-300" data-order-branch-context>
+                            <i class="fa-duotone fa-code-branch" aria-hidden="true"></i>
+                            {{ __('Branch: :branch', ['branch' => $effectiveBranchName]) }}
+                        </span>
+                    @endif
+                </div>
 
-            {{-- Customer Section --}}
-            <flux:card class="overflow-visible">
-                <flux:heading size="lg" class="mb-4">Customer</flux:heading>
-
-                @if (!$showNewCustomerForm)
-                    {{-- Search row: reduced-width search + Add New Customer button --}}
-                    <div class="flex flex-wrap items-start gap-3" x-data="{ open: @entangle('showCustomerDropdown') }" @click.outside="open = false">
-                        <div class="relative min-w-0 flex-1" style="max-width: 320px;">
-                            <flux:input
-                                wire:model.live="customerSearch"
-                                wire:focus="showCustomerDropdown = true"
-                                placeholder="Search by name, phone..."
-                                icon="magnifying-glass"
-                                :disabled="$customer_id !== null"
-                                autocomplete="off"
-                            />
-                            {{-- Customer Search Dropdown --}}
-                            @if ($showCustomerDropdown && count($customers) > 0)
-                                <div class="absolute z-50 mt-1 w-full rounded-xl border border-zinc-200 bg-white shadow-lg dark:border-zinc-700 dark:bg-zinc-800">
-                                    @foreach ($customers as $customer)
-                                        <button
-                                            type="button"
-                                            wire:click="selectCustomer({{ $customer->id }})"
-                                            class="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-zinc-50 dark:hover:bg-zinc-700"
-                                        >
-                                            <div>
-                                                <span class="font-medium text-zinc-900 dark:text-white">{{ $customer->name }}</span>
-                                                @if($customer->phone)
-                                                    <span class="ml-2 text-sm text-zinc-500">{{ $customer->phone }}</span>
-                                                @endif
-                                            </div>
-                                            <span class="text-xs text-zinc-400">{{ $customer->code }}</span>
-                                        </button>
-                                    @endforeach
-                                </div>
-                            @elseif ($showCustomerDropdown && strlen($customerSearch) >= 2 && $showBranchSelector && !$isEdit && !$branch_id)
-                                <div class="absolute z-50 mt-1 w-full rounded-xl border border-amber-200 bg-amber-50 p-4 text-center text-sm text-amber-700 shadow-lg dark:border-amber-800 dark:bg-amber-900/30 dark:text-amber-200">
-                                    Select a branch above to search customers.
-                                </div>
-                            @elseif ($showCustomerDropdown && strlen($customerSearch) >= 2 && count($customers) === 0)
-                                <div class="absolute z-50 mt-1 w-full rounded-xl border border-zinc-200 bg-white p-4 text-center text-sm text-zinc-500 shadow-lg dark:border-zinc-700 dark:bg-zinc-800">
-                                    No customers found. Add a new customer below.
-                                </div>
-                            @endif
-                        </div>
-                        <flux:button type="button" size="base" variant="primary" wire:click="toggleNewCustomerForm" class="ml-auto shrink-0">
-                            <x-icon name="contacts_product" class="mr-2 size-5" />
-                            Add New Customer
-                        </flux:button>
-                    </div>
-
-                    {{-- Selected customer: read-only details with X to clear --}}
-                    @if ($selectedCustomer)
-                        <div class="relative mt-4 rounded-xl border border-green-200 bg-green-50/50 p-4 dark:border-green-800 dark:bg-green-900/20">
-                            <button
-                                type="button"
-                                wire:click="clearSelectedCustomer"
-                                class="absolute right-3 top-3 rounded-full p-1 text-zinc-400 hover:bg-zinc-200 hover:text-zinc-600 dark:hover:bg-zinc-600 dark:hover:text-zinc-200"
-                                title="Change customer"
-                            >
-                                <x-icon name="close" class="size-5" />
-                            </button>
-                            <flux:heading size="sm" class="mb-3 pr-8 text-green-800 dark:text-green-200">Selected customer</flux:heading>
-                            <dl class="grid gap-2 text-sm sm:grid-cols-2">
-                                <div>
-                                    <dt class="font-medium text-zinc-500 dark:text-zinc-400">Name</dt>
-                                    <dd class="text-zinc-900 dark:text-white">{{ $selectedCustomer->name }}</dd>
-                                </div>
-                                @if($selectedCustomer->phone)
-                                    <div>
-                                        <dt class="font-medium text-zinc-500 dark:text-zinc-400">Phone</dt>
-                                        <dd class="text-zinc-900 dark:text-white">{{ $selectedCustomer->phone }}</dd>
-                                    </div>
-                                @endif
-                                @if($selectedCustomer->email)
-                                    <div>
-                                        <dt class="font-medium text-zinc-500 dark:text-zinc-400">Email</dt>
-                                        <dd class="text-zinc-900 dark:text-white">{{ $selectedCustomer->email }}</dd>
-                                    </div>
-                                @endif
-                                @if($selectedCustomer->address)
-                                    <div class="sm:col-span-2">
-                                        <dt class="font-medium text-zinc-500 dark:text-zinc-400">Address</dt>
-                                        <dd class="text-zinc-900 dark:text-white">{{ $selectedCustomer->address }}</dd>
-                                    </div>
-                                @endif
-                            </dl>
+                <div class="grid gap-5 lg:grid-cols-12">
+                    @if ($showBranchSelector && !$isEdit)
+                        <div class="lg:col-span-3" data-order-branch-selector>
+                            <flux:select wire:model.live="branch_id" aria-label="{{ __('Order branch') }}" title="{{ __('Sets available order options.') }}" required>
+                                <flux:select.option value="">-- Select Branch --</flux:select.option>
+                                @foreach ($branches as $branch)
+                                    <flux:select.option value="{{ $branch->id }}">{{ $branch->name }}</flux:select.option>
+                                @endforeach
+                            </flux:select>
+                            @error('branch_id')
+                                <p class="mt-1 text-sm text-red-500">{{ $message }}</p>
+                            @enderror
                         </div>
                     @endif
-                @else
-                    {{-- New Customer Form --}}
-                    <div class="space-y-4 rounded-xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-800/50">
-                        <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                            <flux:heading size="sm">New Customer</flux:heading>
-                            <flux:button size="sm" variant="ghost" wire:click="toggleNewCustomerForm">
-                                Cancel
-                            </flux:button>
-                        </div>
 
-                        <div class="grid gap-4 sm:grid-cols-2">
-                            <flux:input
-                                wire:model="newCustomerName"
-                                label="Name"
-                                placeholder="Customer name"
-                                required
-                            />
-                            <flux:input
-                                wire:model="newCustomerPhone"
-                                label="Phone"
-                                placeholder="+255..."
-                                required
-                            />
-                            <flux:input
-                                wire:model="newCustomerEmail"
-                                label="Email"
-                                type="email"
-                                placeholder="email@example.com"
-                            />
-                            <flux:input
-                                wire:model="newCustomerAddress"
-                                label="Address"
-                                placeholder="Customer address"
-                            />
-                        </div>
-                    </div>
-                @endif
-            </flux:card>
+                    <section class="{{ $showBranchSelector && !$isEdit ? 'lg:col-span-9' : 'lg:col-span-12' }}" aria-labelledby="order-customer-heading" data-order-customer>
+                        <h2 id="order-customer-heading" class="sr-only">{{ __('Customer') }}</h2>
 
-            {{-- Order Details --}}
-            <flux:card>
-                <flux:heading size="lg" class="mb-4">Order Details</flux:heading>
+                        @if (!$showNewCustomerForm)
+                            @if ($selectedCustomer)
+                                <div class="flex flex-col gap-3 rounded-xl border border-emerald-200 bg-emerald-50/60 px-4 py-3 dark:border-emerald-500/20 dark:bg-emerald-500/5 sm:flex-row sm:items-center sm:justify-between" data-selected-customer>
+                                    <div class="min-w-0">
+                                        <p class="truncate font-semibold text-zinc-900 dark:text-white">{{ $selectedCustomer->name }}</p>
+                                        <p class="mt-0.5 text-sm text-zinc-600 dark:text-zinc-300">
+                                            {{ $selectedCustomer->phone ?: __('No phone') }}
+                                            @if($selectedCustomer->code)
+                                                <span aria-hidden="true"> · </span>{{ $selectedCustomer->code }}
+                                            @endif
+                                            @if($selectedCustomer->email)
+                                                <span class="hidden sm:inline"><span aria-hidden="true"> · </span>{{ $selectedCustomer->email }}</span>
+                                            @endif
+                                        </p>
+                                    </div>
+                                    <flux:button type="button" size="sm" variant="ghost" wire:click="clearSelectedCustomer" class="w-full sm:w-auto">
+                                        {{ __('Change') }}
+                                    </flux:button>
+                                </div>
+                            @else
+                                <div
+                                    class="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]"
+                                    x-data="{ open: @entangle('showCustomerDropdown') }"
+                                    @click.outside="open = false"
+                                >
+                                    <div class="relative min-w-0">
+                                        <flux:input
+                                            wire:model.live="customerSearch"
+                                            wire:focus="showCustomerDropdown = true"
+                                            aria-label="{{ __('Search existing customer') }}"
+                                            placeholder="{{ __('Search by name, phone or email') }}"
+                                            icon="magnifying-glass"
+                                            :disabled="$showBranchSelector && !$isEdit && !$branch_id"
+                                            autocomplete="off"
+                                            role="combobox"
+                                            aria-autocomplete="list"
+                                            :aria-expanded="$showCustomerDropdown ? 'true' : 'false'"
+                                            aria-controls="order-customer-results"
+                                        />
+                                        <p wire:loading.delay wire:target="customerSearch" class="mt-1 text-xs text-zinc-500" role="status">{{ __('Searching customers…') }}</p>
 
-                <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                                        @if ($showCustomerDropdown && count($customers) > 0)
+                                            <div id="order-customer-results" class="absolute z-50 mt-1 w-full overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-lg dark:border-zinc-700 dark:bg-zinc-800" role="listbox">
+                                                @foreach ($customers as $customer)
+                                                    <button
+                                                        type="button"
+                                                        wire:click="selectCustomer({{ $customer->id }})"
+                                                        class="flex w-full items-start justify-between gap-3 px-4 py-3 text-left hover:bg-zinc-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-lime-500 dark:hover:bg-zinc-700"
+                                                        role="option"
+                                                    >
+                                                        <span class="min-w-0">
+                                                            <span class="block truncate font-medium text-zinc-900 dark:text-white">{{ $customer->name }}</span>
+                                                            <span class="block truncate text-xs text-zinc-500">
+                                                                {{ $customer->phone ?: __('No phone') }}
+                                                                @if($customer->email)<span aria-hidden="true"> · </span>{{ $customer->email }}@endif
+                                                            </span>
+                                                        </span>
+                                                        <span class="shrink-0 text-xs text-zinc-400">{{ $customer->code }}</span>
+                                                    </button>
+                                                @endforeach
+                                            </div>
+                                        @elseif ($showCustomerDropdown && strlen($customerSearch) >= 2 && count($customers) === 0)
+                                            <div id="order-customer-results" class="absolute z-50 mt-1 w-full rounded-xl border border-zinc-200 bg-white p-4 text-center text-sm text-zinc-500 shadow-lg dark:border-zinc-700 dark:bg-zinc-800" role="status">
+                                                {{ __('No customers found for this branch.') }}
+                                            </div>
+                                        @endif
+                                    </div>
+
+                                    <flux:button
+                                        type="button"
+                                        size="base"
+                                        variant="primary"
+                                        wire:click="toggleNewCustomerForm"
+                                        class="inline-flex w-full items-center justify-center gap-2 self-end sm:w-auto"
+                                        :disabled="$showBranchSelector && !$isEdit && !$branch_id"
+                                        aria-expanded="false"
+                                        aria-controls="new-order-customer-fields"
+                                    >
+                                        <x-icon name="contacts_product" class="size-5 shrink-0" />
+                                        <span class="text-center">{{ __('New Customer') }}</span>
+                                    </flux:button>
+                                </div>
+
+                                @if ($showBranchSelector && !$isEdit && !$branch_id)
+                                    <p class="mt-2 text-sm text-amber-600 dark:text-amber-300">{{ __('Select a branch before searching for or creating a customer.') }}</p>
+                                @endif
+                            @endif
+                        @else
+                            <div
+                                id="new-order-customer-fields"
+                                class="space-y-4 rounded-xl border border-zinc-200 bg-zinc-50/70 p-4 dark:border-zinc-700 dark:bg-white/5"
+                                x-init="$nextTick(() => $el.querySelector('input')?.focus())"
+                                data-new-customer-form
+                            >
+                                <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                                    <div>
+                                        <flux:heading size="sm">{{ __('New Customer') }}</flux:heading>
+                                        <p class="mt-1 text-xs text-zinc-500">{{ __('The customer will be created in the order branch when the order is saved.') }}</p>
+                                    </div>
+                                    <flux:button type="button" size="sm" variant="ghost" wire:click="toggleNewCustomerForm" aria-expanded="true" aria-controls="new-order-customer-fields">
+                                        {{ __('Cancel') }}
+                                    </flux:button>
+                                </div>
+
+                                <div class="grid gap-4 sm:grid-cols-2">
+                                    <div>
+                                        <flux:input wire:model="newCustomerName" label="Name" placeholder="Customer name" required />
+                                        @error('newCustomerName')<p class="mt-1 text-sm text-red-500">{{ $message }}</p>@enderror
+                                    </div>
+                                    <div>
+                                        <flux:input wire:model="newCustomerPhone" label="Phone" placeholder="+255..." required />
+                                        @error('newCustomerPhone')<p class="mt-1 text-sm text-red-500">{{ $message }}</p>@enderror
+                                    </div>
+                                    <div>
+                                        <flux:input wire:model="newCustomerEmail" label="Email" type="email" placeholder="email@example.com" />
+                                        @error('newCustomerEmail')<p class="mt-1 text-sm text-red-500">{{ $message }}</p>@enderror
+                                    </div>
+                                    <div>
+                                        <flux:input wire:model="newCustomerAddress" label="Address" placeholder="Customer address" />
+                                        @error('newCustomerAddress')<p class="mt-1 text-sm text-red-500">{{ $message }}</p>@enderror
+                                    </div>
+                                </div>
+                            </div>
+                        @endif
+
+                        @error('customer_id')
+                            <p class="mt-2 text-sm text-red-500">{{ $message }}</p>
+                        @enderror
+                    </section>
+                </div>
+
+                <div class="mt-5 border-t border-zinc-200 pt-5 dark:border-zinc-700">
+                    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                     @if ($allowOrderDatesFlexibility)
                         <flux:input
                             wire:model="order_date"
@@ -246,24 +264,7 @@
                             @endforeach
                         </flux:select>
                     @endcan
-
-                    <flux:input
-                        wire:model.live="discount"
-                        type="number"
-                        step="1"
-                        min="0"
-                        label="Discount"
-                        placeholder="0.00"
-                    />
-                </div>
-
-                <div class="mt-4">
-                    <flux:textarea
-                        wire:model="notes"
-                        label="Notes"
-                        placeholder="Additional notes about this order..."
-                        rows="3"
-                    />
+                    </div>
                 </div>
             </flux:card>
 
@@ -284,7 +285,7 @@
                 </div>
 
                 @if ($showCatalogPicker)
-                    <div class="mb-5 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-zinc-700 dark:bg-zinc-800">
+                    <div class="mb-5 rounded-xl border border-zinc-200 bg-zinc-50/70 p-4 dark:border-zinc-700 dark:bg-white/5" data-order-catalog-picker>
                         <div class="grid grid-cols-3 gap-1 rounded-xl bg-zinc-100 p-1 dark:bg-zinc-900/60">
                             <button type="button" wire:click="setCatalogTab('packages')" class="rounded-lg px-2 py-2 text-sm font-medium {{ $catalogTab === 'packages' ? 'bg-white shadow dark:bg-zinc-700' : 'text-zinc-500' }}">{{ __('Packages') }}</button>
                             <button type="button" wire:click="setCatalogTab('catalog')" class="rounded-lg px-2 py-2 text-sm font-medium {{ $catalogTab === 'catalog' ? 'bg-white shadow dark:bg-zinc-700' : 'text-zinc-500' }}">{{ __('Garments & Services') }}</button>
@@ -306,7 +307,10 @@
                                 @empty <p class="col-span-full rounded-xl border border-dashed p-5 text-center text-sm text-zinc-500">{{ __('No active garments or services found for this branch.') }}</p> @endforelse
                             @else
                                 @forelse ($inventoryItems as $inventoryItem)
-                                    @php($availableQty = (float) ($inventoryItem->stock?->qty_on_hand ?? 0) - (float) ($inventoryItem->stock?->qty_reserved ?? 0))
+                                    @php
+                                        $availableQty = (float) ($inventoryItem->stock?->qty_on_hand ?? 0)
+                                            - (float) ($inventoryItem->stock?->qty_reserved ?? 0);
+                                    @endphp
                                     <button type="button" wire:click="addInventoryLine({{ $inventoryItem->id }})" class="flex gap-3 rounded-xl border border-zinc-200 p-3 text-left transition hover:border-lime-400 dark:border-zinc-700"><div class="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-zinc-100 dark:bg-zinc-700">@if($inventoryItem->featured_image_url)<img src="{{ $inventoryItem->featured_image_url }}" alt="" class="size-full object-cover">@else<i class="fa-duotone fa-box text-zinc-400"></i>@endif</div><div class="min-w-0"><p class="truncate text-sm font-semibold">{{ $inventoryItem->name }}</p><p class="text-xs text-zinc-500">{{ $inventoryItem->sku ?: __('No SKU') }} · {{ __('Available: :qty', ['qty' => rtrim(rtrim(number_format($availableQty, 2), '0'), '.')]) }}</p><p class="mt-1 text-xs font-medium">{{ money_currency($inventoryItem->default_sell_price) }}</p></div></button>
                                 @empty <p class="col-span-full rounded-xl border border-dashed p-5 text-center text-sm text-zinc-500">{{ __('No active inventory products found for this branch.') }}</p> @endforelse
                             @endif
@@ -318,9 +322,29 @@
                     $hasOrderTailor = (int) ($assigned_tailor_id ?? 0) > 0;
                 @endphp
 
-                <div class="space-y-6">
+                @if ($lines === [])
+                    <div class="rounded-xl border border-dashed border-zinc-300 bg-zinc-50/60 px-4 py-5 text-center dark:border-zinc-700 dark:bg-white/[0.03]" data-order-contents-empty>
+                        <div class="mx-auto flex size-9 items-center justify-center rounded-lg bg-white text-zinc-400 shadow-sm dark:bg-zinc-800">
+                            <i class="fa-duotone fa-scissors text-lg" aria-hidden="true"></i>
+                        </div>
+                        <p class="mt-2 font-medium text-zinc-800 dark:text-zinc-100">{{ __('No items added yet') }}</p>
+                        <p class="mx-auto mt-1 max-w-lg text-sm text-zinc-500 dark:text-zinc-400">{{ __('Add a package, garment, service, inventory product or custom item to begin.') }}</p>
+                    </div>
+                @else
+                <div class="space-y-6" data-order-lines>
+                    @php($previousPackageKey = null)
                     @foreach ($lines as $index => $line)
-                        <div class="rounded-xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-800/50" wire:key="line-{{ $index }}">
+                        @php($linePackageKey = $line['package_key'] ?? null)
+                        @if ($linePackageKey && $linePackageKey !== $previousPackageKey && isset($packages[$linePackageKey]))
+                            @php($packageState = $packages[$linePackageKey]['configured_snapshot'])
+                            <div class="rounded-2xl border border-indigo-200 bg-indigo-50/60 p-4 dark:border-indigo-500/20 dark:bg-indigo-500/5" wire:key="package-heading-{{ $linePackageKey }}">
+                                <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                    <div><div class="flex items-center gap-2"><i class="fa-duotone fa-box-open-full text-indigo-500"></i><h3 class="font-semibold uppercase tracking-wide text-zinc-900 dark:text-white">{{ $packageState['name'] }}</h3></div><p class="mt-1 text-sm text-zinc-500">{{ money_currency($packageState['configured_package_total']) }} · {{ __('Source revision :revision', ['revision' => $packageState['revision']]) }}</p></div>
+                                    <div class="flex gap-2"><flux:button type="button" size="sm" variant="subtle" wire:click="customizePackage('{{ $linePackageKey }}')">{{ __('Customize Package') }}</flux:button><flux:button type="button" size="sm" variant="ghost" wire:click="removePackage('{{ $linePackageKey }}')" wire:confirm="{{ $isEdit ? __('Remove this package and all of its lines? Inventory changes occur only when the order is saved.') : __('Remove this package and all of its lines?') }}">{{ __('Remove Package') }}</flux:button></div>
+                                </div>
+                            </div>
+                        @endif
+                        <div class="rounded-xl border {{ $linePackageKey ? 'ml-3 border-indigo-100 bg-white dark:border-indigo-500/20 dark:bg-zinc-800' : 'border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800/50' }} p-4" wire:key="line-{{ $line['id'] ?? 'new' }}-{{ $linePackageKey ?? 'ordinary' }}-{{ $line['order_package_template_item_id'] ?? 'custom' }}-{{ $line['package_unit_index'] ?? $index }}">
                             {{-- Line Header --}}
                             <div class="mb-4 flex items-start justify-between">
                                 <div class="flex flex-wrap items-center gap-2">
@@ -328,8 +352,14 @@
                                     @if (! empty($line['inventory_item_id']))
                                         <flux:badge size="sm" color="lime">Inventory</flux:badge>
                                     @endif
+                                    @if (! empty($line['order_catalog_item_id']))
+                                        <flux:badge size="sm" color="indigo">{{ __('Catalog') }}</flux:badge>
+                                    @endif
+                                    @if ($linePackageKey)
+                                        <flux:badge size="sm" color="violet">{{ __('Package item') }}</flux:badge>
+                                    @endif
                                 </div>
-                                @if (count($lines) > 1)
+                                @if (! $linePackageKey)
                                     <flux:button size="xs" variant="ghost" wire:click="removeLine({{ $index }})" type="button" title="Remove Item">
                                         <x-icon name="delete" class="size-4 text-red-500" />
                                     </flux:button>
@@ -344,11 +374,15 @@
                                         label="Item Name"
                                         placeholder="e.g. Men's Suit"
                                         required
+                                        :disabled="(bool) $linePackageKey"
                                     />
                                     @if (! empty($line['sku']))
                                         <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">SKU: {{ $line['sku'] }}</p>
                                     @endif
                                     @error("lines.$index.inventory_item_id")
+                                        <p class="mt-1 text-sm text-red-500">{{ $message }}</p>
+                                    @enderror
+                                    @error("lines.$index.item_name")
                                         <p class="mt-1 text-sm text-red-500">{{ $message }}</p>
                                     @enderror
                                 </div>
@@ -369,18 +403,22 @@
                                     min="0.01"
                                     label="Qty"
                                     required
+                                    :disabled="(bool) $linePackageKey"
                                 />
                                 @error("lines.$index.qty")
                                     <p class="text-sm text-red-500">{{ $message }}</p>
                                 @enderror
-                                <flux:input
-                                    wire:model.live.debounce.250ms="lines.{{ $index }}.unit_price"
-                                    type="number"
+                                <x-money-input
+                                    wire:model.blur="lines.{{ $index }}.unit_price"
                                     step="1"
                                     min="0"
                                     label="Unit Price"
                                     required
+                                    :disabled="(bool) $linePackageKey"
                                 />
+                                @error("lines.$index.unit_price")
+                                    <p class="text-sm text-red-500">{{ $message }}</p>
+                                @enderror
                                 <div>
                                     <label class="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Line Total</label>
                                     <div class="flex h-10 items-center rounded-lg bg-zinc-100 px-3 font-mono text-zinc-900 dark:bg-zinc-700 dark:text-white">
@@ -421,106 +459,137 @@
                                 </div>
                             </div>
                         </div>
+                        @php($previousPackageKey = $linePackageKey)
                     @endforeach
                 </div>
+                @endif
 
-                {{-- Totals --}}
-                <div class="mt-6 flex justify-end">
-                    <div class="w-full max-w-xs space-y-2 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-800">
-                        <div class="flex justify-between text-sm">
-                            <span class="text-zinc-600 dark:text-zinc-400">Subtotal</span>
-                            <span class="font-mono text-zinc-900 dark:text-white">{{ number_format($subtotal, 0) }}</span>
-                        </div>
-                        <div class="flex justify-between text-sm">
-                            <span class="text-zinc-600 dark:text-zinc-400">Discount</span>
-                            <span class="font-mono text-red-600 dark:text-red-400">-{{ number_format($discount ?? 0, 0) }}</span>
-                        </div>
-                        <div class="border-t border-zinc-200 pt-2 dark:border-zinc-700">
-                            <div class="flex justify-between text-lg font-semibold">
-                                <span class="text-zinc-900 dark:text-white">Total</span>
-                                <span class="font-mono text-indigo-600 dark:text-indigo-400">{{ number_format($total, 0) }}</span>
+                @error('lines')<p class="mt-3 rounded-xl bg-red-50 p-3 text-sm text-red-700 dark:bg-red-500/10 dark:text-red-300">{{ $message }}</p>@enderror
+
+                {{-- Commercial adjustments and server-authoritative totals --}}
+                <div class="mt-6 border-t border-zinc-200 pt-5 dark:border-zinc-700" data-order-commercial-summary>
+                    <div class="w-full rounded-xl bg-zinc-50/80 p-4 ring-1 ring-inset ring-zinc-200/70 dark:bg-white/5 dark:ring-white/10" data-order-commercial-footer>
+                        <div class="grid gap-4 lg:grid-cols-[minmax(13rem,18rem)_minmax(0,1fr)] lg:items-end">
+                            <div>
+                                <x-money-input
+                                    wire:model.blur="discount"
+                                    step="1"
+                                    min="0"
+                                    label="Discount"
+                                    placeholder="0.00"
+                                />
+                                @error('discount')<p class="mt-1 text-sm text-red-500">{{ $message }}</p>@enderror
                             </div>
+                            <dl class="grid grid-cols-2 gap-x-4 gap-y-3 sm:grid-cols-3">
+                                <div>
+                                    <dt class="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Subtotal</dt>
+                                    <dd class="mt-1 font-mono text-sm font-medium text-zinc-900 dark:text-white">{{ money_currency($subtotal) }}</dd>
+                                </div>
+                                <div>
+                                    <dt class="text-xs font-medium uppercase tracking-wide text-zinc-500 dark:text-zinc-400">Discount</dt>
+                                    <dd class="mt-1 font-mono text-sm font-medium text-red-600 dark:text-red-400">-{{ money_currency($discount ?? 0) }}</dd>
+                                </div>
+                                <div class="col-span-2 border-t border-zinc-200 pt-3 sm:col-span-1 sm:border-t-0 sm:border-l sm:pl-4 sm:pt-0 dark:border-zinc-700">
+                                    <dt class="text-xs font-semibold uppercase tracking-wide text-zinc-600 dark:text-zinc-300">Total</dt>
+                                    <dd class="mt-1 font-mono text-lg font-semibold text-indigo-600 dark:text-indigo-400">{{ money_currency($total) }}</dd>
+                                </div>
+                            </dl>
                         </div>
+                        @error('total')<p class="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-500/10 dark:text-red-300">{{ $message }}</p>@enderror
                     </div>
                 </div>
             </flux:card>
 
-            {{-- Order Expenses --}}
-            <flux:card>
-                <div class="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                    <flux:heading size="lg">Order Expenses</flux:heading>
-                    <flux:button type="button" size="sm" variant="ghost" wire:click="addOrderExpense">
-                        {{ __('Add expense') }}
-                    </flux:button>
+            {{-- Secondary order information --}}
+            <section class="rounded-xl border border-zinc-200/80 bg-zinc-50/40 p-4 dark:border-zinc-700/80 dark:bg-white/[0.025]" data-order-additional-information>
+                <flux:heading size="lg">{{ __('Additional Information') }}</flux:heading>
+                <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">{{ __('Add optional internal notes for this order.') }}</p>
+
+                <div class="mt-4" data-order-notes>
+                    <flux:textarea
+                        wire:model="notes"
+                        label="Order Notes"
+                        placeholder="Additional notes about this order..."
+                        rows="2"
+                    />
+                    @error('notes')<p class="mt-1 text-sm text-red-500">{{ $message }}</p>@enderror
                 </div>
 
-                <div class="space-y-4">
-                    @foreach ($order_expenses as $expenseIndex => $expense)
-                        <div class="rounded-xl border border-zinc-200 bg-zinc-50 p-4 dark:border-zinc-700 dark:bg-zinc-800/50" wire:key="order-expense-{{ $expenseIndex }}">
-                            <div class="mb-4 flex items-start justify-between gap-3">
-                                <flux:badge size="sm">Expense {{ $expenseIndex + 1 }}</flux:badge>
-                                <flux:button type="button" size="xs" variant="ghost" wire:click="removeOrderExpense({{ $expenseIndex }})">
-                                    {{ __('Remove') }}
-                                </flux:button>
-                            </div>
+            </section>
 
-                            <input type="hidden" wire:model="order_expenses.{{ $expenseIndex }}.tailor_id" />
-
-                            <div class="grid gap-4 sm:grid-cols-2">
-                                <flux:select
-                                    wire:model.blur="order_expenses.{{ $expenseIndex }}.notes"
-                                    label="Description"
-                                >
-                                    <flux:select.option value="">{{ __('Select description') }}</flux:select.option>
-                                    <flux:select.option value="Labour Charge">{{ __('Labour Charge') }}</flux:select.option>
-                                    <flux:select.option value="Additional Materials">{{ __('Additional Materials') }}</flux:select.option>
-                                    <flux:select.option value="Other">{{ __('Other') }}</flux:select.option>
-                                </flux:select>
-                                <flux:input
-                                    wire:model.live="order_expenses.{{ $expenseIndex }}.amount"
-                                    type="number"
-                                    step="1"
-                                    min="0"
-                                    label="Amount"
-                                    placeholder="0.00"
-                                />
-                            </div>
-
-                            @error("order_expenses.$expenseIndex.tailor_id")
-                                <p class="mt-2 text-sm text-red-500">{{ $message }}</p>
-                            @enderror
-                            @error("order_expenses.$expenseIndex.notes")
-                                <p class="mt-2 text-sm text-red-500">{{ $message }}</p>
-                            @enderror
-                            @error("order_expenses.$expenseIndex.amount")
-                                <p class="mt-2 text-sm text-red-500">{{ $message }}</p>
-                            @enderror
+            <section class="rounded-xl border border-zinc-200/80 bg-zinc-50/40 p-4 dark:border-zinc-700/80 dark:bg-white/[0.025]" data-order-expenses>
+                    <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <h3 class="font-semibold text-zinc-900 dark:text-white">{{ __('Order Expenses') }}</h3>
+                            @if ($order_expenses === [])
+                                <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">{{ __('No expenses added.') }}</p>
+                            @endif
                         </div>
-                    @endforeach
-                </div>
+                        <flux:button type="button" size="sm" variant="ghost" wire:click="addOrderExpense" class="w-full sm:w-auto">
+                            <x-icon name="add" class="mr-1 size-4" />
+                            {{ __('Add Expense') }}
+                        </flux:button>
+                    </div>
 
-                @error('order_expenses')
-                    <p class="mt-2 text-sm text-red-500">{{ $message }}</p>
-                @enderror
-            </flux:card>
+                    @if ($order_expenses !== [])
+                        <div class="mt-4 space-y-4">
+                            @foreach ($order_expenses as $expenseIndex => $expense)
+                                <div class="rounded-xl border border-zinc-200 bg-zinc-50/70 p-4 dark:border-zinc-700 dark:bg-white/5" wire:key="order-expense-{{ $expenseIndex }}">
+                                    <div class="mb-4 flex items-start justify-between gap-3">
+                                        <flux:badge size="sm">Expense {{ $expenseIndex + 1 }}</flux:badge>
+                                        <flux:button type="button" size="xs" variant="ghost" wire:click="removeOrderExpense({{ $expenseIndex }})">
+                                            {{ __('Remove') }}
+                                        </flux:button>
+                                    </div>
+
+                                    <input type="hidden" wire:model="order_expenses.{{ $expenseIndex }}.tailor_id" />
+
+                                    <div class="grid gap-4 sm:grid-cols-2">
+                                        <flux:select wire:model.blur="order_expenses.{{ $expenseIndex }}.notes" label="Description">
+                                            <flux:select.option value="">{{ __('Select description') }}</flux:select.option>
+                                            <flux:select.option value="Labour Charge">{{ __('Labour Charge') }}</flux:select.option>
+                                            <flux:select.option value="Additional Materials">{{ __('Additional Materials') }}</flux:select.option>
+                                            <flux:select.option value="Other">{{ __('Other') }}</flux:select.option>
+                                        </flux:select>
+                                        <x-money-input
+                                            wire:model.blur="order_expenses.{{ $expenseIndex }}.amount"
+                                            step="1"
+                                            min="0"
+                                            label="Amount"
+                                            placeholder="0.00"
+                                        />
+                                    </div>
+
+                                    @error("order_expenses.$expenseIndex.tailor_id")<p class="mt-2 text-sm text-red-500">{{ $message }}</p>@enderror
+                                    @error("order_expenses.$expenseIndex.notes")<p class="mt-2 text-sm text-red-500">{{ $message }}</p>@enderror
+                                    @error("order_expenses.$expenseIndex.amount")<p class="mt-2 text-sm text-red-500">{{ $message }}</p>@enderror
+                                </div>
+                            @endforeach
+                        </div>
+                    @endif
+
+                    @error('order_expenses')<p class="mt-2 text-sm text-red-500">{{ $message }}</p>@enderror
+            </section>
 
             {{-- Deposit (create only, optional) --}}
             @if (!$isEdit)
-                <flux:card>
-                    <flux:heading size="lg" class="mb-4">Deposit</flux:heading>
-                    <flux:text class="mb-4 block text-sm text-zinc-500 dark:text-zinc-400">
+                <section class="rounded-xl border border-zinc-200/80 bg-zinc-50/40 p-4 dark:border-zinc-700/80 dark:bg-white/[0.025]" data-order-deposit>
+                    <flux:heading size="lg">Deposit</flux:heading>
+                    <flux:text class="mt-1 mb-4 block text-sm text-zinc-500 dark:text-zinc-400">
                         Optionally record a deposit paid with this order. It will be added to the order&apos;s payments.
                     </flux:text>
                     <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                        <flux:input
-                            wire:model.live="deposit_amount"
-                            type="number"
+                        <x-money-input
+                            wire:model.blur="deposit_amount"
                             step="1"
                             min="0"
                             :max="$total"
                             label="Deposit amount"
                             placeholder="0.00"
                         />
+                        @error('deposit_amount')
+                            <p class="text-sm text-red-500">{{ $message }}</p>
+                        @enderror
                         @if (filled($deposit_amount) && (float) $deposit_amount > (float) $total)
                             <p class="text-sm text-red-500">{{ __('Deposit cannot exceed order total.') }}</p>
                         @endif
@@ -540,28 +609,55 @@
                             label="Reference"
                             placeholder="e.g. receipt or cheque number"
                         />
+                        @error('deposit_reference')
+                            <p class="text-sm text-red-500">{{ $message }}</p>
+                        @enderror
                     </div>
-                </flux:card>
+                </section>
             @endif
 
-            {{-- Actions --}}
-            <div class="flex flex-col gap-3 rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-800 sm:flex-row sm:items-center sm:justify-between">
-                <flux:button variant="ghost" :href="route('orders.index')" wire:navigate>
-                    <x-icon name="arrow_back" class="mr-1 size-4" />
-                    Back to Orders
-                </flux:button>
+            <section class="border-t border-zinc-200 pt-5 dark:border-zinc-700" data-form-actions="order">
+                <div class="grid gap-2 sm:grid-flow-col sm:auto-cols-max sm:justify-end">
+                    <flux:button variant="ghost" :href="route('orders.index')" class="w-full sm:w-auto" wire:navigate>
+                        {{ __('Cancel') }}
+                    </flux:button>
+                    <flux:button type="submit" variant="primary" icon="check" class="w-full sm:w-auto" wire:loading.attr="disabled">
+                        <span wire:loading.remove>{{ $isEdit ? __('Update Order') : __('Create Order') }}</span>
+                        <span wire:loading>{{ __('Saving…') }}</span>
+                    </flux:button>
+                </div>
+            </section>
 
-                <flux:button type="submit" variant="primary" wire:loading.attr="disabled">
-                    <span wire:loading.remove>
-                        <x-icon name="check" class="mr-1 size-4" />
-                        {{ $isEdit ? 'Update Order' : 'Create Order' }}
-                    </span>
-                    <span wire:loading>
-                        <x-icon name="refresh" class="mr-1 size-4 animate-spin" />
-                        Saving...
-                    </span>
-                </flux:button>
-            </div>
         </form>
+
+        <flux:modal wire:model.self="showDirectCatalogConfigurator" class="w-full max-w-lg">
+            <div class="space-y-5">
+                <div><flux:heading size="lg">{{ __('Add Catalog Item') }}</flux:heading><flux:text class="mt-1">{{ __('Choose the order quantity before adding this item.') }}</flux:text></div>
+                @if ($selectedCatalogItem)
+                    <div class="flex gap-3 rounded-xl bg-zinc-50 p-3 dark:bg-white/5"><div class="flex size-14 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white dark:bg-zinc-700">@if($selectedCatalogItem->image_url)<img src="{{ $selectedCatalogItem->image_url }}" alt="" class="size-full object-cover">@else<i class="fa-duotone fa-shirt text-zinc-400"></i>@endif</div><div><p class="font-semibold">{{ $selectedCatalogItem->name }}</p><p class="text-xs text-zinc-500">{{ $selectedCatalogItem->code }} · {{ $selectedCatalogItem->quantity_behavior->label() }}</p><p class="mt-1 text-sm">{{ money_currency($selectedCatalogItem->default_selling_price) }}</p></div></div>
+                    <flux:input wire:model="directCatalogQuantity" type="number" min="0.01" step="{{ $selectedCatalogItem->quantity_behavior->value === 'individual' ? '1' : '0.01' }}" label="{{ __('Quantity') }}" />
+                    @if ($selectedCatalogItem->quantity_behavior->value === 'individual')<p class="text-xs text-zinc-500">{{ __('Each unit will become an independent line with its own measurements and tailor controls.') }}</p>@else<p class="text-xs text-zinc-500">{{ __('This quantity remains together on one order line.') }}</p>@endif
+                    @error('directCatalogQuantity')<p class="text-sm text-red-600">{{ $message }}</p>@enderror
+                @endif
+                <div class="flex justify-end gap-2"><flux:button type="button" variant="ghost" wire:click="$set('showDirectCatalogConfigurator', false)">{{ __('Cancel') }}</flux:button><flux:button type="button" variant="primary" wire:click="confirmDirectCatalogItem">{{ __('Add to Order') }}</flux:button></div>
+            </div>
+        </flux:modal>
+
+        <flux:modal wire:model.self="showPackageConfigurator" class="w-full max-w-4xl">
+            <div class="space-y-5">
+                <div><flux:heading size="xl">{{ $packageConfigurator['name'] ?? __('Configure Package') }}</flux:heading><flux:text class="mt-1">{{ $packageConfigurator['description'] ?? '' }}</flux:text></div>
+                <div class="max-h-[60vh] space-y-3 overflow-y-auto pr-1">
+                    @foreach ($packageConfigurator['components'] ?? [] as $packageComponent)
+                        @php($packageComponentId = (int) $packageComponent['template_item_id'])
+                        <div class="rounded-xl border border-zinc-200 p-4 dark:border-zinc-700">
+                            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><div class="flex flex-wrap items-center gap-2"><p class="font-semibold">{{ $packageComponent['name'] }}</p><flux:badge size="sm" color="{{ (float) $packageComponent['minimum_quantity'] > 0 ? 'indigo' : 'zinc' }}">{{ (float) $packageComponent['minimum_quantity'] > 0 ? __('Required') : __('Optional') }}</flux:badge></div><p class="text-xs text-zinc-500">{{ __('Package unit price: :price', ['price' => money_currency($packageComponent['package_unit_price'])]) }} · {{ __('Default: :quantity', ['quantity' => $packageComponent['default_quantity']]) }}</p></div><div class="w-full sm:w-40"><flux:input wire:model.live.debounce.200ms="packageQuantities.{{ $packageComponentId }}" type="number" step="0.01" min="{{ $packageComponent['minimum_quantity'] }}" max="{{ $packageComponent['maximum_quantity'] }}" label="{{ __('Configured quantity') }}" /></div></div>
+                            <p class="mt-2 text-xs text-zinc-500">{{ __('Allowed: :minimum to :maximum', ['minimum' => $packageComponent['minimum_quantity'], 'maximum' => $packageComponent['maximum_quantity'] ?? __('no maximum')]) }}</p>
+                        </div>
+                    @endforeach
+                </div>
+                @error('packageQuantities')<p class="rounded-xl bg-red-50 p-3 text-sm text-red-700 dark:bg-red-500/10 dark:text-red-300">{{ $message }}</p>@enderror
+                <div class="flex flex-col gap-3 rounded-xl bg-zinc-50 p-4 dark:bg-white/5 sm:flex-row sm:items-center sm:justify-between"><div><p class="text-xs uppercase tracking-wide text-zinc-500">{{ __('Configured package total') }}</p><p class="text-xl font-semibold">{{ money_currency($packageConfigurationPreview['configured_package_total'] ?? 0) }}</p></div><div class="flex justify-end gap-2"><flux:button type="button" variant="ghost" wire:click="$set('showPackageConfigurator', false)">{{ __('Cancel') }}</flux:button><flux:button type="button" variant="primary" wire:click="confirmPackageConfiguration">{{ $configuringPackageKey ? __('Update Package') : __('Add Package') }}</flux:button></div></div>
+            </div>
+        </flux:modal>
     </flux:main>
 </div>

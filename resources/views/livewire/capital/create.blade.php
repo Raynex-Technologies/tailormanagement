@@ -84,7 +84,7 @@
             {{-- Amount --}}
             <div>
                 <flux:label for="initialAmount">{{ __('Initial Amount (TZS)') }} *</flux:label>
-                <flux:input type="number" id="initialAmount" wire:model="initialAmount" step="1" min="1" placeholder="0" />
+                <x-money-input id="initialAmount" wire:model.blur="initialAmount" step="1" min="1" placeholder="0" />
                 @error('initialAmount')
                     <flux:text class="mt-1 text-sm text-red-500">{{ $message }}</flux:text>
                 @enderror

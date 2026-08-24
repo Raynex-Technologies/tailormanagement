@@ -10,6 +10,7 @@ use App\Models\Package;
 use App\Services\Installments\InstallmentCalculator;
 use App\Services\Installments\InstallmentPlanService;
 use App\Support\BranchContext;
+use App\Support\Livewire\NormalizesMoneyInputs;
 use Carbon\CarbonImmutable;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Computed;
@@ -21,13 +22,15 @@ use Livewire\Component;
 #[Title('Create Installment Plan')]
 class Form extends Component
 {
+    use NormalizesMoneyInputs;
+
     public ?int $branch_id = null;
 
     public ?int $customer_id = null;
 
     public ?int $package_id = null;
 
-    public ?float $package_price = null;
+    public string|float|null $package_price = null;
 
     public int $installments_count = 6;
 
@@ -65,7 +68,7 @@ class Form extends Component
             ],
             'package_price' => ['required', 'numeric', 'min:0.01'],
             'installments_count' => ['required', 'integer', 'min:1', 'max:60'],
-            'payment_frequency' => ['required', 'in:' . implode(',', InstallmentFrequency::values())],
+            'payment_frequency' => ['required', 'in:'.implode(',', InstallmentFrequency::values())],
             'start_date' => ['required', 'date'],
             'first_due_date' => ['required', 'date', 'after_or_equal:start_date'],
             'notes' => ['nullable', 'string', 'max:2000'],
@@ -148,6 +151,7 @@ class Form extends Component
 
     public function save(InstallmentPlanService $service)
     {
+        $this->normalizeMoneyInputs();
         $validated = $this->validate();
 
         $plan = $service->create([

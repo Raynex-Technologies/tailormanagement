@@ -31,6 +31,7 @@
         </thead>
         <tbody>
             @forelse ($invoice->lines as $line)
+                @include('invoices.partials.line-group-heading', ['line' => $line, 'columns' => 4])
                 <tr>
                     <td style="border: 0; border-bottom: 1px solid #d6c4a9; text-align: center;">{{ $loop->iteration }}</td>
                     <td style="border: 0; border-bottom: 1px solid #d6c4a9;">

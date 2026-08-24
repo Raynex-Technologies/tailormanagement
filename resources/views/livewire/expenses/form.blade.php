@@ -182,10 +182,9 @@
                 {{-- Amount --}}
                 <div>
                     <flux:label for="amount">{{ __('Amount (TZS)') }} *</flux:label>
-                    <flux:input
-                        type="number"
+                    <x-money-input
                         id="amount"
-                        wire:model="amount"
+                        wire:model.blur="amount"
                         step="1"
                         min="1"
                         placeholder="0"

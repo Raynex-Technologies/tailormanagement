@@ -56,6 +56,7 @@
         </thead>
         <tbody>
             @forelse ($invoice->lines as $line)
+                @include('invoices.partials.line-group-heading', ['line' => $line, 'columns' => 4])
                 <tr style="background: {{ $loop->odd ? '#ffffff' : '#ead8c4' }};">
                     <td style="border: 0; border-radius: 999px 0 0 999px; text-align: center; font-weight: 700;">{{ number_format($line->qty, 0) }}</td>
                     <td style="border: 0;">

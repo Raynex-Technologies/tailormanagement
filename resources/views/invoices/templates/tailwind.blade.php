@@ -222,6 +222,7 @@
         </thead>
         <tbody>
             @forelse ($invoice->lines as $line)
+                @include('invoices.partials.line-group-heading', ['line' => $line, 'columns' => 4])
                 <tr>
                     <td>
                         <strong>{{ $line->item_name }}</strong>

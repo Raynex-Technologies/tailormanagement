@@ -242,7 +242,9 @@
                                     <div class="sm:col-span-2 sm:text-right">
                                         <span class="text-xs text-zinc-500 sm:hidden">{{ __('Est. Price') }}: </span>
                                         <input
-                                            type="number"
+                                            type="text"
+                                            inputmode="decimal"
+                                            data-money-input
                                             wire:model.blur="items.{{ $index }}.unit_price_est"
                                             step="0.01"
                                             min="0"

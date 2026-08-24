@@ -10,6 +10,7 @@ use App\Models\StorefrontCouponUsage;
 use App\Models\StorefrontProductCombo;
 use App\Services\Media\ImageUploadService;
 use App\Support\BranchContext;
+use App\Support\Livewire\NormalizesMoneyInputs;
 use App\Support\StorefrontMedia;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -25,6 +26,7 @@ use Livewire\WithPagination;
 #[Title('Storefront Products')]
 class ProductManager extends Component
 {
+    use NormalizesMoneyInputs;
     use WithFileUploads;
     use WithPagination;
 
@@ -59,9 +61,9 @@ class ProductManager extends Component
 
     public ?int $productCategoryId = null;
 
-    public ?float $productPrice = null;
+    public string|float|null $productPrice = null;
 
-    public ?float $productCompareAtPrice = null;
+    public string|float|null $productCompareAtPrice = null;
 
     public bool $productTrackStock = true;
 
@@ -103,7 +105,7 @@ class ProductManager extends Component
 
     public string $comboDescription = '';
 
-    public ?float $comboPrice = 0;
+    public string|float|null $comboPrice = 0;
 
     public array $comboProductIds = [];
 
@@ -129,9 +131,9 @@ class ProductManager extends Component
 
     public ?float $couponDiscountValue = 0;
 
-    public ?float $couponMinSubtotal = null;
+    public string|float|null $couponMinSubtotal = null;
 
-    public ?float $couponMaxDiscountAmount = null;
+    public string|float|null $couponMaxDiscountAmount = null;
 
     public ?string $couponStartsAt = null;
 
@@ -167,6 +169,7 @@ class ProductManager extends Component
 
     public function saveProduct(): void
     {
+        $this->normalizeMoneyInputs();
         $this->authorize('storefront.catalog.manage');
 
         $validated = $this->validate([
@@ -421,6 +424,7 @@ class ProductManager extends Component
 
     public function saveCombo(): void
     {
+        $this->normalizeMoneyInputs();
         $this->authorize('storefront.catalog.manage');
 
         $validated = $this->validate([
@@ -563,6 +567,7 @@ class ProductManager extends Component
 
     public function saveCoupon(): void
     {
+        $this->normalizeMoneyInputs();
         $this->authorize('storefront.catalog.manage');
 
         $branchId = $this->resolveBranchId();

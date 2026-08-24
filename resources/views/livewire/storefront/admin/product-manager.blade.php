@@ -266,7 +266,7 @@
             <flux:heading size="lg">{{ $editingComboId ? __('Edit Combo') : __('Create Combo') }}</flux:heading>
             <flux:input wire:model.blur="comboName" label="{{ __('Combo Name') }}" required />
             <flux:textarea wire:model.blur="comboDescription" label="{{ __('Description') }}" rows="3" />
-            <flux:input wire:model.blur="comboPrice" type="number" step="0.01" min="0" label="{{ __('Combo Price') }}" />
+            <x-money-input wire:model.blur="comboPrice" step="0.01" min="0" label="{{ __('Combo Price') }}" />
             <flux:input wire:model.blur="comboSortOrder" type="number" min="0" label="{{ __('Sort Order') }}" />
 
             <div>
@@ -329,8 +329,8 @@
                     <flux:select.option value="percent">{{ __('Percent') }}</flux:select.option>
                 </flux:select>
                 <flux:input wire:model.blur="couponDiscountValue" type="number" step="0.01" min="0" label="{{ __('Discount Value') }}" />
-                <flux:input wire:model.blur="couponMinSubtotal" type="number" step="0.01" min="0" label="{{ __('Minimum Subtotal') }}" />
-                <flux:input wire:model.blur="couponMaxDiscountAmount" type="number" step="0.01" min="0" label="{{ __('Maximum Discount') }}" />
+                <x-money-input wire:model.blur="couponMinSubtotal" step="0.01" min="0" label="{{ __('Minimum Subtotal') }}" />
+                <x-money-input wire:model.blur="couponMaxDiscountAmount" step="0.01" min="0" label="{{ __('Maximum Discount') }}" />
                 <flux:input wire:model.blur="couponUsageLimit" type="number" min="1" label="{{ __('Usage Limit') }}" />
                 <flux:input wire:model.blur="couponPerCustomerLimit" type="number" min="1" label="{{ __('Per Customer Limit') }}" />
                 <flux:input wire:model.blur="couponStartsAt" type="datetime-local" label="{{ __('Starts At') }}" />

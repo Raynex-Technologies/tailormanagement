@@ -52,8 +52,8 @@
             <flux:textarea wire:model.blur="productDescription" label="{{ __('Description') }}" rows="4" />
 
             <div class="grid gap-4 sm:grid-cols-2">
-                <flux:input wire:model.blur="productPrice" type="number" step="0.01" min="0" label="{{ __('Price') }}" required />
-                <flux:input wire:model.blur="productCompareAtPrice" type="number" step="0.01" min="0" label="{{ __('Compare At Price') }}" />
+                <x-money-input wire:model.blur="productPrice" step="0.01" min="0" label="{{ __('Price') }}" required />
+                <x-money-input wire:model.blur="productCompareAtPrice" step="0.01" min="0" label="{{ __('Compare At Price') }}" />
             </div>
 
             <div class="grid gap-4 sm:grid-cols-2">

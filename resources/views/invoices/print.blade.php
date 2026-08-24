@@ -2,6 +2,7 @@
     use App\Models\BusinessSetting;
     use App\Models\PaymentMethod;
     use App\Support\InvoiceTemplateResolver;
+    use App\Support\Orders\OrderPackagePresenter;
 
     $settings = $settings ?? BusinessSetting::instance();
     $paymentMethods = ($paymentMethods ?? PaymentMethod::forInvoiceDocument())
@@ -10,6 +11,7 @@
     $template = $template ?? app(InvoiceTemplateResolver::class)->resolve($settings);
     $emailMode = (bool) ($emailMode ?? false);
     $downloadMode = (bool) ($downloadMode ?? false);
+    $invoicePresentation = app(OrderPackagePresenter::class)->forInvoice($invoice);
 @endphp
 <!DOCTYPE html>
 <html lang="en">
@@ -125,6 +127,7 @@
                 'template' => $template,
                 'emailMode' => $emailMode,
                 'downloadMode' => $downloadMode,
+                'invoicePresentation' => $invoicePresentation,
             ]
         )
     </div>

@@ -1,19 +1,21 @@
 <div class="space-y-5">
-    <section class="rounded-2xl bg-[#1e1f2e] p-5 text-white shadow-lg sm:p-6">
+    <section class="rounded-2xl p-5 text-white shadow-lg sm:p-6" style="background: linear-gradient(135deg, var(--tailorpro-primary) 0%, color-mix(in srgb, var(--tailorpro-primary) 88%, #ffffff 12%) 100%);" data-orders-workspace-header>
         <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-                <div class="mb-2 flex items-center gap-2 text-xs font-medium uppercase tracking-wider text-white/55">
-                    <a href="{{ route('orders.index') }}" wire:navigate class="hover:text-lime-300">{{ __('Orders Management') }}</a>
-                    <i class="fa-solid fa-chevron-right text-[9px]"></i>
-                    <span>{{ __('Order Catalog') }}</span>
-                </div>
+                <flux:breadcrumbs class="mb-5 text-white/70">
+                    <flux:breadcrumbs.item :href="route('dashboard')" icon="home" class="!text-white/70 hover:!text-white" wire:navigate />
+                    <flux:breadcrumbs.item :href="route('orders.index')" class="!text-white/70 hover:!text-white" wire:navigate>{{ __('Orders') }}</flux:breadcrumbs.item>
+                    <flux:breadcrumbs.item class="!text-white">{{ __('Order Catalog') }}</flux:breadcrumbs.item>
+                </flux:breadcrumbs>
                 <h1 class="text-2xl font-semibold">{{ __('Order Catalog') }}</h1>
                 <p class="mt-1 max-w-2xl text-sm text-white/65">{{ __('Maintain reusable garments, services and commercial packages for faster order entry.') }}</p>
             </div>
             @if ($tab === 'items' && $canManageItems)
-                <flux:button :href="route('order-catalog.items.create')" wire:navigate variant="primary" icon="plus">{{ __('New Catalog Item') }}</flux:button>
+                <flux:button :href="route('order-catalog.items.create')" wire:navigate variant="primary" icon="plus" class="w-full sm:w-auto">{{ __('New Catalog Item') }}</flux:button>
             @elseif ($tab === 'packages' && $canManagePackages)
-                <flux:button :href="route('order-catalog.packages.create')" wire:navigate variant="primary" icon="plus">{{ __('New Package') }}</flux:button>
+                <flux:button :href="route('order-catalog.packages.create')" wire:navigate variant="primary" icon="plus" class="w-full sm:w-auto">{{ __('New Package') }}</flux:button>
+            @elseif ($tab === 'measurements' && $canManageMeasurements)
+                <flux:button :href="route('order-catalog.measurements.create')" wire:navigate variant="primary" icon="plus" class="w-full sm:w-auto">{{ __('Add Measurement') }}</flux:button>
             @endif
         </div>
     </section>
@@ -29,11 +31,14 @@
         <button wire:click="setTab('packages')" class="flex-1 rounded-lg px-4 py-2.5 text-sm font-semibold transition {{ $tab === 'packages' ? 'bg-lime-400 text-[#1e1f2e] shadow-sm' : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-white/5' }}" role="tab" aria-selected="{{ $tab === 'packages' ? 'true' : 'false' }}">
             <i class="fa-duotone fa-box-open-full mr-2"></i>{{ __('Packages') }}
         </button>
+        <button wire:click="setTab('measurements')" class="flex-1 rounded-lg px-4 py-2.5 text-sm font-semibold transition {{ $tab === 'measurements' ? 'bg-lime-400 text-[#1e1f2e] shadow-sm' : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-white/5' }}" role="tab" aria-selected="{{ $tab === 'measurements' ? 'true' : 'false' }}">
+            <i class="fa-duotone fa-ruler-combined mr-2"></i>{{ __('Measurements') }}
+        </button>
     </div>
 
     <section class="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#1e1f2e]">
         <div class="grid gap-3 md:grid-cols-4">
-            <flux:input wire:model.live.debounce.300ms="search" icon="magnifying-glass" placeholder="{{ $tab === 'items' ? __('Search name or item code') : __('Search name or package code') }}" />
+            <flux:input wire:model.live.debounce.300ms="search" icon="magnifying-glass" placeholder="{{ $tab === 'items' ? __('Search name or item code') : ($tab === 'packages' ? __('Search name or package code') : __('Search measurement name or code')) }}" />
             @if ($tab === 'items')
                 <flux:select wire:model.live="typeFilter" aria-label="{{ __('Filter by type') }}">
                     <flux:select.option value="">{{ __('All types') }}</flux:select.option>
@@ -46,7 +51,16 @@
                 <flux:select.option value="active">{{ __('Active') }}</flux:select.option>
                 <flux:select.option value="archived">{{ __('Archived') }}</flux:select.option>
             </flux:select>
-            @if ($branches->count() > 1)
+            @if ($tab === 'measurements')
+                <flux:select wire:model.live="unitFilter" aria-label="{{ __('Filter by unit') }}">
+                    <flux:select.option value="">{{ __('All units') }}</flux:select.option>
+                    @foreach ($measurementUnits as $unit)<flux:select.option value="{{ $unit }}">{{ strtoupper($unit) }}</flux:select.option>@endforeach
+                </flux:select>
+                <flux:select wire:model.live="categoryFilter" aria-label="{{ __('Filter by garment category') }}">
+                    <flux:select.option value="">{{ __('All categories') }}</flux:select.option>
+                    @foreach ($garmentCategories as $category)<flux:select.option value="{{ $category->id }}">{{ $category->name }}</flux:select.option>@endforeach
+                </flux:select>
+            @elseif ($branches->count() > 1)
                 <flux:select wire:model.live="branchFilter" aria-label="{{ __('Filter by branch') }}">
                     <flux:select.option value="">{{ __('All permitted branches') }}</flux:select.option>
                     @foreach ($branches as $branch)
@@ -106,7 +120,7 @@
             @endforelse
         </div>
         @if ($items->hasPages()) <div>{{ $items->links() }}</div> @endif
-    @else
+    @elseif ($tab === 'packages')
         <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
             @forelse ($packages as $package)
                 @php($summary = $package->pricing_summary)
@@ -145,5 +159,48 @@
             @endforelse
         </div>
         @if ($packages->hasPages()) <div>{{ $packages->links() }}</div> @endif
+    @else
+        <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+            @forelse ($measurements as $measurement)
+                <article class="flex flex-col rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#1e1f2e]">
+                    <div class="flex items-start justify-between gap-3">
+                        <div class="min-w-0">
+                            <p class="font-mono text-xs font-medium text-zinc-500">{{ $measurement->code }}</p>
+                            <h2 class="mt-1 truncate font-semibold text-zinc-900 dark:text-white">{{ $measurement->name }}</h2>
+                        </div>
+                        <flux:badge size="sm" color="{{ $measurement->is_active ? 'lime' : 'zinc' }}">{{ $measurement->is_active ? __('Active') : __('Archived') }}</flux:badge>
+                    </div>
+                    <div class="mt-4 grid grid-cols-2 gap-3 rounded-xl bg-zinc-50 p-3 text-xs dark:bg-white/5">
+                        <div><span class="block text-zinc-400">{{ __('Default unit') }}</span><strong>{{ strtoupper($measurement->default_unit) }}</strong></div>
+                        <div><span class="block text-zinc-400">{{ __('Availability') }}</span><strong>{{ $measurement->is_global ? __('Global') : trans_choice(':count category|:count categories', $measurement->garmentCategories->count(), ['count' => $measurement->garmentCategories->count()]) }}</strong></div>
+                    </div>
+                    <div class="mt-3 flex flex-wrap gap-1.5">
+                        @if ($measurement->is_global)<flux:badge size="sm" color="sky">{{ __('All garments') }}</flux:badge>@endif
+                        @foreach ($measurement->garmentCategories as $category)
+                            <flux:badge size="sm" color="zinc">{{ $category->name }}{{ $category->pivot->is_required ? ' · '.__('Required') : '' }}</flux:badge>
+                        @endforeach
+                        @if (! $measurement->is_global && $measurement->garmentCategories->isEmpty())<span class="text-xs text-amber-600">{{ __('Not assigned to a garment category') }}</span>@endif
+                    </div>
+                    @if ($measurement->instructions)<p class="mt-3 line-clamp-2 text-sm text-zinc-500">{{ $measurement->instructions }}</p>@endif
+                    @if ($canManageMeasurements)
+                        <div class="mt-auto flex items-center justify-end gap-2 pt-4">
+                            <flux:button size="sm" variant="ghost" :href="route('order-catalog.measurements.edit', $measurement)" wire:navigate icon="pencil-square">{{ __('Edit') }}</flux:button>
+                            @if ($measurement->is_active)
+                                <flux:button size="sm" variant="ghost" wire:click="archiveMeasurement({{ $measurement->id }})" wire:confirm="{{ __('Archive this measurement definition? Historical references remain available.') }}">{{ __('Archive') }}</flux:button>
+                            @else
+                                <flux:button size="sm" variant="ghost" wire:click="reactivateMeasurement({{ $measurement->id }})" wire:confirm="{{ __('Reactivate this measurement definition?') }}">{{ __('Reactivate') }}</flux:button>
+                            @endif
+                        </div>
+                    @endif
+                </article>
+            @empty
+                <div class="col-span-full rounded-2xl border border-dashed border-zinc-300 bg-white px-6 py-14 text-center dark:border-white/15 dark:bg-[#1e1f2e]">
+                    <i class="fa-duotone fa-ruler-combined text-4xl text-zinc-300"></i>
+                    <h2 class="mt-4 font-semibold text-zinc-900 dark:text-white">{{ __('No measurement definitions found') }}</h2>
+                    <p class="mt-1 text-sm text-zinc-500">{{ __('Add reusable dimensional measurements and assign them to garment categories.') }}</p>
+                </div>
+            @endforelse
+        </div>
+        @if ($measurements->hasPages()) <div>{{ $measurements->links() }}</div> @endif
     @endif
 </div>

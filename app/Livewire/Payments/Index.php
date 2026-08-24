@@ -7,6 +7,7 @@ use App\Models\Branch;
 use App\Models\Order;
 use App\Models\OrderPayment;
 use App\Models\Scopes\BranchScope;
+use App\Support\Livewire\NormalizesMoneyInputs;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Facades\DB;
 use Livewire\Attributes\Layout;
@@ -19,6 +20,7 @@ use Livewire\WithPagination;
 #[Title('Payments')]
 class Index extends Component
 {
+    use NormalizesMoneyInputs;
     use WithPagination;
 
     #[Url]
@@ -123,6 +125,7 @@ class Index extends Component
 
     public function updateAmount(): void
     {
+        $this->normalizeMoneyInputs();
         if (! $this->canEditAmounts()) {
             abort(403);
         }

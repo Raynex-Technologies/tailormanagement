@@ -9,6 +9,7 @@ use App\Models\OrderPackageTemplateItem;
 use App\Services\Media\ImageUploadService;
 use App\Services\Orders\OrderCatalogAdministrationService;
 use App\Services\Orders\OrderPackagePricingService;
+use App\Support\Livewire\NormalizesMoneyInputs;
 use DomainException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -21,6 +22,7 @@ use Livewire\WithFileUploads;
 #[Title('Package Builder')]
 class PackageForm extends Component
 {
+    use NormalizesMoneyInputs;
     use WithFileUploads;
 
     public ?int $templateId = null;
@@ -146,6 +148,7 @@ class PackageForm extends Component
 
     public function save()
     {
+        $this->normalizeMoneyInputs();
         $this->authorize('order_catalog.packages.manage');
         $validated = $this->validate([
             'name' => ['required', 'string', 'max:255'],

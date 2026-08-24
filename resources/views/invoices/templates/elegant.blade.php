@@ -34,6 +34,7 @@
                 </thead>
                 <tbody>
                     @forelse ($invoice->lines as $line)
+                        @include('invoices.partials.line-group-heading', ['line' => $line, 'columns' => 4])
                         <tr style="background: {{ $loop->odd ? 'rgba(255,255,255,.04)' : 'rgba(255,255,255,.08)' }};">
                             <td style="border-color: rgba(255,255,255,.14); color: #e8fffb;">
                                 <strong>{{ $line->item_name }}</strong>

@@ -95,13 +95,25 @@
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-zinc-100 dark:divide-zinc-800">
-                            @foreach ($deliveryNote->order?->lines ?? [] as $line)
-                                <tr>
-                                    <td class="py-2 text-zinc-900 dark:text-white">{{ $line->item_name }}</td>
-                                    <td class="py-2 text-right text-zinc-600 dark:text-zinc-400">{{ number_format($line->qty, 0) }}</td>
-                                    <td class="py-2 text-right font-mono text-zinc-600 dark:text-zinc-400">{{ number_format($line->unit_price, 0) }}</td>
-                                    <td class="py-2 text-right font-mono text-zinc-900 dark:text-white">{{ number_format($line->line_total, 0) }}</td>
-                                </tr>
+                            @foreach ($deliveryPresentation['groups'] as $group)
+                                @if ($group['type'] === 'package')
+                                    <tr data-delivery-package-group="{{ $group['package']['id'] }}">
+                                        <td colspan="4" class="bg-violet-50 px-3 py-2 font-semibold text-violet-800 dark:bg-violet-950/30 dark:text-violet-200">{{ $group['package']['name'] }}</td>
+                                    </tr>
+                                @elseif ($deliveryPresentation['has_packages'])
+                                    <tr>
+                                        <td colspan="4" class="bg-zinc-50 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:bg-zinc-800/60">{{ __('Additional Items') }}</td>
+                                    </tr>
+                                @endif
+                                @foreach ($group['lines'] as $displayLine)
+                                    @php($line = $displayLine['record'])
+                                    <tr>
+                                        <td class="py-2 pl-3 text-zinc-900 dark:text-white">{{ $displayLine['display_name'] }}</td>
+                                        <td class="py-2 text-right text-zinc-600 dark:text-zinc-400">{{ rtrim(rtrim(number_format((float) $line->qty, 2, '.', ''), '0'), '.') }}</td>
+                                        <td class="py-2 text-right font-mono text-zinc-600 dark:text-zinc-400">{{ number_format($line->unit_price, 0) }}</td>
+                                        <td class="py-2 text-right font-mono text-zinc-900 dark:text-white">{{ number_format($line->line_total, 0) }}</td>
+                                    </tr>
+                                @endforeach
                             @endforeach
                         </tbody>
                         <tfoot>

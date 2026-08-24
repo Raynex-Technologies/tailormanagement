@@ -6,6 +6,7 @@ use App\Enums\ShippingMethodType;
 use App\Models\ShippingMethod;
 use App\Models\ShippingProfile;
 use App\Models\ShippingZone;
+use App\Support\Livewire\NormalizesMoneyInputs;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -17,40 +18,70 @@ use Livewire\Component;
 #[Title('Storefront Shipping')]
 class ShippingManager extends Component
 {
+    use NormalizesMoneyInputs;
+
     public string $tab = 'zones';
 
     public ?int $editingZoneId = null;
+
     public string $zoneName = '';
+
     public string $zoneCountries = '';
+
     public string $zoneRegions = '';
+
     public string $zonePostalCodes = '';
+
     public bool $zoneActive = true;
+
     public int $zoneSort = 0;
 
     public ?int $editingMethodId = null;
+
     public ?int $methodZoneId = null;
+
     public string $methodCode = '';
+
     public string $methodName = '';
+
     public string $methodType = 'flat_rate';
-    public ?float $methodAmount = 0;
+
+    public string|float|null $methodAmount = 0;
+
     public string $methodCurrency = 'TZS';
-    public ?float $methodMinSubtotal = null;
-    public ?float $methodMaxSubtotal = null;
+
+    public string|float|null $methodMinSubtotal = null;
+
+    public string|float|null $methodMaxSubtotal = null;
+
     public ?float $methodMinWeight = null;
+
     public ?float $methodMaxWeight = null;
+
     public ?int $methodMinItems = null;
+
     public ?int $methodMaxItems = null;
-    public ?float $methodFreeShippingThreshold = null;
+
+    public string|float|null $methodFreeShippingThreshold = null;
+
     public string $methodEstimatedDeliveryWindow = '';
+
     public string $methodSettingsJson = '';
+
     public bool $methodActive = true;
+
     public int $methodSort = 0;
 
     public ?int $editingProfileId = null;
+
     public string $profileName = '';
+
     public string $profileDescription = '';
-    public ?float $profileHandlingFee = 0;
+
+    public string|float|null $profileHandlingFee = 0;
+
     public bool $profileDefault = false;
+
     public bool $profileActive = true;
 
     public function mount(): void
@@ -145,6 +176,7 @@ class ShippingManager extends Component
 
     public function saveMethod(): void
     {
+        $this->normalizeMoneyInputs();
         $this->authorize('storefront.shipping.manage');
 
         $codeRule = Rule::unique('shipping_methods', 'code');
@@ -297,6 +329,7 @@ class ShippingManager extends Component
 
     public function saveProfile(): void
     {
+        $this->normalizeMoneyInputs();
         $this->authorize('storefront.shipping.manage');
 
         $nameRule = Rule::unique('shipping_profiles', 'name');
@@ -404,4 +437,3 @@ class ShippingManager extends Component
         return $list->all();
     }
 }
-
