@@ -85,8 +85,7 @@
                     <section class="{{ $showBranchSelector && !$isEdit ? 'lg:col-span-9' : 'lg:col-span-12' }}" aria-labelledby="order-customer-heading" data-order-customer>
                         <h2 id="order-customer-heading" class="sr-only">{{ __('Customer') }}</h2>
 
-                        @if (!$showNewCustomerForm)
-                            @if ($selectedCustomer)
+                        @if ($selectedCustomer)
                                 <div class="flex flex-col gap-3 rounded-xl border border-emerald-200 bg-emerald-50/60 px-4 py-3 dark:border-emerald-500/20 dark:bg-emerald-500/5 sm:flex-row sm:items-center sm:justify-between" data-selected-customer>
                                     <div class="min-w-0">
                                         <p class="truncate font-semibold text-zinc-900 dark:text-white">{{ $selectedCustomer->name }}</p>
@@ -153,61 +152,25 @@
                                         @endif
                                     </div>
 
+                                    @can('users.manage')
                                     <flux:button
                                         type="button"
                                         size="base"
                                         variant="primary"
-                                        wire:click="toggleNewCustomerForm"
+                                        wire:click="openNewCustomerModal"
                                         class="inline-flex w-full items-center justify-center gap-2 self-end sm:w-auto"
                                         :disabled="$showBranchSelector && !$isEdit && !$branch_id"
-                                        aria-expanded="false"
-                                        aria-controls="new-order-customer-fields"
+                                        aria-haspopup="dialog"
                                     >
                                         <x-icon name="contacts_product" class="size-5 shrink-0" />
                                         <span class="text-center">{{ __('New Customer') }}</span>
                                     </flux:button>
+                                    @endcan
                                 </div>
 
                                 @if ($showBranchSelector && !$isEdit && !$branch_id)
                                     <p class="mt-2 text-sm text-amber-600 dark:text-amber-300">{{ __('Select a branch before searching for or creating a customer.') }}</p>
                                 @endif
-                            @endif
-                        @else
-                            <div
-                                id="new-order-customer-fields"
-                                class="space-y-4 rounded-xl border border-zinc-200 bg-zinc-50/70 p-4 dark:border-zinc-700 dark:bg-white/5"
-                                x-init="$nextTick(() => $el.querySelector('input')?.focus())"
-                                data-new-customer-form
-                            >
-                                <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                                    <div>
-                                        <flux:heading size="sm">{{ __('New Customer') }}</flux:heading>
-                                        <p class="mt-1 text-xs text-zinc-500">{{ __('The customer will be created in the order branch when the order is saved.') }}</p>
-                                    </div>
-                                    <flux:button type="button" size="sm" variant="ghost" wire:click="toggleNewCustomerForm" aria-expanded="true" aria-controls="new-order-customer-fields">
-                                        {{ __('Cancel') }}
-                                    </flux:button>
-                                </div>
-
-                                <div class="grid gap-4 sm:grid-cols-2">
-                                    <div>
-                                        <flux:input wire:model="newCustomerName" label="Name" placeholder="Customer name" required />
-                                        @error('newCustomerName')<p class="mt-1 text-sm text-red-500">{{ $message }}</p>@enderror
-                                    </div>
-                                    <div>
-                                        <flux:input wire:model="newCustomerPhone" label="Phone" placeholder="+255..." required />
-                                        @error('newCustomerPhone')<p class="mt-1 text-sm text-red-500">{{ $message }}</p>@enderror
-                                    </div>
-                                    <div>
-                                        <flux:input wire:model="newCustomerEmail" label="Email" type="email" placeholder="email@example.com" />
-                                        @error('newCustomerEmail')<p class="mt-1 text-sm text-red-500">{{ $message }}</p>@enderror
-                                    </div>
-                                    <div>
-                                        <flux:input wire:model="newCustomerAddress" label="Address" placeholder="Customer address" />
-                                        @error('newCustomerAddress')<p class="mt-1 text-sm text-red-500">{{ $message }}</p>@enderror
-                                    </div>
-                                </div>
-                            </div>
                         @endif
 
                         @error('customer_id')
@@ -344,7 +307,11 @@
                                 </div>
                             </div>
                         @endif
-                        <div class="rounded-xl border {{ $linePackageKey ? 'ml-3 border-indigo-100 bg-white dark:border-indigo-500/20 dark:bg-zinc-800' : 'border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800/50' }} p-4" wire:key="line-{{ $line['id'] ?? 'new' }}-{{ $linePackageKey ?? 'ordinary' }}-{{ $line['order_package_template_item_id'] ?? 'custom' }}-{{ $line['package_unit_index'] ?? $index }}">
+                        <div
+                            class="rounded-xl border {{ $linePackageKey ? 'ml-3 border-indigo-100 bg-white dark:border-indigo-500/20 dark:bg-zinc-800' : 'border-zinc-200 bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-800/50' }} p-4"
+                            wire:key="line-{{ $line['id'] ?? 'new' }}-{{ $linePackageKey ?? 'ordinary' }}-{{ $line['order_package_template_item_id'] ?? 'custom' }}-{{ $line['package_unit_index'] ?? $index }}"
+                            x-data="{ qty: @js((string) ($line['qty'] ?? '0')), unitPrice: @js((string) ($line['unit_price'] ?? '0')) }"
+                        >
                             {{-- Line Header --}}
                             <div class="mb-4 flex items-start justify-between">
                                 <div class="flex flex-wrap items-center gap-2">
@@ -397,7 +364,8 @@
                                     @endif
                                 @endcan
                                 <flux:input
-                                    wire:model.live.debounce.250ms="lines.{{ $index }}.qty"
+                                    wire:model.blur="lines.{{ $index }}.qty"
+                                    x-on:input="qty = $event.target.value"
                                     type="number"
                                     step="0.01"
                                     min="0.01"
@@ -410,6 +378,7 @@
                                 @enderror
                                 <x-money-input
                                     wire:model.blur="lines.{{ $index }}.unit_price"
+                                    x-on:tailor-money-input="unitPrice = $event.detail.raw"
                                     step="1"
                                     min="0"
                                     label="Unit Price"
@@ -421,43 +390,37 @@
                                 @enderror
                                 <div>
                                     <label class="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">Line Total</label>
-                                    <div class="flex h-10 items-center rounded-lg bg-zinc-100 px-3 font-mono text-zinc-900 dark:bg-zinc-700 dark:text-white">
+                                    <div class="flex h-10 items-center rounded-lg bg-zinc-100 px-3 font-mono text-zinc-900 dark:bg-zinc-700 dark:text-white" data-line-total-preview x-text="window.TailorMoneyInputs?.multiplyAndFormat(qty, unitPrice) ?? '0'">
                                         {{ number_format($lines[$index]['line_total'] ?? 0, 0) }}
                                     </div>
                                 </div>
                             </div>
 
-                            {{-- Measurements --}}
-                            <div class="mt-4">
-                                <div class="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                                    <label class="text-sm font-medium text-zinc-700 dark:text-zinc-300">Measurements</label>
-                                    <flux:button size="xs" variant="ghost" wire:click="addMeasurement({{ $index }})" type="button">
-                                        <x-icon name="add" class="mr-1 size-3" />
-                                        Add
-                                    </flux:button>
-                                </div>
-                                <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                                    @foreach ($line['measurements'] ?? [] as $mIndex => $measurement)
-                                        <div class="flex items-center gap-2" wire:key="line-{{ $index }}-measurement-{{ $mIndex }}">
-                                            <flux:input
-                                                wire:model="lines.{{ $index }}.measurements.{{ $mIndex }}.key"
-                                                placeholder="e.g. Chest"
-                                                class="flex-1"
-                                            />
-                                            <flux:input
-                                                wire:model="lines.{{ $index }}.measurements.{{ $mIndex }}.value"
-                                                placeholder="e.g. 42 in"
-                                                class="flex-1"
-                                            />
-                                            @if (count($line['measurements']) > 1)
-                                                <flux:button size="xs" variant="ghost" wire:click="removeMeasurement({{ $index }}, {{ $mIndex }})" type="button">
-                                                    <x-icon name="close" class="size-4 text-zinc-400" />
-                                                </flux:button>
+                            {{-- Structured garment measurements --}}
+                            @if ($line['measurement_enabled'] ?? false)
+                                @php($recordedMeasurements = collect($line['measurements'] ?? [])->filter(fn ($row) => filled($row['value'] ?? null)))
+                                @php($requiredMeasurements = collect($line['measurements'] ?? [])->filter(fn ($row) => $row['required'] ?? false))
+                                @php($requiredMissing = $requiredMeasurements->filter(fn ($row) => blank($row['value'] ?? null))->count())
+                                <section class="mt-3 flex flex-col gap-3 rounded-lg border border-zinc-200/80 bg-zinc-50/50 px-3 py-2.5 dark:border-white/10 dark:bg-white/[0.02] sm:flex-row sm:items-center sm:justify-between" aria-label="{{ __('Measurements for :item', ['item' => $line['item_name'] ?: __('order line')]) }}" data-order-line-measurements>
+                                    <div class="min-w-0">
+                                        <p class="text-sm font-medium text-zinc-800 dark:text-zinc-100">{{ __('Measurements') }}</p>
+                                        <p class="mt-0.5 text-xs text-zinc-500" data-measurement-status>
+                                            @if ($recordedMeasurements->isEmpty())
+                                                {{ __('No measurements') }}
+                                            @elseif ($line['measurement_source_revision'] ?? null)
+                                                {{ trans_choice(':count measurement recorded|:count measurements recorded', $recordedMeasurements->count(), ['count' => $recordedMeasurements->count()]) }} · {{ __('Copied from customer measurements') }}
+                                            @elseif ($requiredMissing > 0)
+                                                {{ trans_choice(':count measurement recorded|:count measurements recorded', $recordedMeasurements->count(), ['count' => $recordedMeasurements->count()]) }} · {{ trans_choice(':count required missing', $requiredMissing, ['count' => $requiredMissing]) }}
+                                            @else
+                                                {{ trans_choice(':count measurement recorded|:count measurements recorded', $recordedMeasurements->count(), ['count' => $recordedMeasurements->count()]) }} · {{ __('Complete') }}
                                             @endif
-                                        </div>
-                                    @endforeach
-                                </div>
-                            </div>
+                                        </p>
+                                    </div>
+                                    <flux:button type="button" size="sm" variant="subtle" wire:click="openMeasurementModal({{ $index }})" class="w-full sm:w-auto" aria-label="{{ $recordedMeasurements->isEmpty() ? __('Add measurements for :item', ['item' => $line['item_name']]) : __('Edit measurements for :item', ['item' => $line['item_name']]) }}">
+                                        {{ $recordedMeasurements->isEmpty() ? __('+ Add Measurements') : __('Edit Measurements') }}
+                                    </flux:button>
+                                </section>
+                            @endif
                         </div>
                         @php($previousPackageKey = $linePackageKey)
                     @endforeach
@@ -657,6 +620,203 @@
                 </div>
                 @error('packageQuantities')<p class="rounded-xl bg-red-50 p-3 text-sm text-red-700 dark:bg-red-500/10 dark:text-red-300">{{ $message }}</p>@enderror
                 <div class="flex flex-col gap-3 rounded-xl bg-zinc-50 p-4 dark:bg-white/5 sm:flex-row sm:items-center sm:justify-between"><div><p class="text-xs uppercase tracking-wide text-zinc-500">{{ __('Configured package total') }}</p><p class="text-xl font-semibold">{{ money_currency($packageConfigurationPreview['configured_package_total'] ?? 0) }}</p></div><div class="flex justify-end gap-2"><flux:button type="button" variant="ghost" wire:click="$set('showPackageConfigurator', false)">{{ __('Cancel') }}</flux:button><flux:button type="button" variant="primary" wire:click="confirmPackageConfiguration">{{ $configuringPackageKey ? __('Update Package') : __('Add Package') }}</flux:button></div></div>
+            </div>
+        </flux:modal>
+
+        <flux:modal wire:model.self="showNewCustomerModal" class="w-full max-w-xl" data-new-customer-modal>
+            <form wire:submit="createNewCustomer" class="space-y-5">
+                <div>
+                    <flux:heading size="lg">{{ __('New Customer') }}</flux:heading>
+                    <flux:text class="mt-1">{{ __('Create this customer now in :branch, then continue the order.', ['branch' => $effectiveBranchName ?: __('the selected branch')]) }}</flux:text>
+                </div>
+
+                <div class="grid gap-4 sm:grid-cols-2">
+                    <div>
+                        <flux:input wire:model="newCustomerName" label="{{ __('Name') }}" autocomplete="name" required autofocus />
+                        @error('newCustomerName')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                    </div>
+                    <div>
+                        <flux:input wire:model="newCustomerPhone" label="{{ __('Phone') }}" autocomplete="tel" />
+                        @error('newCustomerPhone')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                    </div>
+                    <div>
+                        <flux:input wire:model="newCustomerEmail" type="email" label="{{ __('Email') }}" autocomplete="email" />
+                        @error('newCustomerEmail')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                    </div>
+                    <div>
+                        <flux:input wire:model="newCustomerAddress" label="{{ __('Address') }}" autocomplete="street-address" />
+                        @error('newCustomerAddress')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
+                    </div>
+                </div>
+
+                <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                    <flux:button type="button" variant="ghost" wire:click="cancelNewCustomerModal" wire:loading.attr="disabled" wire:target="createNewCustomer">{{ __('Cancel') }}</flux:button>
+                    <flux:button type="submit" variant="primary" wire:loading.attr="disabled" wire:target="createNewCustomer">
+                        <span wire:loading.remove wire:target="createNewCustomer">{{ __('Create Customer') }}</span>
+                        <span wire:loading wire:target="createNewCustomer">{{ __('Creating…') }}</span>
+                    </flux:button>
+                </div>
+            </form>
+        </flux:modal>
+
+        <flux:modal wire:model.self="showMeasurementModal" class="w-full max-w-5xl" data-measurement-modal>
+            <div class="space-y-5">
+                <div>
+                    <flux:heading size="lg">{{ __(':action Measurements', ['action' => collect($measurementDraft['measurements'] ?? [])->contains(fn ($row) => filled($row['value'] ?? null)) ? __('Edit') : __('Add')]) }}</flux:heading>
+                    <flux:text class="mt-1">
+                        @if ($measurementModalPackageName)<span class="font-medium">{{ $measurementModalPackageName }}</span><span aria-hidden="true"> · </span>@endif
+                        {{ $measurementDraft['item_name'] ?? __('Garment') }}
+                        @if ($measurementModalLineIndex !== null)<span aria-hidden="true"> · </span>{{ __('Item :number', ['number' => $measurementModalLineIndex + 1]) }}@endif
+                    </flux:text>
+                </div>
+
+                @if ($selectedCustomer && $measurementProfiles->isNotEmpty())
+                    <div class="grid gap-2 rounded-xl bg-emerald-50/60 p-3 dark:bg-emerald-500/5 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end">
+                        <flux:select wire:model="measurementDraft.measurement_profile_selection" label="{{ __('Use Customer Measurements') }}">
+                            <flux:select.option value="">{{ __('Select saved measurements…') }}</flux:select.option>
+                            @foreach ($measurementProfiles as $profile)
+                                <flux:select.option value="{{ $profile->id }}">
+                                    {{ $profile->is_current ? __('Current Measurements') : __('Revision :revision', ['revision' => $profile->revision]) }} — {{ $profile->measured_at?->format('d M Y') ?: __('Date unavailable') }}
+                                </flux:select.option>
+                            @endforeach
+                        </flux:select>
+                        <flux:button type="button" size="sm" variant="subtle" wire:click="applySelectedDraftMeasurementProfile">{{ __('Apply') }}</flux:button>
+                        @error('measurementDraft.measurement_profile_selection')<p class="text-sm text-red-600 sm:col-span-2">{{ $message }}</p>@enderror
+                    </div>
+                @elseif ($selectedCustomer)
+                    <p class="rounded-lg bg-zinc-50 px-3 py-2 text-sm text-zinc-500 dark:bg-white/5">{{ __('No saved customer measurements. Enter values manually.') }}</p>
+                @endif
+
+                @if ($measurementDraft['measurement_pending_profile_id'] ?? null)
+                    <div class="flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-500/20 dark:bg-amber-500/10 dark:text-amber-100 sm:flex-row sm:items-center sm:justify-between">
+                        <span>{{ __('Replace matching entered values with this saved revision? Custom measurements are preserved.') }}</span>
+                        <div class="flex gap-2">
+                            <flux:button type="button" size="xs" variant="ghost" wire:click="cancelApplyDraftMeasurementProfile">{{ __('Cancel') }}</flux:button>
+                            <flux:button type="button" size="xs" variant="primary" wire:click="confirmApplyDraftMeasurementProfile">{{ __('Replace Values') }}</flux:button>
+                        </div>
+                    </div>
+                @endif
+
+                <div class="max-h-[55vh] overflow-y-auto pr-1">
+                    <div class="grid gap-3 md:grid-cols-2" data-compact-measurement-grid>
+                        @foreach ($measurementDraft['measurements'] ?? [] as $mIndex => $measurement)
+                            @php($measurementLabel = ($measurement['label'] ?? '') ?: __('Custom measurement'))
+                            <div class="rounded-xl border border-zinc-200 bg-zinc-50/60 p-3 dark:border-white/10 dark:bg-white/[0.025]" wire:key="measurement-draft-{{ $measurement['measurement_field_id'] ?? 'custom' }}-{{ $mIndex }}">
+                                <div class="mb-2 flex items-start justify-between gap-2">
+                                    <div class="min-w-0">
+                                        @if ($measurement['is_custom'] ?? false)
+                                            <flux:input wire:model="measurementDraft.measurements.{{ $mIndex }}.label" aria-label="{{ __('Custom measurement label') }}" placeholder="{{ __('Exceptional measurement label') }}" />
+                                        @else
+                                            <div class="flex flex-wrap items-center gap-1.5">
+                                                <label class="text-sm font-medium text-zinc-800 dark:text-zinc-100" for="measurement-value-{{ $mIndex }}">{{ $measurementLabel }}</label>
+                                                @if ($measurement['required'] ?? false)<flux:badge color="amber" size="sm">{{ __('Required') }}</flux:badge>@endif
+                                                @if ($measurement['instructions'] ?? null)
+                                                    <button type="button" class="inline-flex size-5 items-center justify-center rounded-full text-xs text-zinc-500 hover:bg-zinc-200 focus:outline-none focus:ring-2 focus:ring-green-500 dark:hover:bg-white/10" title="{{ $measurement['instructions'] }}" aria-label="{{ __('Measuring instructions for :measurement: :instructions', ['measurement' => $measurementLabel, 'instructions' => $measurement['instructions']]) }}">i</button>
+                                                @endif
+                                            </div>
+                                        @endif
+                                    </div>
+                                    <button type="button" class="inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-zinc-400 hover:bg-red-50 hover:text-red-600 focus:outline-none focus:ring-2 focus:ring-red-500 dark:hover:bg-red-500/10" wire:click="removeDraftMeasurement({{ $mIndex }})" aria-label="{{ ($measurement['expected'] ?? false) ? __('Clear value for :measurement', ['measurement' => $measurementLabel]) : __('Remove :measurement', ['measurement' => $measurementLabel]) }}">×</button>
+                                </div>
+
+                                <div class="flex items-center gap-2">
+                                    <div class="min-w-0 flex-1">
+                                        <flux:input id="measurement-value-{{ $mIndex }}" type="text" inputmode="decimal" wire:model="measurementDraft.measurements.{{ $mIndex }}.value" aria-label="{{ __('Value for :measurement', ['measurement' => $measurementLabel]) }}" placeholder="0.00" />
+                                    </div>
+                                    <span class="inline-flex min-w-10 justify-center rounded-lg bg-zinc-200/70 px-2 py-2 text-sm font-semibold text-zinc-700 dark:bg-white/10 dark:text-zinc-200">{{ $measurement['unit'] ?? $measurement['default_unit'] ?? 'cm' }}</span>
+                                </div>
+                                @if (($measurement['required'] ?? false) && blank($measurement['value'] ?? null))<p class="mt-1 text-xs text-amber-700 dark:text-amber-300">{{ __('Required measurement missing') }}</p>@endif
+                                @error("measurementDraft.measurements.$mIndex.value")<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                                @error("measurementDraft.measurements.$mIndex.label")<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+
+                                <details class="mt-2 text-xs text-zinc-500">
+                                    <summary class="cursor-pointer rounded focus:outline-none focus:ring-2 focus:ring-green-500">{{ __('Change unit') }}</summary>
+                                    <div class="mt-2 space-y-2 rounded-lg border border-zinc-200 bg-white p-2 dark:border-white/10 dark:bg-zinc-800">
+                                        <flux:select wire:model.live="measurementDraft.measurements.{{ $mIndex }}.unit" aria-label="{{ __('Unit for :measurement', ['measurement' => $measurementLabel]) }}">
+                                            <flux:select.option value="cm">cm</flux:select.option>
+                                            <flux:select.option value="in">in</flux:select.option>
+                                            <flux:select.option value="kg">kg</flux:select.option>
+                                        </flux:select>
+                                        @if (($measurement['unit'] ?? null) !== ($measurement['initial_unit'] ?? $measurement['unit'] ?? null))
+                                            <flux:checkbox wire:model="measurementDraft.measurements.{{ $mIndex }}.unit_change_confirmed" label="{{ __('I confirmed the value matches this unit; do not convert it.') }}" />
+                                        @endif
+                                    </div>
+                                </details>
+                                @error("measurementDraft.measurements.$mIndex.unit_change_confirmed")<p class="mt-1 text-xs text-red-600">{{ $message }}</p>@enderror
+                            </div>
+                        @endforeach
+                    </div>
+                </div>
+
+                <div class="grid gap-2 border-t border-zinc-200 pt-4 dark:border-zinc-700 sm:grid-cols-[minmax(0,1fr)_auto]">
+                    <flux:select wire:model="measurementDraft.measurement_field_selection" aria-label="{{ __('Measurement type to add') }}">
+                        <flux:select.option value="">{{ __('Add Measurement…') }}</flux:select.option>
+                        @foreach ($measurementDraftFieldOptions as $field)
+                            <flux:select.option value="{{ $field->id }}">{{ $field->name }}</flux:select.option>
+                        @endforeach
+                        <flux:select.option value="custom">{{ __('Other / Custom Measurement') }}</flux:select.option>
+                    </flux:select>
+                    <flux:button type="button" variant="ghost" wire:click="addDraftMeasurement">{{ __('+ Add Measurement') }}</flux:button>
+                    @error('measurementDraft.measurement_field_selection')<p class="text-sm text-red-600 sm:col-span-2">{{ $message }}</p>@enderror
+                </div>
+
+                <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                    <flux:button type="button" variant="ghost" wire:click="cancelMeasurementModal">{{ __('Cancel') }}</flux:button>
+                    <flux:button type="button" variant="primary" wire:click="applyMeasurementModal">{{ __('Apply Measurements') }}</flux:button>
+                </div>
+            </div>
+        </flux:modal>
+
+        <flux:modal wire:model.self="showCustomerMeasurementSavebackModal" class="w-full max-w-2xl" data-customer-measurement-saveback>
+            <div class="space-y-5">
+                <div>
+                    <flux:heading size="lg">{{ __('Customer Measurements') }}</flux:heading>
+                    <flux:text class="mt-1">
+                        @if ($customerMeasurementSaveback['has_current'] ?? false)
+                            {{ __('Some order measurements differ from :customer’s current saved measurements.', ['customer' => $customerMeasurementSaveback['customer_name'] ?? __('this customer')]) }}
+                        @else
+                            {{ __('This order contains reusable measurements for :customer.', ['customer' => $customerMeasurementSaveback['customer_name'] ?? __('this customer')]) }}
+                        @endif
+                    </flux:text>
+                </div>
+
+                @if (($customerMeasurementSaveback['changes'] ?? []) !== [])
+                    <div class="divide-y divide-zinc-200 rounded-xl border border-zinc-200 dark:divide-zinc-700 dark:border-zinc-700">
+                        @foreach ($customerMeasurementSaveback['changes'] as $change)
+                            <div class="grid gap-1 px-3 py-2 text-sm sm:grid-cols-[minmax(0,1fr)_auto]">
+                                <span class="font-medium">{{ $change['label'] }}</span>
+                                <span>
+                                    @if ($change['current'])<span class="text-zinc-500">{{ $change['current']['value'] }} {{ $change['current']['unit'] }} →</span>@endif
+                                    <span class="font-semibold">{{ $change['value'] }} {{ $change['unit'] }}</span>
+                                </span>
+                            </div>
+                        @endforeach
+                    </div>
+                @endif
+
+                @foreach ($customerMeasurementSaveback['conflicts'] ?? [] as $conflict)
+                    <fieldset class="rounded-xl border border-amber-200 bg-amber-50/60 p-3 dark:border-amber-500/20 dark:bg-amber-500/5">
+                        <legend class="px-1 text-sm font-semibold">{{ $conflict['label'] }} · {{ __('Choose reusable value') }}</legend>
+                        <div class="mt-2 space-y-2">
+                            @foreach ($conflict['options'] as $option)
+                                <flux:radio wire:model="customerMeasurementConflictChoices.{{ $conflict['field_id'] }}" value="{{ $option['key'] }}" label="{{ $option['value'] }} {{ $option['unit'] }} — {{ $option['line_label'] }}" />
+                            @endforeach
+                            @if ($conflict['current'])
+                                <flux:radio wire:model="customerMeasurementConflictChoices.{{ $conflict['field_id'] }}" value="keep" label="{{ __('Keep existing customer value (:value :unit)', ['value' => $conflict['current']['value'], 'unit' => $conflict['current']['unit']]) }}" />
+                            @endif
+                        </div>
+                        @error("customerMeasurementConflictChoices.{$conflict['field_id']}")<p class="mt-2 text-sm text-red-600">{{ $message }}</p>@enderror
+                    </fieldset>
+                @endforeach
+
+                <p class="text-xs text-zinc-500">{{ __('Order measurements remain an independent historical snapshot. Saving to the customer creates a new immutable profile revision.') }}</p>
+
+                <div class="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                    <flux:button type="button" variant="ghost" wire:click="saveOrderOnly" wire:loading.attr="disabled">{{ __('Save Order Only') }}</flux:button>
+                    <flux:button type="button" variant="primary" wire:click="saveOrderWithCustomerMeasurements" wire:loading.attr="disabled">
+                        {{ ($customerMeasurementSaveback['has_current'] ?? false) ? __('Update Customer Measurements') : __('Save Measurements to Customer') }}
+                    </flux:button>
+                </div>
             </div>
         </flux:modal>
     </flux:main>

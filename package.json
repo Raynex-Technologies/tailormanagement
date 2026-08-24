@@ -4,7 +4,8 @@
     "type": "module",
     "scripts": {
         "build": "vite build",
-        "dev": "vite"
+        "dev": "vite",
+        "test:money-inputs": "node tests/JavaScript/money-inputs.test.mjs"
     },
     "dependencies": {
         "@fullcalendar/core": "^6.1.20",

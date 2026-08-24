@@ -52,7 +52,7 @@ class OrderLine extends Model
 
     public function measurement(): HasOne
     {
-        return $this->hasOne(OrderMeasurement::class);
+        return $this->hasOne(OrderMeasurement::class)->latestOfMany();
     }
 
     public function assignedTailor(): BelongsTo

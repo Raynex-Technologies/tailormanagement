@@ -25,6 +25,85 @@ const formatMoneyValue = (value) => {
         : `${sign}${groupedInteger}.${fraction}`;
 };
 
+const meaningfulLength = (value) => String(value ?? '').replace(/[,  \s]/g, '').length;
+
+const caretForMeaningfulLength = (formatted, expectedLength) => {
+    if (expectedLength <= 0) {
+        return 0;
+    }
+
+    let seen = 0;
+    for (let index = 0; index < formatted.length; index += 1) {
+        if (! /[,  \s]/.test(formatted[index])) {
+            seen += 1;
+        }
+        if (seen >= expectedLength) {
+            return index + 1;
+        }
+    }
+
+    return formatted.length;
+};
+
+const formatActiveMoneyInput = (input) => {
+    const selectionStart = input.selectionStart ?? input.value.length;
+    const selectionEnd = input.selectionEnd ?? selectionStart;
+    const meaningfulStart = meaningfulLength(input.value.slice(0, selectionStart));
+    const meaningfulEnd = meaningfulLength(input.value.slice(0, selectionEnd));
+    const formatted = formatMoneyValue(input.value);
+
+    input.value = formatted;
+    input.setSelectionRange(
+        caretForMeaningfulLength(formatted, meaningfulStart),
+        caretForMeaningfulLength(formatted, meaningfulEnd),
+    );
+
+    input.dispatchEvent(new CustomEvent('tailor-money-input', {
+        bubbles: true,
+        detail: {
+            raw: normalizeMoneyValue(formatted),
+            formatted,
+        },
+    }));
+};
+
+const decimalParts = (value) => {
+    const normalized = normalizeMoneyValue(value);
+    const match = normalized.match(/^(\d*)(?:\.(\d*))?$/);
+    if (! match) {
+        return null;
+    }
+
+    const integer = match[1] || '0';
+    const fraction = match[2] || '';
+
+    return {
+        digits: BigInt(`${integer}${fraction}` || '0'),
+        scale: fraction.length,
+    };
+};
+
+const multiplyMoneyValue = (quantity, unitPrice) => {
+    const left = decimalParts(quantity);
+    const right = decimalParts(unitPrice);
+    if (! left || ! right) {
+        return '0';
+    }
+
+    const scale = left.scale + right.scale;
+    const product = (left.digits * right.digits).toString().padStart(scale + 1, '0');
+    if (scale === 0) {
+        return product;
+    }
+
+    const decimalIndex = product.length - scale;
+    const normalized = `${product.slice(0, decimalIndex)}.${product.slice(decimalIndex)}`
+        .replace(/\.0+$/, '')
+        .replace(/(\.\d*?)0+$/, '$1');
+
+    return normalized;
+};
+
 const formatMoneyInput = (input) => {
     if (! (input instanceof HTMLInputElement) || document.activeElement === input) {
         return;
@@ -41,16 +120,18 @@ const formatMoneyInputsWithin = (root = document) => {
     root.querySelectorAll?.(moneyInputSelector).forEach(formatMoneyInput);
 };
 
-if (! window.TailorMoneyInputs) {
+if (typeof window !== 'undefined' && ! window.TailorMoneyInputs) {
     window.TailorMoneyInputs = {
         normalize: normalizeMoneyValue,
         format: formatMoneyValue,
+        multiply: multiplyMoneyValue,
+        multiplyAndFormat: (quantity, unitPrice) => formatMoneyValue(multiplyMoneyValue(quantity, unitPrice)),
         formatWithin: formatMoneyInputsWithin,
     };
 
-    document.addEventListener('focusin', (event) => {
-        if (event.target instanceof HTMLInputElement && event.target.matches(moneyInputSelector)) {
-            event.target.value = normalizeMoneyValue(event.target.value);
+    document.addEventListener('input', (event) => {
+        if (event.target instanceof HTMLInputElement && event.target.matches(moneyInputSelector) && ! event.isComposing) {
+            formatActiveMoneyInput(event.target);
         }
     });
 
@@ -91,3 +172,10 @@ if (! window.TailorMoneyInputs) {
         }, { once: true });
     }
 }
+
+export {
+    caretForMeaningfulLength,
+    formatMoneyValue,
+    multiplyMoneyValue,
+    normalizeMoneyValue,
+};

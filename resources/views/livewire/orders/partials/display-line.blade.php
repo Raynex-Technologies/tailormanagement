@@ -31,18 +31,30 @@
         @endif
     </div>
 
-    @if ($line->measurement && ! empty($line->measurement->measurements))
+    @php($measurementSnapshot = app(\App\Support\Orders\OrderMeasurementSnapshot::class)->present($line->measurement))
+    @if ($measurementSnapshot['entries'] !== [])
         <div class="mt-3 border-t border-zinc-200 pt-3 dark:border-zinc-700">
-            <span class="text-xs font-medium uppercase text-zinc-500 dark:text-zinc-400">
-                <i class="fa-duotone fa-ruler size-3 text-zinc-400 dark:text-zinc-500" aria-hidden="true"></i>
-                {{ __('Measurements') }}
-            </span>
-            <div class="mt-2 flex flex-wrap gap-2">
-                @foreach ($line->measurement->measurements as $key => $value)
-                    <span class="inline-flex items-center rounded-full border border-blue-200/60 bg-blue-50 px-3 py-1 text-sm dark:border-blue-800/40 dark:bg-blue-900/20">
-                        <span class="font-medium text-blue-700 dark:text-blue-300">{{ $key }}:</span>
-                        <span class="ml-1 text-blue-600 dark:text-blue-400">{{ $value }}</span>
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <span class="text-xs font-medium uppercase text-zinc-500 dark:text-zinc-400">
+                    <i class="fa-duotone fa-ruler size-3 text-zinc-400 dark:text-zinc-500" aria-hidden="true"></i>
+                    {{ __('Measurements') }}
+                </span>
+                @if ($measurementSnapshot['source'])
+                    <span class="text-xs text-zinc-500">
+                        {{ __('Based on customer measurements from :date', [
+                            'date' => $measurementSnapshot['source']['measured_at']?->format('M d, Y') ?: __('an earlier revision'),
+                        ]) }}
                     </span>
+                @endif
+            </div>
+            <div class="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                @foreach ($measurementSnapshot['entries'] as $entry)
+                    <div class="flex items-baseline justify-between gap-3 rounded-lg border border-zinc-200 bg-white px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900/40">
+                        <span class="font-medium text-zinc-700 dark:text-zinc-200">{{ $entry['label'] }}</span>
+                        <span class="shrink-0 tabular-nums text-zinc-600 dark:text-zinc-300">
+                            {{ $entry['value'] }}@if($entry['unit']) <span class="text-xs text-zinc-500">{{ $entry['unit'] }}</span>@endif
+                        </span>
+                    </div>
                 @endforeach
             </div>
         </div>

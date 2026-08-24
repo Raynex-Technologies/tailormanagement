@@ -61,8 +61,9 @@ class OrderCatalogOrderCompositionTest extends TestCase
         $order = Order::query()->with('lines.measurement')->latest('id')->firstOrFail();
         $this->assertCount(2, $order->lines);
         $this->assertTrue($order->lines->every(fn (OrderLine $line) => $line->order_catalog_item_id === $garment->id));
-        $this->assertSame('40', $order->lines[0]->measurement->measurements['Chest']);
-        $this->assertSame('42', $order->lines[1]->measurement->measurements['Chest']);
+        $this->assertSame(2, $order->lines[0]->measurement->measurements['version']);
+        $this->assertSame('40', collect($order->lines[0]->measurement->measurements['entries'])->firstWhere('label', 'Chest')['value']);
+        $this->assertSame('42', collect($order->lines[1]->measurement->measurements['entries'])->firstWhere('label', 'Chest')['value']);
         $this->assertSame('1000000.00', (string) $order->subtotal);
     }
 
@@ -166,7 +167,9 @@ class OrderCatalogOrderCompositionTest extends TestCase
 
         $this->assertDatabaseHas('order_lines', ['id' => $keptLine->id, 'deleted_at' => null]);
         $this->assertSoftDeleted('order_lines', ['id' => $removedLine->id]);
-        $this->assertSame('40', $keptLine->measurement()->firstOrFail()->measurements['Chest']);
+        $keptSnapshot = $keptLine->measurement()->firstOrFail()->measurements;
+        $this->assertSame(2, $keptSnapshot['version']);
+        $this->assertSame('40', collect($keptSnapshot['entries'])->firstWhere('label', 'Chest')['value']);
         $this->assertSame('8.00', (string) $inventory->stock()->firstOrFail()->qty_on_hand);
 
         $remove = Livewire::test(OrderForm::class, ['order' => $order->fresh()]);

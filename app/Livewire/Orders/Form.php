@@ -13,21 +13,29 @@ use App\Models\Customer;
 use App\Models\InventoryItem;
 use App\Models\InventoryTransaction;
 use App\Models\Invoice;
+use App\Models\MeasurementField;
 use App\Models\Order;
 use App\Models\OrderCatalogItem;
 use App\Models\OrderExpense;
 use App\Models\OrderLine;
-use App\Models\OrderMeasurement;
 use App\Models\OrderPackageInstance;
 use App\Models\OrderPackageTemplate;
 use App\Models\OrderPayment;
 use App\Models\PaymentMethod;
 use App\Models\User;
+use App\Services\Customers\CustomerCreator;
 use App\Services\Inventory\StockMovementService;
+use App\Services\Measurements\CustomerMeasurementProfileService;
 use App\Services\Orders\OrderCatalogCompositionService;
+use App\Services\Orders\OrderMeasurementSavebackService;
+use App\Services\Orders\OrderMeasurementService;
 use App\Services\Orders\OrderPackagePricingService;
 use App\Support\BranchContext;
+use App\Support\Customers\CustomerAccess;
 use App\Support\Livewire\NormalizesMoneyInputs;
+use App\Support\Orders\OrderMeasurementSnapshot;
+use Brick\Math\BigDecimal;
+use Brick\Math\RoundingMode;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
@@ -65,20 +73,33 @@ class Form extends Component
 
     public bool $showCustomerDropdown = false;
 
-    public bool $showNewCustomerForm = false;
+    public bool $showNewCustomerModal = false;
 
     // New customer fields
-    #[Validate('required_if:showNewCustomerForm,true|max:191', as: 'customer name')]
     public string $newCustomerName = '';
 
-    #[Validate('required_if:showNewCustomerForm,true|max:20', as: 'phone')]
     public string $newCustomerPhone = '';
 
-    #[Validate('nullable|email|max:191', as: 'email')]
     public string $newCustomerEmail = '';
 
-    #[Validate('nullable|max:500', as: 'address')]
     public string $newCustomerAddress = '';
+
+    public bool $showMeasurementModal = false;
+
+    public ?int $measurementModalLineIndex = null;
+
+    /** @var array<string, mixed> */
+    public array $measurementDraft = [];
+
+    public bool $showCustomerMeasurementSavebackModal = false;
+
+    /** @var array<string, mixed> */
+    public array $customerMeasurementSaveback = [];
+
+    /** @var array<int|string, string> */
+    public array $customerMeasurementConflictChoices = [];
+
+    public bool $saveCustomerMeasurementRevision = false;
 
     // Order details
     #[Validate('required|date', as: 'order date')]
@@ -243,16 +264,7 @@ class Form extends Component
 
         $this->lines = [];
         foreach ($this->order->lines as $line) {
-            $measurements = $line->measurement?->measurements ?? [];
-            $measurementPairs = [];
-
-            foreach ($measurements as $key => $value) {
-                $measurementPairs[] = ['key' => $key, 'value' => $value];
-            }
-
-            if (empty($measurementPairs)) {
-                $measurementPairs[] = ['key' => '', 'value' => ''];
-            }
+            $measurementState = app(OrderMeasurementSnapshot::class)->editorState($line->measurement);
 
             $this->lines[] = [
                 'id' => $line->id,
@@ -270,9 +282,10 @@ class Form extends Component
                 'unit_price' => (float) $line->unit_price,
                 'line_total' => (float) $line->line_total,
                 'notes' => $line->notes ?? '',
-                'measurements' => $measurementPairs,
+                ...$measurementState,
             ];
         }
+        $this->lines = app(OrderMeasurementService::class)->initializeLineTemplates($this->lines);
 
         $this->order_expenses = [];
         foreach ($this->order->orderExpenses->sortBy('id') as $expense) {
@@ -291,7 +304,7 @@ class Form extends Component
 
     public function addLine(): void
     {
-        $this->lines[] = [
+        $line = [
             'id' => null,
             'inventory_item_id' => null,
             'order_catalog_item_id' => null,
@@ -307,10 +320,9 @@ class Form extends Component
             'unit_price' => 0,
             'line_total' => 0,
             'notes' => '',
-            'measurements' => [
-                ['key' => '', 'value' => ''],
-            ],
+            ...app(OrderMeasurementSnapshot::class)->emptyEditorState(),
         ];
+        $this->lines[] = app(OrderMeasurementService::class)->initializeLineTemplates([$line])[0];
 
         $this->syncOrderExpensesWithSelectedTailors();
     }
@@ -359,10 +371,9 @@ class Form extends Component
             'unit_price' => (float) ($item->default_sell_price ?? 0),
             'line_total' => (float) ($item->default_sell_price ?? 0),
             'notes' => '',
-            'measurements' => [
-                ['key' => '', 'value' => ''],
-            ],
+            ...app(OrderMeasurementSnapshot::class)->emptyEditorState(),
         ];
+        $newLine = app(OrderMeasurementService::class)->initializeLineTemplates([$newLine])[0];
 
         if (count($this->lines) === 1
             && empty($this->lines[0]['id'])
@@ -509,15 +520,359 @@ class Form extends Component
 
     public function addMeasurement(int $lineIndex): void
     {
-        $this->lines[$lineIndex]['measurements'][] = ['key' => '', 'value' => ''];
+        $this->authorizeMeasurementInteraction();
+        abort_unless(isset($this->lines[$lineIndex]) && ($this->lines[$lineIndex]['measurement_enabled'] ?? false), 404);
+
+        $selection = (string) ($this->lines[$lineIndex]['measurement_field_selection'] ?? '');
+        if ($selection === 'custom') {
+            $this->addCustomMeasurement($lineIndex);
+
+            return;
+        }
+
+        $fieldId = filter_var($selection, FILTER_VALIDATE_INT);
+        if (! $fieldId) {
+            $this->addError("lines.$lineIndex.measurement_field_selection", __('Select a measurement to add.'));
+
+            return;
+        }
+
+        if (collect($this->lines[$lineIndex]['measurements'])->contains(
+            fn (array $row): bool => (int) ($row['measurement_field_id'] ?? 0) === $fieldId
+        )) {
+            $this->addError("lines.$lineIndex.measurement_field_selection", __('That measurement is already included for this garment.'));
+
+            return;
+        }
+
+        $field = MeasurementField::query()->active()->findOrFail($fieldId);
+        $this->lines[$lineIndex]['measurements'][] = [
+            'measurement_field_id' => $field->id,
+            'code' => $field->code,
+            'label' => $field->name,
+            'value' => '',
+            'unit' => $field->default_unit,
+            'required' => false,
+            'expected' => false,
+            'is_custom' => false,
+            'instructions' => $field->instructions,
+            'default_unit' => $field->default_unit,
+            'from_snapshot' => false,
+            'value_source' => null,
+        ];
+        $this->lines[$lineIndex]['measurement_field_selection'] = '';
+        $this->resetErrorBag("lines.$lineIndex.measurement_field_selection");
+    }
+
+    public function addCustomMeasurement(int $lineIndex): void
+    {
+        $this->authorizeMeasurementInteraction();
+        abort_unless(isset($this->lines[$lineIndex]) && ($this->lines[$lineIndex]['measurement_enabled'] ?? false), 404);
+
+        $this->lines[$lineIndex]['measurements'][] = [
+            'measurement_field_id' => null,
+            'code' => null,
+            'label' => '',
+            'value' => '',
+            'unit' => 'cm',
+            'required' => false,
+            'expected' => false,
+            'is_custom' => true,
+            'instructions' => null,
+            'default_unit' => 'cm',
+            'from_snapshot' => false,
+            'value_source' => null,
+        ];
+        $this->lines[$lineIndex]['measurement_field_selection'] = '';
     }
 
     public function removeMeasurement(int $lineIndex, int $measurementIndex): void
     {
-        if (count($this->lines[$lineIndex]['measurements']) > 1) {
-            unset($this->lines[$lineIndex]['measurements'][$measurementIndex]);
-            $this->lines[$lineIndex]['measurements'] = array_values($this->lines[$lineIndex]['measurements']);
+        $this->authorizeMeasurementInteraction();
+        abort_unless(isset($this->lines[$lineIndex]['measurements'][$measurementIndex]), 404);
+
+        if ($this->lines[$lineIndex]['measurements'][$measurementIndex]['expected'] ?? false) {
+            $this->lines[$lineIndex]['measurements'][$measurementIndex]['value'] = '';
+            $this->lines[$lineIndex]['measurements'][$measurementIndex]['value_source'] = null;
+
+            return;
         }
+
+        unset($this->lines[$lineIndex]['measurements'][$measurementIndex]);
+        $this->lines[$lineIndex]['measurements'] = array_values($this->lines[$lineIndex]['measurements']);
+    }
+
+    public function applySelectedMeasurementProfile(int $lineIndex): void
+    {
+        $this->authorizeMeasurementInteraction();
+        abort_unless(isset($this->lines[$lineIndex]), 404);
+
+        $profileId = filter_var($this->lines[$lineIndex]['measurement_profile_selection'] ?? null, FILTER_VALIDATE_INT);
+        if (! $profileId) {
+            $this->addError("lines.$lineIndex.measurement_profile_selection", __('Select a saved measurement revision.'));
+
+            return;
+        }
+
+        if (app(OrderMeasurementService::class)->hasReplaceableValues($this->lines[$lineIndex])) {
+            $this->lines[$lineIndex]['measurement_pending_profile_id'] = $profileId;
+
+            return;
+        }
+
+        $this->applyMeasurementProfile($lineIndex, $profileId);
+    }
+
+    public function confirmApplyMeasurementProfile(int $lineIndex): void
+    {
+        $this->authorizeMeasurementInteraction();
+        abort_unless(isset($this->lines[$lineIndex]), 404);
+
+        $profileId = filter_var($this->lines[$lineIndex]['measurement_pending_profile_id'] ?? null, FILTER_VALIDATE_INT);
+        abort_unless($profileId, 404);
+        $this->applyMeasurementProfile($lineIndex, $profileId);
+    }
+
+    public function cancelApplyMeasurementProfile(int $lineIndex): void
+    {
+        $this->authorizeMeasurementInteraction();
+        abort_unless(isset($this->lines[$lineIndex]), 404);
+        $this->lines[$lineIndex]['measurement_pending_profile_id'] = null;
+    }
+
+    public function enterMeasurementsManually(int $lineIndex): void
+    {
+        $this->authorizeMeasurementInteraction();
+        abort_unless(isset($this->lines[$lineIndex]), 404);
+        $this->lines[$lineIndex] = app(OrderMeasurementService::class)->enterManually($this->lines[$lineIndex]);
+    }
+
+    private function applyMeasurementProfile(int $lineIndex, int $profileId): void
+    {
+        $customer = $this->selectedCustomer;
+        if (! $customer) {
+            $this->addError("lines.$lineIndex.measurement_profile_selection", __('Select an authorized customer before using saved measurements.'));
+
+            return;
+        }
+
+        try {
+            $this->lines[$lineIndex] = app(OrderMeasurementService::class)
+                ->applyProfile($this->lines[$lineIndex], $customer, $profileId);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException) {
+            $this->addError("lines.$lineIndex.measurement_profile_selection", __('That saved measurement revision is not available for the selected customer.'));
+        }
+    }
+
+    public function openMeasurementModal(int $lineIndex): void
+    {
+        $this->authorizeMeasurementInteraction();
+        abort_unless(isset($this->lines[$lineIndex]) && ($this->lines[$lineIndex]['measurement_enabled'] ?? false), 404);
+
+        $this->measurementModalLineIndex = $lineIndex;
+        $this->measurementDraft = $this->withInitialMeasurementUnits($this->lines[$lineIndex]);
+        $this->showMeasurementModal = true;
+        $this->resetErrorBag('measurementDraft');
+    }
+
+    public function cancelMeasurementModal(): void
+    {
+        $this->showMeasurementModal = false;
+        $this->measurementModalLineIndex = null;
+        $this->measurementDraft = [];
+        $this->resetErrorBag('measurementDraft');
+    }
+
+    public function addDraftMeasurement(): void
+    {
+        $this->authorizeMeasurementInteraction();
+        abort_unless($this->showMeasurementModal && $this->measurementModalLineIndex !== null, 404);
+
+        $selection = (string) ($this->measurementDraft['measurement_field_selection'] ?? '');
+        if ($selection === 'custom') {
+            $this->measurementDraft['measurements'][] = [
+                'measurement_field_id' => null,
+                'code' => null,
+                'label' => '',
+                'value' => '',
+                'unit' => 'cm',
+                'initial_unit' => 'cm',
+                'unit_change_confirmed' => false,
+                'required' => false,
+                'expected' => false,
+                'is_custom' => true,
+                'instructions' => null,
+                'default_unit' => 'cm',
+                'from_snapshot' => false,
+                'value_source' => null,
+            ];
+            $this->measurementDraft['measurement_field_selection'] = '';
+
+            return;
+        }
+
+        $fieldId = filter_var($selection, FILTER_VALIDATE_INT);
+        if (! $fieldId) {
+            $this->addError('measurementDraft.measurement_field_selection', __('Select a measurement to add.'));
+
+            return;
+        }
+        if (collect($this->measurementDraft['measurements'] ?? [])->contains(
+            fn (array $row): bool => (int) ($row['measurement_field_id'] ?? 0) === $fieldId
+        )) {
+            $this->addError('measurementDraft.measurement_field_selection', __('That measurement is already included for this garment.'));
+
+            return;
+        }
+
+        $field = MeasurementField::query()->active()->findOrFail($fieldId);
+        $this->measurementDraft['measurements'][] = [
+            'measurement_field_id' => $field->id,
+            'code' => $field->code,
+            'label' => $field->name,
+            'value' => '',
+            'unit' => $field->default_unit,
+            'initial_unit' => $field->default_unit,
+            'unit_change_confirmed' => false,
+            'required' => false,
+            'expected' => false,
+            'is_custom' => false,
+            'instructions' => $field->instructions,
+            'default_unit' => $field->default_unit,
+            'from_snapshot' => false,
+            'value_source' => null,
+        ];
+        $this->measurementDraft['measurement_field_selection'] = '';
+        $this->resetErrorBag('measurementDraft.measurement_field_selection');
+    }
+
+    public function removeDraftMeasurement(int $measurementIndex): void
+    {
+        $this->authorizeMeasurementInteraction();
+        abort_unless(isset($this->measurementDraft['measurements'][$measurementIndex]), 404);
+
+        if ($this->measurementDraft['measurements'][$measurementIndex]['expected'] ?? false) {
+            $this->measurementDraft['measurements'][$measurementIndex]['value'] = '';
+            $this->measurementDraft['measurements'][$measurementIndex]['value_source'] = null;
+
+            return;
+        }
+
+        unset($this->measurementDraft['measurements'][$measurementIndex]);
+        $this->measurementDraft['measurements'] = array_values($this->measurementDraft['measurements']);
+    }
+
+    public function applySelectedDraftMeasurementProfile(): void
+    {
+        $this->authorizeMeasurementInteraction();
+        $profileId = filter_var($this->measurementDraft['measurement_profile_selection'] ?? null, FILTER_VALIDATE_INT);
+        if (! $profileId) {
+            $this->addError('measurementDraft.measurement_profile_selection', __('Select a saved measurement revision.'));
+
+            return;
+        }
+
+        if (app(OrderMeasurementService::class)->hasReplaceableValues($this->measurementDraft)) {
+            $this->measurementDraft['measurement_pending_profile_id'] = $profileId;
+
+            return;
+        }
+
+        $this->applyDraftMeasurementProfile($profileId);
+    }
+
+    public function confirmApplyDraftMeasurementProfile(): void
+    {
+        $this->authorizeMeasurementInteraction();
+        $profileId = filter_var($this->measurementDraft['measurement_pending_profile_id'] ?? null, FILTER_VALIDATE_INT);
+        abort_unless($profileId, 404);
+        $this->applyDraftMeasurementProfile($profileId);
+    }
+
+    public function cancelApplyDraftMeasurementProfile(): void
+    {
+        $this->measurementDraft['measurement_pending_profile_id'] = null;
+    }
+
+    public function enterDraftMeasurementsManually(): void
+    {
+        $this->authorizeMeasurementInteraction();
+        $this->measurementDraft = app(OrderMeasurementService::class)->enterManually($this->measurementDraft);
+    }
+
+    public function applyMeasurementModal(): void
+    {
+        $this->authorizeMeasurementInteraction();
+        $lineIndex = $this->measurementModalLineIndex;
+        abort_unless($lineIndex !== null && isset($this->lines[$lineIndex]), 404);
+
+        foreach ($this->measurementDraft['measurements'] ?? [] as $index => $row) {
+            $this->resetErrorBag("measurementDraft.measurements.$index.unit_change_confirmed");
+            $initialUnit = (string) ($row['initial_unit'] ?? $row['unit'] ?? 'cm');
+            if (($row['unit'] ?? $initialUnit) !== $initialUnit && ! ($row['unit_change_confirmed'] ?? false)) {
+                $this->addError("measurementDraft.measurements.$index.unit_change_confirmed", __('Confirm that the entered value matches the selected unit. Values are not converted automatically.'));
+
+                return;
+            }
+        }
+
+        foreach ([
+            'measurement_format',
+            'measurements',
+            'measurement_source_profile_id',
+            'measurement_source_lineage',
+            'measurement_source_revision',
+            'measurement_source_name',
+            'measurement_source_measured_at',
+            'measurement_profile_selection',
+            'measurement_pending_profile_id',
+        ] as $key) {
+            $this->lines[$lineIndex][$key] = $this->measurementDraft[$key] ?? null;
+        }
+
+        $this->cancelMeasurementModal();
+    }
+
+    private function applyDraftMeasurementProfile(int $profileId): void
+    {
+        $customer = $this->selectedCustomer;
+        if (! $customer) {
+            $this->addError('measurementDraft.measurement_profile_selection', __('Select an authorized customer before using saved measurements.'));
+
+            return;
+        }
+
+        try {
+            $this->measurementDraft = app(OrderMeasurementService::class)
+                ->applyProfile($this->measurementDraft, $customer, $profileId);
+            $this->measurementDraft = $this->withInitialMeasurementUnits($this->measurementDraft);
+        } catch (\Illuminate\Database\Eloquent\ModelNotFoundException) {
+            $this->addError('measurementDraft.measurement_profile_selection', __('That saved measurement revision is not available for the selected customer.'));
+        }
+    }
+
+    /** @param array<string, mixed> $state */
+    private function withInitialMeasurementUnits(array $state): array
+    {
+        $state['measurements'] = collect($state['measurements'] ?? [])->map(function (array $row): array {
+            $row['initial_unit'] = $row['unit'] ?? $row['default_unit'] ?? 'cm';
+            $row['unit_change_confirmed'] = false;
+
+            return $row;
+        })->values()->all();
+
+        return $state;
+    }
+
+    private function authorizeMeasurementInteraction(): void
+    {
+        if ($this->isEdit && $this->order) {
+            $this->authorize('update', $this->order);
+
+            return;
+        }
+
+        $this->authorize('create', Order::class);
     }
 
     public function addOrderExpense(): void
@@ -792,23 +1147,35 @@ class Form extends Component
 
     protected function calculateTotals(): void
     {
-        $this->subtotal = 0;
+        $subtotal = BigDecimal::zero();
 
         foreach ($this->lines as $index => $line) {
-            $qty = (float) ($line['qty'] ?? 0);
-            $unitPrice = (float) ($line['unit_price'] ?? 0);
-            $lineTotal = $qty * $unitPrice;
+            try {
+                $qty = BigDecimal::of(filled($line['qty'] ?? null) ? (string) $line['qty'] : '0');
+                $unitPrice = BigDecimal::of(filled($line['unit_price'] ?? null) ? (string) $line['unit_price'] : '0');
+                $lineTotal = $qty->multipliedBy($unitPrice)->toScale(2, RoundingMode::HALF_UP);
+            } catch (\Throwable) {
+                $lineTotal = BigDecimal::zero()->toScale(2);
+            }
 
-            $this->lines[$index]['line_total'] = $lineTotal;
-            $this->subtotal += $lineTotal;
+            $this->lines[$index]['line_total'] = (float) (string) $lineTotal;
+            $subtotal = $subtotal->plus($lineTotal);
         }
 
-        $this->total = $this->subtotal - ($this->discount ?? 0);
+        try {
+            $discount = BigDecimal::of(filled($this->discount) ? (string) $this->discount : '0');
+        } catch (\Throwable) {
+            $discount = BigDecimal::zero();
+        }
+
+        $this->subtotal = (float) (string) $subtotal->toScale(2, RoundingMode::HALF_UP);
+        $this->total = (float) (string) $subtotal->minus($discount)->toScale(2, RoundingMode::HALF_UP);
     }
 
     /** @param array<int, array<string, mixed>> $newLines */
     protected function appendCompositionLines(array $newLines): void
     {
+        $newLines = app(OrderMeasurementService::class)->initializeLineTemplates($newLines);
         $hasOnlyBlankLine = count($this->lines) === 1
             && empty($this->lines[0]['id'])
             && empty($this->lines[0]['item_name'])
@@ -826,6 +1193,7 @@ class Form extends Component
             $this->packages[$packageKey]['configured_snapshot'],
             $packageKey
         );
+        $desiredLines = app(OrderMeasurementService::class)->initializeLineTemplates($desiredLines);
         $existingLines = collect($this->lines)
             ->filter(fn ($line) => ($line['package_key'] ?? null) === $packageKey)
             ->values();
@@ -841,13 +1209,18 @@ class Form extends Component
                 $desired['id'] = $existing['id'] ?? null;
                 $desired['assigned_tailor_id'] = $existing['assigned_tailor_id'] ?? null;
                 $desired['notes'] = $existing['notes'] ?? '';
-                $desired['measurements'] = $existing['measurements'] ?? [['key' => '', 'value' => '']];
+                foreach (array_keys(app(OrderMeasurementSnapshot::class)->emptyEditorState()) as $measurementStateKey) {
+                    $desired[$measurementStateKey] = $existing[$measurementStateKey]
+                        ?? $desired[$measurementStateKey]
+                        ?? app(OrderMeasurementSnapshot::class)->emptyEditorState()[$measurementStateKey];
+                }
                 $desired['order_package_instance_id'] = $existing['order_package_instance_id'] ?? null;
                 $existingLines->forget($matchIndex);
             }
 
             $reconciled[] = $desired;
         }
+        $reconciled = app(OrderMeasurementService::class)->initializeLineTemplates($reconciled);
 
         $firstIndex = collect($this->lines)->search(fn ($line) => ($line['package_key'] ?? null) === $packageKey);
         $ordinaryLines = array_values(array_filter($this->lines, fn ($line) => ($line['package_key'] ?? null) !== $packageKey));
@@ -969,6 +1342,9 @@ class Form extends Component
     public function updatedCustomerSearch(): void
     {
         $this->showCustomerDropdown = strlen($this->customerSearch) >= 2;
+        if (! $this->isEdit && $this->customer_id) {
+            $this->clearUnsavedProfileDerivedMeasurements();
+        }
         $this->customer_id = null;
     }
 
@@ -980,6 +1356,9 @@ class Form extends Component
             ->where('id', $customerId)
             ->first();
         if ($customer) {
+            if (! $this->isEdit && $this->customer_id && $this->customer_id !== $customer->id) {
+                $this->clearUnsavedProfileDerivedMeasurements();
+            }
             $this->customer_id = $customer->id;
             $this->customerSearch = $customer->name;
         }
@@ -988,26 +1367,77 @@ class Form extends Component
 
     public function clearSelectedCustomer(): void
     {
+        if (! $this->isEdit && $this->customer_id) {
+            $this->clearUnsavedProfileDerivedMeasurements();
+        }
         $this->customer_id = null;
         $this->customerSearch = '';
         $this->showCustomerDropdown = false;
     }
 
-    public function toggleNewCustomerForm(): void
+    protected function clearUnsavedProfileDerivedMeasurements(): void
     {
-        if ($this->showNewCustomerForm) {
-            $this->resetNewCustomerDraft();
+        $service = app(OrderMeasurementService::class);
+        $this->lines = collect($this->lines)
+            ->map(fn (array $line): array => $service->clearUnsavedProfileValues($line))
+            ->values()
+            ->all();
+    }
+
+    public function openNewCustomerModal(): void
+    {
+        $this->authorize('users.manage');
+        $branchId = $this->getEffectiveBranchIdForCustomerSearch();
+        if (! $branchId || ! Branch::query()->active()->whereKey($branchId)->exists()) {
+            $this->addError('branch_id', __('Select a valid order branch before creating a customer.'));
 
             return;
         }
 
-        $this->clearSelectedCustomer();
-        $this->showNewCustomerForm = true;
+        $this->resetNewCustomerDraft();
+        $this->showNewCustomerModal = true;
+    }
+
+    public function cancelNewCustomerModal(): void
+    {
+        $this->resetNewCustomerDraft();
+    }
+
+    public function createNewCustomer(CustomerCreator $creator): void
+    {
+        $this->authorize('users.manage');
+        $branchId = $this->getEffectiveBranchIdForCustomerSearch();
+        if (! $branchId) {
+            $this->addError('branch_id', __('Select a valid order branch before creating a customer.'));
+
+            return;
+        }
+
+        $customerRules = $creator->rules($branchId);
+        $validated = $this->validate([
+            'newCustomerName' => $customerRules['name'],
+            'newCustomerPhone' => $customerRules['phone'],
+            'newCustomerEmail' => $customerRules['email'],
+            'newCustomerAddress' => $customerRules['address'],
+        ]);
+
+        $customer = $creator->create(auth()->user(), $branchId, [
+            'name' => $validated['newCustomerName'],
+            'phone' => $validated['newCustomerPhone'],
+            'email' => $validated['newCustomerEmail'],
+            'address' => $validated['newCustomerAddress'],
+        ]);
+
+        $this->customer_id = $customer->id;
+        $this->customerSearch = $customer->name;
+        $this->showCustomerDropdown = false;
+        $this->resetValidation('customer_id');
+        $this->resetNewCustomerDraft();
     }
 
     protected function hasNewCustomerDraft(): bool
     {
-        return $this->showNewCustomerForm && collect([
+        return $this->showNewCustomerModal && collect([
             $this->newCustomerName,
             $this->newCustomerPhone,
             $this->newCustomerEmail,
@@ -1017,7 +1447,7 @@ class Form extends Component
 
     protected function resetNewCustomerDraft(): void
     {
-        $this->showNewCustomerForm = false;
+        $this->showNewCustomerModal = false;
         $this->newCustomerName = '';
         $this->newCustomerPhone = '';
         $this->newCustomerEmail = '';
@@ -1104,7 +1534,20 @@ class Form extends Component
         return $this->isEdit ? "Edit Order {$this->order->order_no}" : 'Create Order';
     }
 
-    public function save(): void
+    public function saveOrderOnly(): void
+    {
+        $this->saveCustomerMeasurementRevision = false;
+        $this->showCustomerMeasurementSavebackModal = false;
+        $this->save(skipCustomerMeasurementPrompt: true);
+    }
+
+    public function saveOrderWithCustomerMeasurements(): void
+    {
+        $this->saveCustomerMeasurementRevision = true;
+        $this->save(skipCustomerMeasurementPrompt: true);
+    }
+
+    public function save(bool $skipCustomerMeasurementPrompt = false): void
     {
         $this->normalizeMoneyInputs();
         $user = auth()->user();
@@ -1191,24 +1634,11 @@ class Form extends Component
             return;
         }
 
-        // Must have customer
-        if (! $this->customer_id && ! $this->showNewCustomerForm) {
-            $this->addError('customer_id', 'Please select a customer or create a new one.');
+        // Customers are persisted and selected before an order can be saved.
+        if (! $this->customer_id) {
+            $this->addError('customer_id', 'Please select or create a customer.');
 
             return;
-        }
-
-        if ($this->showNewCustomerForm) {
-            $this->validate([
-                'newCustomerName' => ['required', 'max:191'],
-                'newCustomerPhone' => [
-                    'required',
-                    'max:20',
-                    Rule::unique('customers', 'phone')
-                        ->where(fn ($query) => $query->where('branch_id', $effectiveBranchId)),
-                ],
-                'newCustomerEmail' => ['nullable', 'email', 'max:191'],
-            ]);
         }
 
         // At least one line with item_name
@@ -1252,19 +1682,32 @@ class Form extends Component
         }
 
         try {
-            DB::transaction(function () use ($effectiveBranchId) {
-                // Create customer if needed (with same branch)
-                if ($this->showNewCustomerForm) {
-                    $customer = Customer::create([
-                        'branch_id' => $effectiveBranchId,
-                        'name' => $this->newCustomerName,
-                        'phone' => $this->newCustomerPhone,
-                        'email' => $this->newCustomerEmail ?: null,
-                        'address' => $this->newCustomerAddress ?: null,
-                    ]);
-                    $this->customer_id = $customer->id;
-                }
+            $preparedMeasurements = app(OrderMeasurementService::class)
+                ->prepareSnapshots($this->lines, $this->selectedCustomer);
 
+            $resolvedCustomerMeasurements = [];
+            $savebackProposal = null;
+            if (auth()->user()?->can('users.manage') && $this->selectedCustomer) {
+                $savebackProposal = app(OrderMeasurementSavebackService::class)
+                    ->proposal($this->selectedCustomer, $this->lines, $this->isEdit);
+            }
+
+            if (! $skipCustomerMeasurementPrompt && $savebackProposal) {
+                $this->customerMeasurementSaveback = $savebackProposal;
+                $this->customerMeasurementConflictChoices = [];
+                $this->saveCustomerMeasurementRevision = false;
+                $this->showCustomerMeasurementSavebackModal = true;
+
+                return;
+            }
+
+            if ($this->saveCustomerMeasurementRevision && $savebackProposal) {
+                CustomerAccess::authorizeManage($this->selectedCustomer);
+                $resolvedCustomerMeasurements = app(OrderMeasurementSavebackService::class)
+                    ->resolvedChanges($savebackProposal, $this->customerMeasurementConflictChoices);
+            }
+
+            DB::transaction(function () use ($effectiveBranchId, $preparedMeasurements, $resolvedCustomerMeasurements) {
                 $this->calculateTotals();
 
                 // Create or update order
@@ -1329,7 +1772,7 @@ class Form extends Component
                 // Handle lines
                 $existingLineIds = [];
 
-                foreach ($this->lines as $lineData) {
+                foreach ($this->lines as $lineIndex => $lineData) {
                     if (empty($lineData['item_name'])) {
                         continue;
                     }
@@ -1370,23 +1813,8 @@ class Form extends Component
                     $existingLineIds[] = $line->id;
                     $this->syncInventoryStockForLine($line, (float) $lineData['qty']);
 
-                    // Handle measurements
-                    $measurements = [];
-                    foreach ($lineData['measurements'] ?? [] as $m) {
-                        if (! empty($m['key'])) {
-                            $measurements[$m['key']] = $m['value'] ?? '';
-                        }
-                    }
-
-                    if (! empty($measurements)) {
-                        OrderMeasurement::updateOrCreate(
-                            ['order_line_id' => $line->id],
-                            ['measurements' => $measurements]
-                        );
-                    } else {
-                        // Remove measurement if empty
-                        OrderMeasurement::where('order_line_id', $line->id)->delete();
-                    }
+                    app(OrderMeasurementService::class)
+                        ->persistPrepared($line, $preparedMeasurements[$lineIndex] ?? ['action' => 'delete']);
                 }
 
                 // Delete removed lines
@@ -1479,6 +1907,17 @@ class Form extends Component
 
                 // Keep invoice aligned with current order details and lines.
                 Invoice::syncFromOrder($order->fresh(['lines']), auth()->id());
+
+                if ($this->saveCustomerMeasurementRevision && $resolvedCustomerMeasurements !== []) {
+                    app(CustomerMeasurementProfileService::class)->createRevision(
+                        customer: $this->selectedCustomer,
+                        changes: $resolvedCustomerMeasurements,
+                        removedFieldIds: [],
+                        measuredAt: now(),
+                        recordedBy: auth()->user(),
+                        notes: __('Saved from order :order', ['order' => $order->order_no]),
+                    );
+                }
 
                 $this->order = $order;
             });
@@ -1729,10 +2168,26 @@ class Form extends Component
         $effectiveBranchName = $inventoryBranchId
             ? Branch::query()->whereKey($inventoryBranchId)->value('name')
             : null;
+        $selectedCustomer = $this->selectedCustomer;
+        $measurementService = app(OrderMeasurementService::class);
+        $measurementProfiles = $selectedCustomer
+            ? $measurementService->boundedProfileOptions($selectedCustomer)
+            : collect();
+        $measurementFieldOptionsByLine = $measurementService->activeFieldOptionsByLine($this->lines);
+        $measurementDraftFieldOptions = $this->showMeasurementModal
+            ? ($measurementService->activeFieldOptionsByLine([$this->measurementDraft])[0] ?? collect())
+            : collect();
+        $measurementModalPackageName = null;
+        if ($this->measurementModalLineIndex !== null) {
+            $packageKey = $this->lines[$this->measurementModalLineIndex]['package_key'] ?? null;
+            $measurementModalPackageName = $packageKey
+                ? ($this->packages[$packageKey]['configured_snapshot']['name'] ?? null)
+                : null;
+        }
 
         return view('livewire.orders.form', [
             'customers' => $customers,
-            'selectedCustomer' => $this->selectedCustomer,
+            'selectedCustomer' => $selectedCustomer,
             'tailors' => $tailors,
             'priorities' => $priorities,
             'branches' => $branches,
@@ -1744,6 +2199,10 @@ class Form extends Component
             'packageConfigurationPreview' => $packageConfigurationPreview,
             'allowOrderDatesFlexibility' => $this->allowsOrderDatesFlexibility(),
             'effectiveBranchName' => $effectiveBranchName,
+            'measurementProfiles' => $measurementProfiles,
+            'measurementFieldOptionsByLine' => $measurementFieldOptionsByLine,
+            'measurementDraftFieldOptions' => $measurementDraftFieldOptions,
+            'measurementModalPackageName' => $measurementModalPackageName,
         ])->title($this->getTitle());
     }
 }

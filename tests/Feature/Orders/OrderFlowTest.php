@@ -705,14 +705,10 @@ class OrderFlowTest extends TestCase
         ]);
 
         Livewire::test(OrderForm::class)
-            ->call('toggleNewCustomerForm')
+            ->call('openNewCustomerModal')
             ->set('newCustomerName', 'Order Customer')
             ->set('newCustomerPhone', '+255700888111')
-            ->call('addLine')
-            ->set('lines.0.item_name', 'Wedding Suit')
-            ->set('lines.0.qty', 1)
-            ->set('lines.0.unit_price', 220000)
-            ->call('save')
+            ->call('createNewCustomer')
             ->assertHasErrors(['newCustomerPhone' => 'unique']);
     }
 

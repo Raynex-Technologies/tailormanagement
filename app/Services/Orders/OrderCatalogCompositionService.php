@@ -47,6 +47,8 @@ class OrderCatalogCompositionService
             'unit_price' => (string) $item->default_selling_price,
             'notes' => '',
             'requires_measurements' => $item->requires_measurements,
+            'catalog_item_type' => $item->type->value,
+            'garment_category_id' => $item->garment_category_id,
             'measurements' => [['key' => '', 'value' => '']],
         ];
 
@@ -100,6 +102,8 @@ class OrderCatalogCompositionService
                 'unit_price' => (string) $component['package_unit_price'],
                 'notes' => '',
                 'requires_measurements' => (bool) ($component['requires_measurements'] ?? false),
+                'catalog_item_type' => $component['catalog_item_type'] ?? null,
+                'garment_category_id' => $component['garment_category_id'] ?? null,
                 'measurements' => [['key' => '', 'value' => '']],
             ];
 

@@ -153,6 +153,7 @@ class OrderPackagePricingService
                     ? $source->image_path
                     : $source->featured_image_path,
                 'catalog_item_type' => $source instanceof OrderCatalogItem ? $source->type->value : null,
+                'garment_category_id' => $source instanceof OrderCatalogItem ? $source->garment_category_id : null,
                 'quantity_behavior' => $source instanceof OrderCatalogItem
                     ? $source->quantity_behavior->value
                     : 'bulk',

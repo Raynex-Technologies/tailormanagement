@@ -86,24 +86,19 @@ class OrderCreateUxTest extends TestCase
             ->assertSet('customerSearch', '');
     }
 
-    public function test_inline_new_customer_disclosure_and_validation_remain_functional(): void
+    public function test_new_customer_modal_disclosure_validation_and_cancel_remain_functional(): void
     {
         $this->actingAsRole('branch_manager', $this->branch);
 
         Livewire::test(OrderForm::class)
-            ->call('toggleNewCustomerForm')
-            ->assertSet('showNewCustomerForm', true)
-            ->assertSeeHtml('data-new-customer-form')
-            ->assertSeeHtml('aria-expanded="true"')
-            ->call('addLine')
-            ->set('lines.0.item_name', 'Custom suit')
-            ->set('lines.0.qty', 1)
-            ->set('lines.0.unit_price', 100000)
-            ->call('save')
-            ->assertHasErrors(['newCustomerName', 'newCustomerPhone'])
-            ->assertSet('showNewCustomerForm', true)
-            ->call('toggleNewCustomerForm')
-            ->assertSet('showNewCustomerForm', false)
+            ->call('openNewCustomerModal')
+            ->assertSet('showNewCustomerModal', true)
+            ->assertSeeHtml('data-new-customer-modal')
+            ->call('createNewCustomer')
+            ->assertHasErrors(['newCustomerName'])
+            ->assertSet('showNewCustomerModal', true)
+            ->call('cancelNewCustomerModal')
+            ->assertSet('showNewCustomerModal', false)
             ->assertSet('newCustomerName', '')
             ->assertSet('newCustomerPhone', '');
     }
@@ -158,12 +153,12 @@ class OrderCreateUxTest extends TestCase
         $this->actingAsRole('admin', $this->branch);
 
         Livewire::test(OrderForm::class)
-            ->call('toggleNewCustomerForm')
+            ->call('openNewCustomerModal')
             ->set('newCustomerName', 'Unsaved Customer')
             ->set('newCustomerPhone', '+255700123456')
             ->set('branch_id', $this->otherBranch->id)
             ->assertSet('branch_id', $this->branch->id)
-            ->assertSet('showNewCustomerForm', true)
+            ->assertSet('showNewCustomerModal', true)
             ->assertSet('newCustomerName', 'Unsaved Customer')
             ->assertHasErrors('branch_id');
     }

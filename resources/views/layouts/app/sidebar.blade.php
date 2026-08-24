@@ -314,7 +314,22 @@
                 @if ($ordersModuleEnabled)
                 @canany(['orders.view', 'order_catalog.view', 'users.view'])
                 <div class="nav-group">
-                    <h3 class="px-3 mb-2 text-[0.65rem] font-semibold uppercase tracking-wider text-white/35">{{ __('Orders') }}</h3>
+                    <h3 class="mb-2 flex items-center justify-between gap-2 px-3 text-[0.65rem] font-semibold uppercase tracking-wider text-white/35">
+                        <span>{{ __('Orders') }}</span>
+                        @can('create', \App\Models\Order::class)
+                            <a
+                                href="{{ route('orders.create') }}"
+                                wire:navigate
+                                @click.stop
+                                aria-label="{{ __('Create Order') }}"
+                                title="{{ __('Create Order') }}"
+                                class="inline-flex size-6 items-center justify-center rounded-md text-lime-300/80 transition hover:bg-white/10 hover:text-lime-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime-300"
+                                data-orders-quick-add
+                            >
+                                <span aria-hidden="true" class="text-base leading-none">+</span>
+                            </a>
+                        @endcan
+                    </h3>
 
                     @can('orders.view')
                     <a 
