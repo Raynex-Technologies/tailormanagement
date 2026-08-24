@@ -2,11 +2,17 @@
 
 namespace App\Livewire\Pos;
 
+use App\Models\BusinessSetting;
 use App\Models\Customer;
 use App\Models\InventoryItem;
+use App\Models\PosSale;
 use App\Services\Pos\PosSaleService;
 use App\Support\BranchContext;
 use App\Support\Livewire\NormalizesMoneyInputs;
+use BaconQrCode\Renderer\Image\SvgImageBackEnd;
+use BaconQrCode\Renderer\ImageRenderer;
+use BaconQrCode\Renderer\RendererStyle\RendererStyle;
+use BaconQrCode\Writer;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -51,6 +57,10 @@ class PosTerminal extends Component
     public ?string $newCustomerEmail = null;
 
     public ?string $newCustomerAddress = null;
+
+    public bool $showReceiptModal = false;
+
+    public ?int $completedSaleId = null;
 
     public function mount(): void
     {
@@ -278,6 +288,8 @@ class PosTerminal extends Component
         session()->flash('success', "Sale {$sale->sale_number} completed.");
 
         $this->dispatch('open-pos-receipt', url: route('pos.sales.show', $sale));
+        $this->completedSaleId = $sale->id;
+        $this->showReceiptModal = true;
         $this->resetSaleForm();
 
         return null;
@@ -317,6 +329,9 @@ class PosTerminal extends Component
         return view('livewire.pos.pos-terminal', [
             'items' => $items,
             'customers' => $customers,
+            'completedSale' => $this->completedSale(),
+            'businessSettings' => BusinessSetting::instance(),
+            'receiptQrCodeSvg' => $this->receiptQrCodeSvg(),
         ]);
     }
 
@@ -363,5 +378,33 @@ class PosTerminal extends Component
     protected function syncAmountPaidToTotal(): void
     {
         $this->amountPaid = $this->total;
+    }
+
+    protected function completedSale(): ?PosSale
+    {
+        if (! $this->completedSaleId) {
+            return null;
+        }
+
+        return PosSale::query()
+            ->with(['items.inventoryItem', 'customer', 'user', 'branch'])
+            ->find($this->completedSaleId);
+    }
+
+    protected function receiptQrCodeSvg(): ?string
+    {
+        $sale = $this->completedSale();
+        $url = $sale?->public_receipt_url;
+
+        if (! $url) {
+            return null;
+        }
+
+        $renderer = new ImageRenderer(
+            new RendererStyle(150),
+            new SvgImageBackEnd
+        );
+
+        return (new Writer($renderer))->writeString($url);
     }
 }

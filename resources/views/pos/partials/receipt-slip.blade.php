@@ -60,7 +60,7 @@
                             @endif
                         </td>
                         <td class="py-1.5 text-center align-top">{{ rtrim(rtrim(number_format((float) $item->quantity, 2), '0'), '.') }}</td>
-                        <td class="py-1.5 text-right align-top font-mono">{{ number_format((float) $item->line_total, 2) }}</td>
+                        <td class="py-1.5 text-right align-top font-mono">{{ money_tzs($item->line_total) }}</td>
                     </tr>
                 @endforeach
             </tbody>
@@ -71,21 +71,21 @@
         <div class="space-y-1 text-sm text-zinc-950">
             <div class="flex justify-between">
                 <span>{{ __('Subtotal') }}</span>
-                <span class="font-mono">{{ number_format((float) $sale->subtotal, 2) }}</span>
+                <span class="font-mono">{{ money_tzs($sale->subtotal) }}</span>
             </div>
             @if ((float) $sale->discount_amount > 0)
                 <div class="flex justify-between">
                     <span>{{ __('Discount') }}</span>
-                    <span class="font-mono">-{{ number_format((float) $sale->discount_amount, 2) }}</span>
+                    <span class="font-mono">-{{ money_tzs($sale->discount_amount) }}</span>
                 </div>
             @endif
             <div class="flex justify-between">
                 <span>{{ __('Tax') }}</span>
-                <span class="font-mono">{{ number_format((float) $sale->tax_amount, 2) }}</span>
+                <span class="font-mono">{{ money_tzs($sale->tax_amount) }}</span>
             </div>
             <div class="flex items-end justify-between pt-2">
                 <span class="text-2xl font-black uppercase tracking-wide">{{ __('Total') }}</span>
-                <span class="font-mono text-xl font-black">{{ number_format((float) $sale->total_amount, 2) }}</span>
+                <span class="font-mono text-xl font-black">{{ money_tzs($sale->total_amount) }}</span>
             </div>
         </div>
 
@@ -94,14 +94,14 @@
         <div class="space-y-1 text-sm text-zinc-950">
             <div class="flex justify-between">
                 <span>{{ \Illuminate\Support\Str::of((string) $sale->payment_method)->replace('_', ' ')->title() }}</span>
-                <span class="font-mono">{{ number_format((float) $sale->amount_paid, 2) }}</span>
+                <span class="font-mono">{{ money_tzs($sale->amount_paid) }}</span>
             </div>
             @if ($sale->payment_reference)
                 <div class="break-all text-xs">{{ $sale->payment_reference }}</div>
             @endif
             <div class="flex justify-between">
                 <span>{{ __('Change') }}</span>
-                <span class="font-mono">{{ number_format((float) $sale->change_amount, 2) }}</span>
+                <span class="font-mono">{{ money_tzs($sale->change_amount) }}</span>
             </div>
         </div>
 
