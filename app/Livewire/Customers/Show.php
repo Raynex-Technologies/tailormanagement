@@ -4,7 +4,7 @@ namespace App\Livewire\Customers;
 
 use App\Enums\PaymentStatus;
 use App\Models\Customer;
-use App\Support\BranchContext;
+use App\Support\Customers\CustomerAccess;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
@@ -16,24 +16,14 @@ class Show extends Component
     use AuthorizesRequests, WithPagination;
 
     public Customer $customer;
+
     public int $ordersPerPage = 10;
 
     protected string $paginationTheme = 'tailwind';
 
     public function mount(Customer $customer): void
     {
-        $this->authorize('users.view');
-
-        $actor = auth()->user();
-        $activeBranchId = BranchContext::id();
-
-        if ($actor && ! $actor->isGlobalAdmin() && $customer->branch_id !== $actor->branch_id) {
-            abort(404);
-        }
-
-        if ($actor && $actor->isGlobalAdmin() && $activeBranchId && $customer->branch_id !== $activeBranchId) {
-            abort(404);
-        }
+        CustomerAccess::authorizeView($customer);
 
         $this->customer = $customer->load('branch');
     }
@@ -60,10 +50,21 @@ class Show extends Component
         ];
 
         $orders = $ordersQuery->paginate($this->ordersPerPage, ['*'], 'ordersPage');
+        $currentMeasurementProfile = $this->customer->currentMeasurementProfile()
+            ->with(['values.field', 'recordedBy'])
+            ->first();
+        $measurementHistory = $this->customer->measurementProfiles()
+            ->where('profile_name', 'Default')
+            ->with('recordedBy')
+            ->orderByDesc('revision')
+            ->limit(8)
+            ->get();
 
         return view('livewire.customers.show', [
             'orders' => $orders,
             'stats' => $stats,
+            'currentMeasurementProfile' => $currentMeasurementProfile,
+            'measurementHistory' => $measurementHistory,
             'canManage' => auth()->user()?->can('users.manage') ?? false,
         ])->title("Customer: {$this->customer->name}");
     }

@@ -64,6 +64,83 @@
         </flux:card>
     </div>
 
+    {{-- Measurement Portfolio --}}
+    <flux:card>
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+                <div class="flex items-center gap-2">
+                    <flux:heading size="lg">{{ __('Measurements') }}</flux:heading>
+                    @if ($currentMeasurementProfile)
+                        <flux:badge color="green" size="sm">{{ __('Revision :revision', ['revision' => $currentMeasurementProfile->revision]) }}</flux:badge>
+                    @endif
+                </div>
+                <flux:text class="mt-1 text-sm text-zinc-500">{{ __('Saved body measurements and immutable revision history.') }}</flux:text>
+            </div>
+            @if ($canManage)
+                <flux:button type="button" variant="subtle" :href="route('customers.measurements.record', $customer)" wire:navigate>
+                    {{ $currentMeasurementProfile ? __('Update Measurements') : __('Record Measurements') }}
+                </flux:button>
+            @endif
+        </div>
+
+        @if (! $currentMeasurementProfile)
+            <div class="mt-5 rounded-xl border border-dashed border-zinc-300 px-5 py-8 text-center dark:border-white/15">
+                <flux:text class="font-medium">{{ __('No saved measurements yet.') }}</flux:text>
+                <flux:text class="mt-1 text-sm text-zinc-500">{{ __('Record a profile when this customer is measured in person.') }}</flux:text>
+            </div>
+        @else
+            <div class="mt-5 grid gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(16rem,1fr)]">
+                <div>
+                    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        @foreach ($currentMeasurementProfile->orderedValues() as $value)
+                            <div class="rounded-xl border border-zinc-200 p-3 dark:border-white/10">
+                                <div class="flex items-start justify-between gap-2">
+                                    <div class="min-w-0">
+                                        <div class="truncate text-sm font-medium">{{ $value->field_label_snapshot ?: $value->field?->name ?: __('Archived measurement') }}</div>
+                                        <div class="mt-0.5 truncate font-mono text-xs text-zinc-500">{{ $value->field_code_snapshot ?: $value->field?->code ?: '—' }}</div>
+                                    </div>
+                                    @if (! ($value->field?->is_active ?? false))
+                                        <flux:badge color="zinc" size="sm">{{ __('Archived') }}</flux:badge>
+                                    @endif
+                                </div>
+                                <div class="mt-2 text-lg font-semibold tabular-nums">{{ $value->value }} <span class="text-xs font-normal text-zinc-500">{{ $value->unit }}</span></div>
+                            </div>
+                        @endforeach
+                    </div>
+                    <div class="mt-4 flex flex-wrap gap-x-5 gap-y-1 text-xs text-zinc-500">
+                        <span>{{ __('Measured: :date', ['date' => $currentMeasurementProfile->measured_at?->format('M d, Y') ?: __('Not recorded')]) }}</span>
+                        <span>{{ __('Recorded by: :name', ['name' => $currentMeasurementProfile->recordedBy?->name ?: __('Former or unavailable user')]) }}</span>
+                    </div>
+                    @if ($currentMeasurementProfile->notes)
+                        <p class="mt-3 whitespace-pre-wrap text-sm text-zinc-600 dark:text-zinc-300">{{ $currentMeasurementProfile->notes }}</p>
+                    @endif
+                </div>
+
+                <div class="border-t border-zinc-200 pt-5 dark:border-white/10 xl:border-l xl:border-t-0 xl:pl-6 xl:pt-0">
+                    <div class="mb-3 text-sm font-medium">{{ __('Revision History') }}</div>
+                    <div class="space-y-2">
+                        @foreach ($measurementHistory as $revision)
+                            <a href="{{ route('customers.measurements.show', [$customer, $revision]) }}" wire:navigate class="flex items-center justify-between rounded-lg px-3 py-2 text-sm hover:bg-zinc-100 focus:outline-none focus:ring-2 focus:ring-green-500 dark:hover:bg-white/5">
+                                <span>
+                                    <span class="font-medium">{{ __('Revision :revision', ['revision' => $revision->revision]) }}</span>
+                                    <span class="ml-1 text-xs text-zinc-500">{{ $revision->measured_at?->format('M d, Y') ?: '—' }}</span>
+                                </span>
+                                @if ($revision->is_current)
+                                    <flux:badge color="green" size="sm">{{ __('Current') }}</flux:badge>
+                                @else
+                                    <span class="text-xs text-zinc-500">{{ __('View') }}</span>
+                                @endif
+                            </a>
+                        @endforeach
+                    </div>
+                    @if ($measurementHistory->count() === 8)
+                        <p class="mt-3 text-xs text-zinc-500">{{ __('Showing the 8 most recent revisions.') }}</p>
+                    @endif
+                </div>
+            </div>
+        @endif
+    </flux:card>
+
     <div class="grid gap-6 lg:grid-cols-3">
         {{-- Customer Details --}}
         <div class="lg:col-span-1 space-y-6">
@@ -180,4 +257,3 @@
         </div>
     </div>
 </flux:main>
-

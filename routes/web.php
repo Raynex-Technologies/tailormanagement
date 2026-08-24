@@ -208,6 +208,11 @@ Route::middleware(['auth', 'verified', 'branch.context'])->group(function () {
     // Customers Management
     Route::prefix('customers')->middleware('can:users.view')->group(function () {
         Route::get('/', \App\Livewire\Customers\Index::class)->name('customers.index');
+        Route::get('/{customer}/measurements/record', \App\Livewire\Customers\MeasurementForm::class)
+            ->middleware('can:users.manage')
+            ->name('customers.measurements.record');
+        Route::get('/{customer}/measurements/{measurementProfile}', \App\Livewire\Customers\MeasurementRevisionShow::class)
+            ->name('customers.measurements.show');
         Route::get('/{customer}', \App\Livewire\Customers\Show::class)->name('customers.show');
     });
 

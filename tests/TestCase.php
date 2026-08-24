@@ -6,9 +6,11 @@ use App\Models\Branch;
 use App\Models\User;
 use App\Support\BranchContext;
 use Database\Seeders\RolesAndPermissionsSeeder;
+use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 use Spatie\Permission\PermissionRegistrar;
+use Tests\Support\TestDatabaseSafetyGuard;
 
 abstract class TestCase extends BaseTestCase
 {
@@ -17,6 +19,18 @@ abstract class TestCase extends BaseTestCase
     protected Branch $branch;
 
     protected Branch $otherBranch;
+
+    /**
+     * Boot Laravel and reject unsafe database configuration before test traits run.
+     */
+    public function createApplication(): Application
+    {
+        $app = parent::createApplication();
+
+        TestDatabaseSafetyGuard::assertApplicationIsSafe($app);
+
+        return $app;
+    }
 
     /**
      * Setup the test environment.
