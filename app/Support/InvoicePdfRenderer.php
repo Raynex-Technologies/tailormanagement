@@ -158,7 +158,7 @@ class InvoicePdfRenderer
         $appendLine('SUMMARY SNAPSHOT');
         $appendLine(str_repeat('-', self::MAX_LINE_LENGTH));
         $appendKeyValue('Branch', $invoice->branch?->name ?? 'N/A');
-        $appendKeyValue('Payment Status', $invoice->order?->payment_status?->label() ?? 'N/A');
+        $appendKeyValue('Payment Status', $invoice->order?->computed_payment_status?->label() ?? 'N/A');
         $appendKeyValue('Paid Amount', money_tzs($invoice->order?->paid_amount ?? 0));
         $appendKeyValue('Balance Due', money_tzs($invoice->order?->balance_due ?? 0));
 
@@ -295,7 +295,7 @@ class InvoicePdfRenderer
         $appendKeyValue('Due Date', optional($invoice->due_date)->format('M d, Y') ?: 'N/A');
         $appendKeyValue('Order', $invoice->order?->order_no ?? 'N/A');
         $appendKeyValue('Branch', $invoice->branch?->name ?? 'N/A');
-        $appendKeyValue('Payment Status', $invoice->order?->payment_status?->label() ?? 'N/A');
+        $appendKeyValue('Payment Status', $invoice->order?->computed_payment_status?->label() ?? 'N/A');
         $appendKeyValue('Paid Amount', money_tzs($invoice->order?->paid_amount ?? 0));
         $appendKeyValue('Balance Due', money_tzs($invoice->order?->balance_due ?? 0));
 

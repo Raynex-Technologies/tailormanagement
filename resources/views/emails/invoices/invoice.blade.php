@@ -28,7 +28,7 @@
         @else
             <p style="margin: 0 0 12px;">Dear {{ $invoice->order?->customer?->name ?? 'Customer' }},</p>
             <p style="margin: 0 0 16px;">
-                Please find your invoice details below. An HTML copy of this invoice is attached for download.
+                Please find your invoice details below. A PDF copy of this invoice is attached.
             </p>
         @endif
 
@@ -49,15 +49,19 @@
             </tr>
             <tr>
                 <td style="padding: 8px 0; color: #6b7280;">Total</td>
-                <td style="padding: 8px 0; text-align: right; font-size: 20px; font-weight: 700;">{{ number_format($invoice->total, 0) }}</td>
+                <td style="padding: 8px 0; text-align: right; font-size: 20px; font-weight: 700;">{{ number_format($financialSummary['total'], 0) }}</td>
             </tr>
             <tr>
                 <td style="padding: 8px 0; color: #6b7280;">Paid Amount</td>
-                <td style="padding: 8px 0; text-align: right; font-weight: 600;">{{ number_format($invoice->order?->paid_amount ?? 0, 0) }}</td>
+                <td style="padding: 8px 0; text-align: right; font-weight: 600;">{{ number_format($financialSummary['paid'], 0) }}</td>
+            </tr>
+            <tr>
+                <td style="padding: 8px 0; color: #6b7280;">Balance Due</td>
+                <td style="padding: 8px 0; text-align: right; font-weight: 600;">{{ number_format($financialSummary['balance'], 0) }}</td>
             </tr>
             <tr>
                 <td style="padding: 8px 0; color: #6b7280;">Payment Status</td>
-                <td style="padding: 8px 0; text-align: right; font-weight: 600;">{{ $invoice->order?->payment_status?->label() ?? 'N/A' }}</td>
+                <td style="padding: 8px 0; text-align: right; font-weight: 600;">{{ $financialSummary['status']?->label() ?? 'N/A' }}</td>
             </tr>
         </table>
 

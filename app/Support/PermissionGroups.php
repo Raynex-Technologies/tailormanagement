@@ -40,6 +40,7 @@ class PermissionGroups
         ],
         'Orders' => [
             'orders.view',
+            'orders.view_kpis',
             'order_catalog.view',
             'order_catalog.items.manage',
             'order_catalog.packages.manage',
@@ -54,6 +55,10 @@ class PermissionGroups
             'orders.materials.manage',
             'delivery_notes.create',
             'delivery_notes.view',
+        ],
+        'Invoices' => [
+            'invoices.view_kpis',
+            'invoices.send_email',
         ],
         'Stock Requests' => [
             'stock_requests.view',
@@ -157,6 +162,17 @@ class PermissionGroups
             'storefront.payments.manage',
         ],
     ];
+
+    protected static array $displayNames = [
+        'orders.view_kpis' => 'View Order KPIs',
+        'invoices.view_kpis' => 'View Invoice KPIs',
+        'invoices.send_email' => 'Send Invoices by Email',
+    ];
+
+    public static function displayName(string $permission): string
+    {
+        return static::$displayNames[$permission] ?? $permission;
+    }
 
     /**
      * Group a collection of permission models by module.

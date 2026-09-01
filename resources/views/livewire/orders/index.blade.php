@@ -27,6 +27,7 @@
             </div>
         </section>
 
+        @if ($canViewKpis)
         @php
             $compactValue = static function (float|int $value, bool $money = false): string {
                 $absolute = abs((float) $value);
@@ -55,9 +56,6 @@
                     <h2 id="orders-kpis-heading" class="text-sm font-semibold text-zinc-900 dark:text-white">{{ __('Order overview') }}</h2>
                     <p class="text-xs text-zinc-500 dark:text-zinc-400">{{ $kpiPeriodLabel }} · {{ __('compared with the previous month') }}</p>
                 </div>
-                <flux:button variant="ghost" icon="funnel" x-on:click="filtersOpen = !filtersOpen" x-bind:aria-expanded="filtersOpen" aria-controls="orders-filters">
-                    <span x-text="filtersOpen ? @js(__('Hide filters')) : @js(__('Filters'))">{{ __('Filters') }}</span>
-                </flux:button>
             </div>
 
             <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -93,6 +91,13 @@
                 @endforeach
             </div>
         </section>
+        @endif
+
+        <div class="mb-4 flex justify-end">
+            <flux:button variant="ghost" icon="funnel" x-on:click="filtersOpen = !filtersOpen" x-bind:aria-expanded="filtersOpen" aria-controls="orders-filters">
+                {{ __('Filters') }}
+            </flux:button>
+        </div>
 
         {{-- Flash Messages --}}
         @if (session('success'))

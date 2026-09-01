@@ -84,15 +84,6 @@
 
                 {{-- Primary actions + 3-dot menu --}}
                 <div class="grid w-full gap-2 sm:w-auto sm:grid-flow-col sm:auto-cols-max sm:items-center">
-                    {{-- Invoice --}}
-                    @if ($order->invoice)
-                        <a href="{{ route('invoices.show', $order->invoice) }}" wire:navigate
-                           class="inline-flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold shadow-sm transition-colors sm:w-auto" style="background: linear-gradient(135deg, #A3E635 0%, #84CC16 100%); color: #1E1F2E;">
-                            <i class="fa-duotone fa-file-invoice size-3.5"></i>
-                            Invoice
-                        </a>
-                    @endif
-
                     {{-- Change Status --}}
                     @if ($canChangeStatus && $nextStatuses->isNotEmpty())
                         <flux:button size="sm" class="w-full sm:w-auto" wire:click="openStatusModal">
@@ -682,10 +673,6 @@
                     </div>
                 @endif
 
-                {{-- Payments Panel --}}
-                @if ($canViewPayments || $canRecordPayments)
-                    <livewire:orders.payments.panel :order="$order" wire:key="payments-panel-{{ $order->id }}" />
-                @endif
             </div>
 
             {{-- Sidebar --}}
@@ -751,6 +738,158 @@
                         @endif
                     </dl>
                 </div>
+
+                {{-- Canonical Invoice / Financial Document --}}
+                @if ($canViewFinancials)
+                    <section class="rounded-2xl border border-zinc-200/50 bg-white p-5 shadow-sm dark:border-zinc-700/50 dark:bg-zinc-800/50" aria-labelledby="order-invoice-heading" data-order-invoice-section>
+                        <div class="flex items-start gap-3">
+                            <div class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-lime-100 dark:bg-lime-900/30">
+                                <i class="fa-duotone fa-file-invoice text-lime-700 dark:text-lime-400" aria-hidden="true"></i>
+                            </div>
+                            <div class="min-w-0 flex-1">
+                                <h3 id="order-invoice-heading" class="text-lg font-semibold text-zinc-900 dark:text-white">{{ __('Invoice') }}</h3>
+
+                                @if ($orderInvoice)
+                                    <div class="mt-1 flex flex-wrap items-center gap-2">
+                                        <a
+                                            href="{{ route('invoices.show', $orderInvoice) }}"
+                                            class="break-all text-base font-semibold text-navy-800 underline decoration-lime-400 decoration-2 underline-offset-4 transition-colors hover:text-lime-700 focus-visible:rounded-sm focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime-500 dark:text-lime-300 dark:hover:text-lime-200"
+                                            wire:navigate
+                                            data-order-invoice-number
+                                        >
+                                            {{ $orderInvoice->invoice_no }}
+                                        </a>
+                                        <flux:badge color="{{ $invoiceFinancialSummary['status']->color() }}" size="sm" data-order-invoice-status>
+                                            {{ $invoiceFinancialSummary['status']->label() }}
+                                        </flux:badge>
+                                    </div>
+                                @endif
+                            </div>
+                        </div>
+
+                        @if ($orderInvoice)
+                            <dl class="mt-4 divide-y divide-zinc-200 text-sm dark:divide-zinc-700">
+                                <div class="flex items-center justify-between gap-3 py-2 first:pt-0">
+                                    <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Total') }}</dt>
+                                    <dd class="min-w-0 break-words text-right font-mono font-semibold text-zinc-900 dark:text-white" data-order-invoice-total>{{ money_tzs($invoiceFinancialSummary['total']) }}</dd>
+                                </div>
+                                <div class="flex items-center justify-between gap-3 py-2">
+                                    <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Paid') }}</dt>
+                                    <dd class="min-w-0 break-words text-right font-mono font-semibold text-emerald-600 dark:text-emerald-400" data-order-invoice-paid>{{ money_tzs($invoiceFinancialSummary['paid']) }}</dd>
+                                </div>
+                                <div class="flex items-center justify-between gap-3 py-2 last:pb-0">
+                                    <dt class="text-zinc-500 dark:text-zinc-400">{{ __('Balance') }}</dt>
+                                    <dd class="min-w-0 break-words text-right font-mono font-semibold {{ $invoiceFinancialSummary['balance'] > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-emerald-600 dark:text-emerald-400' }}" data-order-invoice-balance>{{ money_tzs($invoiceFinancialSummary['balance']) }}</dd>
+                                </div>
+                            </dl>
+
+                            <div class="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
+                                <a
+                                    href="{{ route('invoices.show', $orderInvoice) }}"
+                                    class="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-lime-400 px-3 py-2 text-sm font-semibold text-navy-900 transition-colors hover:bg-lime-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime-500"
+                                    wire:navigate
+                                    data-order-invoice-view-action
+                                >
+                                    <i class="fa-duotone fa-eye" aria-hidden="true"></i>
+                                    {{ __('View Invoice') }}
+                                </a>
+                                @if ($canPrintInvoice)
+                                    <a
+                                        href="{{ route('invoices.print', $orderInvoice) }}"
+                                        class="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-zinc-300 px-3 py-2 text-sm font-semibold text-navy-800 transition-colors hover:border-lime-400 hover:bg-lime-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-lime-500 dark:border-zinc-600 dark:text-white dark:hover:border-lime-500 dark:hover:bg-lime-950/30"
+                                        target="_blank"
+                                        rel="noopener"
+                                        data-order-invoice-print-action
+                                    >
+                                        <i class="fa-duotone fa-print" aria-hidden="true"></i>
+                                        {{ __('Print Invoice') }}
+                                    </a>
+                                @endif
+                            </div>
+                        @else
+                            <div class="mt-4 rounded-xl border border-dashed border-zinc-300 bg-zinc-50 p-4 text-sm dark:border-zinc-700 dark:bg-zinc-900/30" data-order-invoice-unavailable>
+                                <p class="font-medium text-zinc-700 dark:text-zinc-200">{{ __('Invoice unavailable') }}</p>
+                                <p class="mt-1 text-zinc-500 dark:text-zinc-400">{{ __('No accessible invoice is linked to this historical order. No new invoice was created.') }}</p>
+                            </div>
+                        @endif
+                    </section>
+                @endif
+
+                {{-- Payment History --}}
+                @if ($canViewPayments || $canRecordPayments)
+                    <div class="rounded-2xl border border-zinc-200/50 bg-white p-5 shadow-sm dark:border-zinc-700/50 dark:bg-zinc-800/50" data-payment-history-sidebar>
+                        <div class="mb-4 flex items-center justify-between gap-3">
+                            <div class="flex min-w-0 items-center gap-3">
+                                <div class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-emerald-100 dark:bg-emerald-900/30">
+                                    <i class="fa-duotone fa-receipt text-emerald-600 dark:text-emerald-400" aria-hidden="true"></i>
+                                </div>
+                                <h3 class="truncate text-lg font-semibold text-zinc-900 dark:text-white">
+                                    {{ $canViewPayments ? __('Payment History') : __('Payments') }}
+                                </h3>
+                            </div>
+
+                            @if ($canRecordPayments)
+                                <livewire:orders.payments.panel :order="$order" wire:key="payments-panel-{{ $order->id }}" />
+                            @endif
+                        </div>
+
+                        @if ($canViewPayments)
+                            @if ($order->payments->isNotEmpty())
+                                <div class="divide-y divide-zinc-200 dark:divide-zinc-700">
+                                    @foreach ($order->payments->sortByDesc('paid_at') as $payment)
+                                        <div class="py-3 first:pt-0 last:pb-0" data-payment-history-entry>
+                                            <div class="flex items-start justify-between gap-4">
+                                                <div class="min-w-0">
+                                                    <p class="truncate text-sm font-semibold text-zinc-900 dark:text-white" data-payment-history-title>
+                                                        {{ __(':method Payment', ['method' => $payment->paymentMethod?->name ?? __('Default')]) }}
+                                                    </p>
+                                                    <p class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400" data-payment-history-date>
+                                                        {{ $payment->paid_at?->format('M d, Y · H:i') ?? __('Date unavailable') }}
+                                                    </p>
+                                                </div>
+                                                <div class="shrink-0 text-right">
+                                                    <p class="text-sm font-semibold text-emerald-600 dark:text-emerald-400" data-payment-history-amount>
+                                                        {{ money_tzs($payment->amount) }}
+                                                    </p>
+                                                    <p class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400" data-payment-history-method>
+                                                        {{ $payment->paymentMethod?->name ?? __('Default') }}
+                                                    </p>
+                                                </div>
+                                            </div>
+
+                                            @if ($payment->reference || $payment->receiver || $payment->note)
+                                                <div class="mt-2 space-y-0.5 text-xs text-zinc-500 dark:text-zinc-400">
+                                                    @if ($payment->reference || $payment->receiver)
+                                                        <p>
+                                                            @if ($payment->reference)
+                                                                {{ __('Ref: :reference', ['reference' => $payment->reference]) }}
+                                                            @endif
+                                                            @if ($payment->reference && $payment->receiver)
+                                                                <span aria-hidden="true">·</span>
+                                                            @endif
+                                                            @if ($payment->receiver)
+                                                                {{ __('Received by :name', ['name' => $payment->receiver->name]) }}
+                                                            @endif
+                                                        </p>
+                                                    @endif
+                                                    @if ($payment->note)
+                                                        <p class="break-words">{{ $payment->note }}</p>
+                                                    @endif
+                                                </div>
+                                            @endif
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @else
+                                <div class="py-4 text-center">
+                                    <x-icon name="payments" class="mx-auto size-9 text-zinc-300 dark:text-zinc-600" />
+                                    <p class="mt-2 text-sm font-medium text-zinc-700 dark:text-zinc-200">{{ __('No payments recorded') }}</p>
+                                    <p class="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">{{ __('Record the first payment when received.') }}</p>
+                                </div>
+                            @endif
+                        @endif
+                    </div>
+                @endif
 
                 {{-- Customer Info --}}
                 @if ($order->customer)

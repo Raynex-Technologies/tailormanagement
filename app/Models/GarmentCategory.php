@@ -1,6 +1,7 @@
 <?php
 
 namespace App\Models;
+use App\Services\Media\ImageUploadService;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -12,6 +13,8 @@ class GarmentCategory extends Model
         'name',
         'slug',
         'description',
+        'image_path',
+        'image_alt',
         'gender_scope',
         'is_active',
         'sort_order',
@@ -27,6 +30,21 @@ class GarmentCategory extends Model
     public function optionGroups(): HasMany
     {
         return $this->hasMany(GarmentOptionGroup::class);
+    }
+
+    public function fabrics(): BelongsToMany
+    {
+        return $this->belongsToMany(Fabric::class)->withTimestamps();
+    }
+
+    public function getImageUrlAttribute(): ?string
+    {
+        return app(ImageUploadService::class)->publicUrl($this->image_path);
+    }
+
+    public function setImagePathAttribute(mixed $value): void
+    {
+        $this->attributes['image_path'] = app(ImageUploadService::class)->normalizePublicPath($value);
     }
 
     public function legacyMeasurementFields(): HasMany

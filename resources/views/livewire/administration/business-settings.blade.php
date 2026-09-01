@@ -1,49 +1,4 @@
 <div>
-    @php
-        $previewInvoice = (object) [
-            'invoice_no' => 'INV-2026-003979',
-            'issue_date' => now(),
-            'due_date' => now()->addDays(10),
-            'subtotal' => 3460,
-            'discount' => 0,
-            'tax_amount' => 519,
-            'total' => 3979,
-            'notes' => __('Sample terms and conditions for template preview.'),
-            'order' => (object) [
-                'order_no' => 'ORD-2026-001245',
-                'status' => \App\Enums\OrderStatus::InProgress,
-                'payment_status' => \App\Enums\PaymentStatus::Partial,
-                'paid_amount' => 1980,
-                'balance_due' => 1999,
-                'customer' => (object) [
-                    'name' => 'Decines Smith',
-                    'phone' => '+039 123 456 7890',
-                    'email' => 'decinesmith0123@gmail.com',
-                    'address' => '456 Quincy Street, New York, US',
-                ],
-            ],
-            'branch' => (object) [
-                'name' => 'Main Branch',
-            ],
-            'lines' => collect([
-                (object) ['item_name' => 'Invoice Design', 'qty' => 1, 'unit_price' => 230, 'line_total' => 230, 'notes' => null],
-                (object) ['item_name' => 'UI/UX Design', 'qty' => 3, 'unit_price' => 180, 'line_total' => 540, 'notes' => null],
-                (object) ['item_name' => 'Logo Design', 'qty' => 5, 'unit_price' => 130, 'line_total' => 650, 'notes' => null],
-                (object) ['item_name' => 'Web Design', 'qty' => 2, 'unit_price' => 340, 'line_total' => 680, 'notes' => null],
-                (object) ['item_name' => 'Brochure Design', 'qty' => 3, 'unit_price' => 240, 'line_total' => 720, 'notes' => null],
-                (object) ['item_name' => 'Namecard Design', 'qty' => 4, 'unit_price' => 160, 'line_total' => 640, 'notes' => null],
-            ]),
-        ];
-
-        $previewPaymentMethods = collect([
-            (object) [
-                'name' => 'Bank Transfer',
-                'account_number' => '012 345 678 900',
-                'account_holder_name' => 'Nova Musimas',
-            ],
-        ]);
-    @endphp
-
     <flux:main class="p-0">
         <flux:breadcrumbs>
             <flux:breadcrumbs.item :href="route('dashboard')" wire:navigate>{{ __('Dashboard') }}</flux:breadcrumbs.item>
@@ -54,7 +9,7 @@
         <div class="mt-4">
             <flux:heading size="xl">{{ __('Business Settings') }}</flux:heading>
             <flux:text class="text-zinc-500 dark:text-zinc-400">
-                {{ __('Manage business profile, invoice branding, and email settings.') }}
+                {{ __('Manage business profile, orders, payments, taxes, and invoice settings.') }}
             </flux:text>
         </div>
 
@@ -64,60 +19,7 @@
             </flux:callout>
         @endif
 
-        <div class="mt-6 flex flex-wrap gap-2 border-b border-zinc-200 dark:border-zinc-700">
-            <button
-                type="button"
-                wire:click="$set('tab', 'business')"
-                class="shrink-0 whitespace-nowrap rounded-t-lg px-4 py-2.5 text-sm font-medium transition {{ $tab === 'business' ? 'border-b-2 border-lime-500 bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-white' : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800' }}"
-            >
-                {{ __('Business Settings') }}
-            </button>
-            <button
-                type="button"
-                wire:click="$set('tab', 'email')"
-                class="shrink-0 whitespace-nowrap rounded-t-lg px-4 py-2.5 text-sm font-medium transition {{ $tab === 'email' ? 'border-b-2 border-lime-500 bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-white' : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800' }}"
-            >
-                {{ __('Email Settings') }}
-            </button>
-            <button
-                type="button"
-                wire:click="$set('tab', 'orders')"
-                class="shrink-0 whitespace-nowrap rounded-t-lg px-4 py-2.5 text-sm font-medium transition {{ $tab === 'orders' ? 'border-b-2 border-lime-500 bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-white' : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800' }}"
-            >
-                {{ __('Order Settings') }}
-            </button>
-            <button
-                type="button"
-                wire:click="$set('tab', 'payment_methods')"
-                class="shrink-0 whitespace-nowrap rounded-t-lg px-4 py-2.5 text-sm font-medium transition {{ $tab === 'payment_methods' ? 'border-b-2 border-lime-500 bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-white' : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800' }}"
-            >
-                {{ __('Payment Methods') }}
-            </button>
-            <button
-                type="button"
-                wire:click="$set('tab', 'tax')"
-                class="shrink-0 whitespace-nowrap rounded-t-lg px-4 py-2.5 text-sm font-medium transition {{ $tab === 'tax' ? 'border-b-2 border-lime-500 bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-white' : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800' }}"
-            >
-                {{ __('Tax Settings') }}
-            </button>
-            <button
-                type="button"
-                wire:click="$set('tab', 'invoice_templates')"
-                class="shrink-0 whitespace-nowrap rounded-t-lg px-4 py-2.5 text-sm font-medium transition {{ $tab === 'invoice_templates' ? 'border-b-2 border-lime-500 bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-white' : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800' }}"
-            >
-                {{ __('Invoice Templates') }}
-            </button>
-            @can('settings.system-ui.view')
-                <button
-                    type="button"
-                    wire:click="$set('tab', 'system_ui')"
-                    class="shrink-0 whitespace-nowrap rounded-t-lg px-4 py-2.5 text-sm font-medium transition {{ $tab === 'system_ui' ? 'border-b-2 border-lime-500 bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-white' : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800' }}"
-                >
-                    {{ __('System UI Settings') }}
-                </button>
-            @endcan
-            </div>
-        </div>
+        <x-administration.settings-navigation :active="$tab" :wire-tabs="true" />
 
         @if ($tab === 'business')
             <flux:card class="mt-6">
@@ -172,23 +74,6 @@
                     <flux:button type="button" variant="primary" wire:click="saveBusinessSettings">
                         <x-icon name="check" class="mr-1 size-4" />
                         {{ __('Save Business Settings') }}
-                    </flux:button>
-                </div>
-            </flux:card>
-        @endif
-
-        @if ($tab === 'email')
-            <flux:card class="mt-6">
-                <div class="grid gap-4 sm:grid-cols-2">
-                    <flux:input wire:model.blur="email_from_name" label="{{ __('From Name') }}" />
-                    <flux:input wire:model.blur="email_from_address" type="email" label="{{ __('From Email') }}" />
-                    <flux:input wire:model.blur="email_reply_to" type="email" label="{{ __('Reply-To Email') }}" />
-                </div>
-
-                <div class="mt-6 flex justify-end">
-                    <flux:button type="button" variant="primary" wire:click="saveEmailSettings">
-                        <x-icon name="check" class="mr-1 size-4" />
-                        {{ __('Save Email Settings') }}
                     </flux:button>
                 </div>
             </flux:card>
@@ -515,88 +400,151 @@
         @endif
 
         @if ($tab === 'invoice_templates')
-            <flux:card class="mt-6 space-y-6">
-                <div class="flex flex-col gap-2">
-                    <flux:heading size="lg">{{ __('Invoice Templates') }}</flux:heading>
-                    <flux:text class="text-zinc-500 dark:text-zinc-400">
-                        {{ __('Choose the layout used for invoice print, email attachment, and PDF download.') }}
-                    </flux:text>
-                    <p class="text-xs text-zinc-500 dark:text-zinc-400">
-                        {{ __('Current active template:') }}
-                        <span class="font-semibold text-zinc-900 dark:text-zinc-100">{{ $activeInvoiceTemplate->name }}</span>
-                    </p>
+            <flux:card class="mt-6 space-y-6" aria-labelledby="invoice-template-settings-heading">
+                <div class="flex flex-col justify-between gap-4 sm:flex-row sm:items-start">
+                    <div class="max-w-3xl">
+                        <flux:heading id="invoice-template-settings-heading" size="lg">{{ __('Invoice Templates') }}</flux:heading>
+                        <flux:text class="mt-2 text-zinc-500 dark:text-zinc-400">
+                            {{ __('Choose the invoice design used for viewing, printing, PDF downloads and customer email attachments.') }}
+                        </flux:text>
+                    </div>
+
+                    <div class="shrink-0 rounded-xl border border-lime-300 bg-lime-50 px-3 py-2 dark:border-lime-500/50 dark:bg-lime-400/10" data-current-invoice-template>
+                        <p class="text-[11px] font-semibold uppercase tracking-wide text-lime-800 dark:text-lime-300">{{ __('Current template') }}</p>
+                        <p class="mt-0.5 text-sm font-bold text-zinc-900 dark:text-white">{{ $activeInvoiceTemplate->name }}</p>
+                    </div>
                 </div>
 
                 @error('invoice_template_id')
-                    <p class="text-sm text-red-500">{{ $message }}</p>
+                    <flux:callout variant="danger" icon="exclamation-triangle">
+                        {{ $message }}
+                    </flux:callout>
                 @enderror
 
-                <div class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                <div class="grid gap-5 md:grid-cols-2 xl:grid-cols-3" data-invoice-template-grid>
                     @foreach ($invoiceTemplates as $template)
-                        @php($isSelected = (int) $invoice_template_id === (int) $template->id)
+                        @php($isActiveTemplate = (int) $activeInvoiceTemplate->id === (int) $template->id)
 
-                        <button
-                            type="button"
-                            wire:click="$set('invoice_template_id', {{ $template->id }})"
-                            class="rounded-xl border p-4 text-left transition focus:outline-none focus:ring-2 focus:ring-lime-500 {{ $isSelected ? 'border-lime-500 bg-lime-50/60 dark:border-lime-500 dark:bg-lime-900/20' : 'border-zinc-200 bg-white hover:border-lime-300 dark:border-zinc-700 dark:bg-zinc-900/40 dark:hover:border-zinc-500' }}"
+                        <article
+                            wire:key="invoice-template-card-{{ $template->id }}"
+                            data-invoice-template-card="{{ $template->slug }}"
+                            @if ($isActiveTemplate) data-active-invoice-template="true" @endif
+                            @class([
+                                'flex h-full flex-col overflow-hidden rounded-2xl border bg-white transition dark:bg-zinc-900/50',
+                                'border-lime-400 ring-1 ring-lime-300 dark:border-lime-500 dark:ring-lime-500/30' => $isActiveTemplate,
+                                'border-zinc-200 hover:border-zinc-300 dark:border-zinc-700 dark:hover:border-zinc-600' => ! $isActiveTemplate,
+                            ])
                         >
-                            <input type="radio" class="sr-only" name="invoice_template_id" value="{{ $template->id }}" @checked($isSelected)>
-
-                            @php(ob_start())
-                            @includeFirst(
-                                [$template->blade_view, 'invoices.templates.classic'],
-                                [
-                                    'invoice' => $previewInvoice,
-                                    'settings' => $settings,
-                                    'paymentMethods' => $previewPaymentMethods,
-                                    'template' => $template,
-                                ]
-                            )
-                            @php($previewHtml = ob_get_clean())
-
-                            <div class="relative mb-4 h-40 overflow-hidden rounded-lg border border-zinc-200 bg-zinc-100 dark:border-zinc-700 dark:bg-zinc-900/60">
-                                <iframe
-                                    class="pointer-events-none h-full w-full border-0 bg-white"
-                                    title="{{ $template->name }} {{ __('preview') }}"
-                                    loading="lazy"
-                                    sandbox="allow-same-origin"
-                                    srcdoc="{{ $previewHtml }}"
-                                ></iframe>
+                            <div class="border-b border-zinc-200 bg-zinc-200/70 p-3 dark:border-zinc-700 dark:bg-zinc-950/70">
+                                <x-invoices.template-preview-frame :template="$template" />
                             </div>
 
-                            <div class="flex items-start justify-between gap-2">
-                                <h3 class="text-base font-semibold text-zinc-900 dark:text-zinc-100">{{ $template->name }}</h3>
-                                <div class="flex items-center gap-1.5">
-                                    @if ($template->is_default)
-                                        <span class="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
+                            <div class="flex flex-1 flex-col gap-4 p-4">
+                                <div class="flex items-start justify-between gap-3">
+                                    <div>
+                                        <h3 class="text-base font-bold text-zinc-900 dark:text-zinc-100">{{ $template->name }}</h3>
+                                        <p class="mt-1 min-h-10 text-sm leading-5 text-zinc-500 line-clamp-2 dark:text-zinc-400">
+                                            {{ $template->description ?: __('Invoice layout option.') }}
+                                        </p>
+                                    </div>
+
+                                    @if ($isActiveTemplate)
+                                        <span class="shrink-0 rounded-full bg-lime-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-lime-800 dark:bg-lime-400/15 dark:text-lime-300">
+                                            {{ __('Currently Active') }}
+                                        </span>
+                                    @elseif ($template->is_default)
+                                        <span class="shrink-0 rounded-full bg-zinc-100 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
                                             {{ __('Default') }}
                                         </span>
                                     @endif
-                                    @if ($isSelected)
-                                        <span class="rounded-full bg-lime-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-lime-700 dark:bg-lime-900/40 dark:text-lime-300">
-                                            {{ __('Selected') }}
-                                        </span>
-                                    @endif
+                                </div>
+
+                                <div class="mt-auto flex flex-col gap-2 sm:flex-row sm:items-center">
+                                    <flux:button
+                                        type="button"
+                                        size="sm"
+                                        variant="outline"
+                                        class="min-h-10 sm:flex-1"
+                                        wire:click="openInvoiceTemplatePreview({{ $template->id }})"
+                                        wire:loading.attr="disabled"
+                                        wire:target="openInvoiceTemplatePreview({{ $template->id }})"
+                                    >
+                                        {{ __('Preview') }}
+                                    </flux:button>
+
+                                    @unless ($isActiveTemplate)
+                                        <flux:button
+                                            type="button"
+                                            size="sm"
+                                            variant="primary"
+                                            class="min-h-10 sm:flex-1"
+                                            wire:click="activateInvoiceTemplate({{ $template->id }})"
+                                            wire:loading.attr="disabled"
+                                            wire:target="activateInvoiceTemplate({{ $template->id }})"
+                                        >
+                                            {{ __('Use This Template') }}
+                                        </flux:button>
+                                    @endunless
                                 </div>
                             </div>
-
-                            <p class="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-                                {{ $template->description ?: __('Invoice layout option.') }}
-                            </p>
-                            <p class="mt-1 text-[11px] font-mono text-zinc-400 dark:text-zinc-500">
-                                {{ $template->blade_view }}
-                            </p>
-                        </button>
+                        </article>
                     @endforeach
                 </div>
-
-                <div class="flex justify-end">
-                    <flux:button type="button" variant="primary" wire:click="saveInvoiceTemplateSettings">
-                        <x-icon name="check" class="mr-1 size-4" />
-                        {{ __('Save Invoice Template') }}
-                    </flux:button>
-                </div>
             </flux:card>
+
+            <flux:modal wire:model="showInvoiceTemplatePreview" class="!w-[calc(100vw-1rem)] !max-w-[1000px] sm:!w-[calc(100vw-3rem)]">
+                @if ($previewInvoiceTemplate)
+                    @php($previewIsActive = (int) $activeInvoiceTemplate->id === (int) $previewInvoiceTemplate->id)
+
+                    <div class="flex max-h-[calc(100dvh-2rem)] min-h-0 flex-col" data-invoice-template-preview-dialog>
+                        <div class="flex items-start justify-between gap-4 border-b border-zinc-200 pb-4 pr-8 dark:border-zinc-700">
+                            <div>
+                                <flux:heading size="lg">{{ $previewInvoiceTemplate->name }}</flux:heading>
+                                <flux:text class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+                                    {{ __('Complete invoice preview using realistic sample data.') }}
+                                </flux:text>
+                            </div>
+
+                            @if ($previewIsActive)
+                                <span class="shrink-0 rounded-full bg-lime-100 px-3 py-1 text-xs font-bold text-lime-800 dark:bg-lime-400/15 dark:text-lime-300">
+                                    {{ __('Currently Active') }}
+                                </span>
+                            @endif
+                        </div>
+
+                        <div class="my-4 min-h-0 flex-1">
+                            <x-invoices.template-preview-frame
+                                :template="$previewInvoiceTemplate"
+                                mode="modal"
+                                wire:key="invoice-template-fit-page-preview-{{ $previewInvoiceTemplate->id }}"
+                            />
+                        </div>
+
+                        <div class="flex flex-col-reverse gap-2 border-t border-zinc-200 pt-4 sm:flex-row sm:justify-end dark:border-zinc-700">
+                            <flux:button type="button" variant="ghost" class="min-h-10" wire:click="closeInvoiceTemplatePreview">
+                                {{ __('Close') }}
+                            </flux:button>
+
+                            @if ($previewIsActive)
+                                <span class="inline-flex min-h-10 items-center justify-center rounded-lg bg-zinc-100 px-4 text-sm font-semibold text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                                    {{ __('Currently Active') }}
+                                </span>
+                            @else
+                                <flux:button
+                                    type="button"
+                                    variant="primary"
+                                    class="min-h-10"
+                                    wire:click="activateInvoiceTemplate({{ $previewInvoiceTemplate->id }}, true)"
+                                    wire:loading.attr="disabled"
+                                    wire:target="activateInvoiceTemplate({{ $previewInvoiceTemplate->id }}, true)"
+                                >
+                                    {{ __('Use This Template') }}
+                                </flux:button>
+                            @endif
+                        </div>
+                    </div>
+                @endif
+            </flux:modal>
         @endif
     </flux:main>
 </div>

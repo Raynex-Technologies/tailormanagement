@@ -35,6 +35,7 @@ class OrdersIndexFiltersTest extends TestCase
     public function test_orders_kpis_default_to_current_month_and_include_payments_and_growth(): void
     {
         $user = $this->actingAsRole('branch_manager', $this->branch);
+        $user->givePermissionTo('orders.view_kpis');
         $customer = Customer::factory()->create(['branch_id' => $this->branch->id]);
 
         $current = Order::create([

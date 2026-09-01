@@ -185,7 +185,8 @@
             <h3>Invoice Summary</h3>
             <p><strong>Branch:</strong> {{ $invoice->branch?->name ?? 'N/A' }}</p>
             <p><strong>Status:</strong> {{ $invoice->order?->status?->label() ?? 'N/A' }}</p>
-            <p><strong>Payment:</strong> {{ $invoice->order?->payment_status?->label() ?? 'N/A' }}</p>
+            @php($paymentStatus = data_get($invoice, 'order.computed_payment_status') ?? data_get($invoice, 'order.payment_status'))
+            <p><strong>Payment:</strong> {{ $paymentStatus?->label() ?? 'N/A' }}</p>
             <p><strong>Paid Amount:</strong> {{ number_format($invoice->order?->paid_amount ?? 0, 0) }}</p>
             <p><strong>Balance Due:</strong> {{ number_format($invoice->order?->balance_due ?? 0, 0) }}</p>
             @if ($invoiceSentAtLabel)

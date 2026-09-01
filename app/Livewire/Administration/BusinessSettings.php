@@ -6,6 +6,7 @@ use App\Models\BusinessSetting;
 use App\Models\InvoiceTemplate;
 use App\Models\PaymentMethod;
 use App\Services\Media\ImageUploadService;
+use App\Support\Invoices\InvoiceTemplatePreviewRenderer;
 use App\Support\InvoiceTemplateResolver;
 use App\Support\SystemUiSettings;
 use Illuminate\Support\Facades\Cache;
@@ -14,6 +15,7 @@ use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Livewire\WithFileUploads;
+use Throwable;
 
 #[Layout('layouts.app.sidebar')]
 #[Title('Business Settings')]
@@ -52,6 +54,10 @@ class BusinessSettings extends Component
     public string $email_reply_to = '';
 
     public ?int $invoice_template_id = null;
+
+    public ?int $preview_invoice_template_id = null;
+
+    public bool $showInvoiceTemplatePreview = false;
 
     public bool $tax_enabled = false;
 
@@ -92,6 +98,18 @@ class BusinessSettings extends Component
     public function mount(): void
     {
         $this->authorize('roles.manage');
+
+        $requestedTab = (string) request()->query('tab', '');
+        $availableTabs = ['business', 'orders', 'payment_methods', 'tax', 'invoice_templates'];
+
+        if (auth()->user()->can('settings.system-ui.view')) {
+            $availableTabs[] = 'system_ui';
+        }
+
+        if (in_array($requestedTab, $availableTabs, true)) {
+            $this->tab = $requestedTab;
+        }
+
         $this->settings = BusinessSetting::instance();
         $this->fillFromModel($this->settings);
     }
@@ -273,13 +291,86 @@ class BusinessSettings extends Component
             ],
         ]);
 
+        $this->activateInvoiceTemplate((int) $this->invoice_template_id);
+    }
+
+    public function openInvoiceTemplatePreview(int $templateId): void
+    {
+        $this->authorize('roles.manage');
+        $this->resetErrorBag('invoice_template_id');
+
+        $template = InvoiceTemplate::query()
+            ->whereKey($templateId)
+            ->where('is_active', true)
+            ->first();
+
+        if (! $template) {
+            $this->addError('invoice_template_id', 'The selected invoice template is not available.');
+
+            return;
+        }
+
+        try {
+            app(InvoiceTemplatePreviewRenderer::class)->assertRenderable($template);
+        } catch (Throwable $exception) {
+            report($exception);
+            $this->addError('invoice_template_id', 'This invoice template preview is currently unavailable.');
+
+            return;
+        }
+
+        $this->preview_invoice_template_id = $template->id;
+        $this->showInvoiceTemplatePreview = true;
+    }
+
+    public function closeInvoiceTemplatePreview(): void
+    {
+        $this->showInvoiceTemplatePreview = false;
+        $this->preview_invoice_template_id = null;
+    }
+
+    public function updatedShowInvoiceTemplatePreview(bool $show): void
+    {
+        if (! $show) {
+            $this->preview_invoice_template_id = null;
+        }
+    }
+
+    public function activateInvoiceTemplate(int $templateId, bool $closePreview = false): void
+    {
+        $this->authorize('roles.manage');
+        $this->resetErrorBag('invoice_template_id');
+
+        $template = InvoiceTemplate::query()
+            ->whereKey($templateId)
+            ->where('is_active', true)
+            ->first();
+
+        if (! $template) {
+            $this->addError('invoice_template_id', 'The selected invoice template is not available.');
+
+            return;
+        }
+
         $settings = BusinessSetting::instance();
-        $settings->update([
-            'invoice_template_id' => $this->invoice_template_id,
-        ]);
+
+        try {
+            app(InvoiceTemplatePreviewRenderer::class)->render($template, $settings);
+        } catch (Throwable $exception) {
+            report($exception);
+            $this->addError('invoice_template_id', 'This invoice template could not be activated because it failed to render.');
+
+            return;
+        }
+
+        $settings->update(['invoice_template_id' => $template->id]);
 
         $this->settings = $settings->fresh();
         $this->fillFromModel($this->settings);
+
+        if ($closePreview) {
+            $this->closeInvoiceTemplatePreview();
+        }
 
         session()->flash('success', 'Invoice template updated successfully.');
     }
@@ -484,6 +575,11 @@ class BusinessSettings extends Component
     public function render()
     {
         $settings = BusinessSetting::instance();
+        $invoiceTemplates = InvoiceTemplate::query()
+            ->where('is_active', true)
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get();
 
         return view('livewire.administration.business-settings', [
             'settings' => $settings,
@@ -491,12 +587,11 @@ class BusinessSettings extends Component
                 ->orderBy('sort_order')
                 ->orderBy('name')
                 ->get(),
-            'invoiceTemplates' => InvoiceTemplate::query()
-                ->where('is_active', true)
-                ->orderBy('sort_order')
-                ->orderBy('name')
-                ->get(),
+            'invoiceTemplates' => $invoiceTemplates,
             'activeInvoiceTemplate' => app(InvoiceTemplateResolver::class)->resolve($settings),
+            'previewInvoiceTemplate' => $this->preview_invoice_template_id
+                ? $invoiceTemplates->firstWhere('id', $this->preview_invoice_template_id)
+                : null,
         ]);
     }
 }

@@ -169,4 +169,11 @@ class Invoice extends Model
                 });
         });
     }
+
+    public function scopeIssueDateRange($query, ?string $from, ?string $to)
+    {
+        return $query
+            ->when($from, fn ($invoiceQuery) => $invoiceQuery->whereDate('issue_date', '>=', $from))
+            ->when($to, fn ($invoiceQuery) => $invoiceQuery->whereDate('issue_date', '<=', $to));
+    }
 }

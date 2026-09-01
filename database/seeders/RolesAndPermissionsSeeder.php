@@ -155,6 +155,7 @@ class RolesAndPermissionsSeeder extends Seeder
 
             // Orders
             'orders.view',
+            'orders.view_kpis',
             'order_catalog.view',
             'order_catalog.items.manage',
             'order_catalog.packages.manage',
@@ -167,6 +168,10 @@ class RolesAndPermissionsSeeder extends Seeder
             'orders.view_financials',
             'orders.materials.view',
             'orders.materials.manage',
+
+            // Invoices
+            'invoices.view_kpis',
+            'invoices.send_email',
 
             // Delivery Notes
             'delivery_notes.create',

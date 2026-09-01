@@ -67,7 +67,7 @@
                                             value="1"
                                             class="rounded border-zinc-300 text-indigo-600 focus:ring-indigo-500 dark:border-zinc-600 dark:bg-zinc-700"
                                         />
-                                        <span class="text-sm text-zinc-700 dark:text-zinc-300">{{ $permission->name }}</span>
+                                        <span class="text-sm text-zinc-700 dark:text-zinc-300">{{ \App\Support\PermissionGroups::displayName($permission->name) }}</span>
                                     </label>
                                 @endforeach
                             </div>

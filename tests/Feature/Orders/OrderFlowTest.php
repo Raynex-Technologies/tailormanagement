@@ -5,6 +5,7 @@ namespace Tests\Feature\Orders;
 use App\Enums\OrderStatus;
 use App\Enums\PaymentStatus;
 use App\Livewire\Orders\Form as OrderForm;
+use App\Livewire\Orders\Payments\Panel as PaymentPanel;
 use App\Livewire\Orders\Show as OrderShow;
 use App\Models\Customer;
 use App\Models\InventoryItem;
@@ -93,7 +94,95 @@ class OrderFlowTest extends TestCase
 
         Livewire::test(OrderShow::class, ['order' => $order])
             ->assertSee('Record Payment')
+            ->assertSeeHtml('data-record-payment-trigger')
             ->assertDontSee('Payment History');
+    }
+
+    public function test_order_show_hides_record_payment_plus_without_create_permission(): void
+    {
+        $role = Role::create(['name' => 'payment_viewer_only', 'guard_name' => 'web']);
+        $role->givePermissionTo(['orders.view', 'orders.view_financials', 'payments.view']);
+
+        $user = $this->createUserWithRole('payment_viewer_only', $this->branch);
+        $this->actingAs($user);
+
+        $customer = Customer::factory()->create(['branch_id' => $this->branch->id]);
+        $order = Order::create([
+            'branch_id' => $this->branch->id,
+            'customer_id' => $customer->id,
+            'status' => OrderStatus::New,
+            'due_date' => now()->addDays(7),
+            'subtotal' => 50000,
+            'discount' => 0,
+            'total' => 50000,
+            'payment_status' => PaymentStatus::Unpaid,
+            'created_by' => $user->id,
+        ]);
+
+        Livewire::test(OrderShow::class, ['order' => $order])
+            ->assertSee('Payment History')
+            ->assertDontSeeHtml('data-record-payment-trigger');
+    }
+
+    public function test_order_show_renders_compact_payment_history_in_the_right_sidebar(): void
+    {
+        $user = $this->actingAsRole('admin', $this->branch);
+        $customer = Customer::factory()->create([
+            'branch_id' => $this->branch->id,
+            'name' => 'Payment History Customer',
+        ]);
+        $paymentMethod = PaymentMethod::query()->create([
+            'name' => 'Mobile Money',
+            'code' => 'mobile-money',
+            'is_enabled' => true,
+        ]);
+        $order = Order::create([
+            'branch_id' => $this->branch->id,
+            'customer_id' => $customer->id,
+            'status' => OrderStatus::New,
+            'due_date' => now()->addDays(7),
+            'subtotal' => 50000,
+            'discount' => 0,
+            'total' => 50000,
+            'payment_status' => PaymentStatus::Partial,
+            'created_by' => $user->id,
+        ]);
+        $payment = OrderPayment::create([
+            'branch_id' => $this->branch->id,
+            'order_id' => $order->id,
+            'amount' => 20000,
+            'payment_method_id' => $paymentMethod->id,
+            'reference' => 'PAY-REF-001',
+            'paid_at' => now()->setTime(10, 30),
+            'received_by' => $user->id,
+            'note' => 'First installment',
+        ]);
+
+        Livewire::test(OrderShow::class, ['order' => $order])
+            ->assertSeeHtml('data-payment-history-sidebar')
+            ->assertSeeHtml('data-record-payment-trigger')
+            ->assertSeeHtml('data-payment-history-entry')
+            ->assertSeeHtml('data-payment-history-title')
+            ->assertSee('Mobile Money Payment')
+            ->assertSeeHtml('data-payment-history-date')
+            ->assertSee($payment->paid_at->format('M d, Y · H:i'))
+            ->assertSeeHtml('data-payment-history-amount')
+            ->assertSee(money_tzs($payment->amount))
+            ->assertSeeHtml('data-payment-history-method')
+            ->assertSee('PAY-REF-001')
+            ->assertSee('First installment')
+            ->assertSeeInOrder(['Order Info', 'Payment History', 'Customer']);
+
+        Livewire::test(PaymentPanel::class, ['order' => $order])
+            ->assertSeeHtml('data-record-payment-trigger')
+            ->assertSeeHtml('bg-transparent text-navy-800')
+            ->assertDontSeeHtml('bg-lime-400 text-navy-900')
+            ->assertDontSee('Total Amount')
+            ->assertDontSee('Amount Paid')
+            ->assertDontSee('Balance Due')
+            ->call('openPaymentModal')
+            ->assertSet('showPaymentModal', true)
+            ->assertSee('Record Payment');
     }
 
     public function test_order_creation_writes_totals_correctly(): void

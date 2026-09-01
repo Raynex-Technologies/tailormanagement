@@ -109,15 +109,20 @@ class Index extends Component
             ->orderByDesc('created_at')
             ->paginate($this->perPage);
 
-        $currentStats = $this->orderStats($dateFrom, $dateTo, $user->id, $isTailor);
-        [$previousFrom, $previousTo] = $this->previousMonthRange($dateFrom, $dateTo);
-        $previousStats = $this->orderStats($previousFrom, $previousTo, $user->id, $isTailor);
-        $kpis = collect($currentStats)->mapWithKeys(fn ($value, $key) => [
-            $key => [
-                'value' => $value,
-                'growth' => $this->percentageGrowth($value, $previousStats[$key]),
-            ],
-        ])->all();
+        $canViewKpis = $user->can('orders.view_kpis');
+        $kpis = [];
+
+        if ($canViewKpis) {
+            $currentStats = $this->orderStats($dateFrom, $dateTo, $user->id, $isTailor);
+            [$previousFrom, $previousTo] = $this->previousMonthRange($dateFrom, $dateTo);
+            $previousStats = $this->orderStats($previousFrom, $previousTo, $user->id, $isTailor);
+            $kpis = collect($currentStats)->mapWithKeys(fn ($value, $key) => [
+                $key => [
+                    'value' => $value,
+                    'growth' => $this->percentageGrowth($value, $previousStats[$key]),
+                ],
+            ])->all();
+        }
 
         // Get statuses for filter
         $statuses = collect(OrderStatus::cases())
@@ -142,8 +147,9 @@ class Index extends Component
             'tailors' => $tailors,
             'canViewFinancials' => $canViewFinancials,
             'canViewPayments' => PaymentPermissions::canView($user),
+            'canViewKpis' => $canViewKpis,
             'kpis' => $kpis,
-            'kpiPeriodLabel' => $this->periodLabel($dateFrom, $dateTo),
+            'kpiPeriodLabel' => $canViewKpis ? $this->periodLabel($dateFrom, $dateTo) : null,
         ]);
     }
 

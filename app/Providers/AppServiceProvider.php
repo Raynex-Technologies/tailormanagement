@@ -56,6 +56,7 @@ use App\Policies\PrivateImagePolicy;
 use App\Policies\PurchaseOrderPolicy;
 use App\Policies\PurchaseRequestPolicy;
 use App\Policies\UserPolicy;
+use App\Services\Mail\MailConfiguration;
 use App\Services\WhatsApp\MetaWhatsAppProvider;
 use App\Support\BranchContext;
 use App\Support\PrivateImage;
@@ -191,47 +192,7 @@ class AppServiceProvider extends ServiceProvider
                 return;
             }
 
-            if (filled($settings->mail_mailer)) {
-                config()->set('mail.default', $settings->mail_mailer);
-            }
-
-            if (filled($settings->mail_host)) {
-                config()->set('mail.mailers.smtp.host', $settings->mail_host);
-            }
-
-            if (filled($settings->mail_port)) {
-                config()->set('mail.mailers.smtp.port', (int) $settings->mail_port);
-            }
-
-            if (filled($settings->mail_username)) {
-                config()->set('mail.mailers.smtp.username', $settings->mail_username);
-            }
-
-            if (filled($settings->mail_password)) {
-                config()->set('mail.mailers.smtp.password', $settings->mail_password);
-            }
-
-            if (filled($settings->mail_timeout)) {
-                config()->set('mail.mailers.smtp.timeout', (int) $settings->mail_timeout);
-            }
-
-            $scheme = $settings->mail_encryption;
-            if ($scheme === 'none') {
-                $scheme = null;
-            }
-
-            if ($settings->mail_encryption !== null) {
-                config()->set('mail.mailers.smtp.scheme', $scheme);
-                config()->set('mail.mailers.smtp.encryption', $scheme);
-            }
-
-            if (filled($settings->email_from_address)) {
-                config()->set('mail.from.address', $settings->email_from_address);
-            }
-
-            if (filled($settings->email_from_name)) {
-                config()->set('mail.from.name', $settings->email_from_name);
-            }
+            app(MailConfiguration::class)->apply($settings);
         } catch (Throwable $exception) {
             report($exception);
         }

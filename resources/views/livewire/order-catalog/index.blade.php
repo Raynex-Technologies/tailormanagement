@@ -11,7 +11,14 @@
                 <p class="mt-1 max-w-2xl text-sm text-white/65">{{ __('Maintain reusable garments, services and commercial packages for faster order entry.') }}</p>
             </div>
             @if ($tab === 'items' && $canManageItems)
-                <flux:button :href="route('order-catalog.items.create')" wire:navigate variant="primary" icon="plus" class="w-full sm:w-auto">{{ __('New Catalog Item') }}</flux:button>
+                <div class="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+                    @can('garment-options.view')
+                        <flux:button :href="route('admin.garment-options.index')" wire:navigate variant="ghost" icon="adjustments-horizontal" class="w-full border border-white/25 !text-white hover:!bg-white/10 sm:w-auto">
+                            {{ __('Garment Customizations') }}
+                        </flux:button>
+                    @endcan
+                    <flux:button :href="route('order-catalog.items.create')" wire:navigate variant="primary" icon="plus" class="w-full sm:w-auto">{{ __('New Catalog Item') }}</flux:button>
+                </div>
             @elseif ($tab === 'packages' && $canManagePackages)
                 <flux:button :href="route('order-catalog.packages.create')" wire:navigate variant="primary" icon="plus" class="w-full sm:w-auto">{{ __('New Package') }}</flux:button>
             @elseif ($tab === 'measurements' && $canManageMeasurements)

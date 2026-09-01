@@ -1,7 +1,7 @@
 <flux:main class="space-y-6">
     <flux:breadcrumbs>
         <flux:breadcrumbs.item href="{{ route('dashboard') }}" icon="home" wire:navigate />
-        <flux:breadcrumbs.item>{{ __('Garment Options') }}</flux:breadcrumbs.item>
+        <flux:breadcrumbs.item>{{ __('Customization Sections') }}</flux:breadcrumbs.item>
     </flux:breadcrumbs>
 
     @if (session('success'))
@@ -10,14 +10,14 @@
 
     <flux:card>
         <div>
-            <flux:heading size="xl">{{ __('Garment Options') }}</flux:heading>
+            <flux:heading size="xl">{{ __('Customization Sections') }}</flux:heading>
             <flux:text class="text-zinc-500">{{ __('Manage dynamic garment customizations shown in the public booking wizard.') }}</flux:text>
         </div>
     </flux:card>
 
     <div class="grid gap-6 xl:grid-cols-3">
         <flux:card>
-            <flux:heading size="lg">{{ $groupId ? __('Edit Group') : __('New Option Group') }}</flux:heading>
+            <flux:heading size="lg">{{ $groupId ? __('Edit Section') : __('New Customization Section') }}</flux:heading>
             <form wire:submit="saveGroup" class="mt-4 space-y-4">
                 <flux:select wire:model.live="categoryId">
                     @foreach ($categories as $category)
@@ -37,7 +37,7 @@
                 </div>
                 <div class="flex justify-end gap-2">
                     <flux:button type="button" variant="ghost" wire:click="resetGroup">{{ __('Reset') }}</flux:button>
-                    <flux:button type="submit" variant="primary">{{ __('Save Group') }}</flux:button>
+                    <flux:button type="submit" variant="primary">{{ __('Save Section') }}</flux:button>
                 </div>
             </form>
         </flux:card>
@@ -66,7 +66,7 @@
                         </div>
                     </div>
                 @empty
-                    <div class="py-12 text-center text-zinc-500">{{ __('No option groups for this category yet.') }}</div>
+                    <div class="py-12 text-center text-zinc-500">{{ __('No customization sections for this category yet.') }}</div>
                 @endforelse
             </div>
         </flux:card>

@@ -19,6 +19,10 @@ class InvoicePolicy
             return false;
         }
 
+        if ((int) $invoice->branch_id !== (int) $order->branch_id) {
+            return false;
+        }
+
         return app(OrderPolicy::class)->view($user, $order);
     }
 
@@ -34,6 +38,6 @@ class InvoicePolicy
 
     public function send(User $user, Invoice $invoice): bool
     {
-        return $this->update($user, $invoice);
+        return $user->can('invoices.send_email') && $this->view($user, $invoice);
     }
 }

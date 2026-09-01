@@ -2,15 +2,16 @@
 
 namespace App\Livewire\Invoices;
 
-use App\Mail\InvoiceMailable;
 use App\Models\BusinessSetting;
 use App\Models\Invoice;
 use App\Models\OrderLine;
+use App\Services\Mail\CustomerEmailDeliveryService;
+use App\Services\Mail\MailFailureSanitizer;
+use App\Support\CanonicalInvoicePdf;
 use App\Support\Livewire\NormalizesMoneyInputs;
 use App\Support\Orders\OrderPackagePresenter;
 use Brick\Math\BigDecimal;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Mail;
 use Livewire\Attributes\Layout;
 use Livewire\Component;
 
@@ -39,15 +40,12 @@ class Show extends Component
 
     public string $emailTo = '';
 
+    public bool $showSendInvoiceModal = false;
+
     public function mount(Invoice $invoice): void
     {
         $this->authorize('view', $invoice);
-        $this->invoice = $invoice->load([
-            'order.customer',
-            'order.packageInstances',
-            'lines.orderLine',
-            'branch',
-        ]);
+        $this->invoice = $this->loadInvoiceRelations($invoice);
         $this->fillFormFromInvoice();
     }
 
@@ -109,7 +107,8 @@ class Show extends Component
     public function cancelEditing(): void
     {
         $this->isEditing = false;
-        $this->invoice->refresh()->load(['order.customer', 'lines', 'branch']);
+        $this->invoice->refresh();
+        $this->invoice = $this->loadInvoiceRelations($this->invoice);
         $this->fillFormFromInvoice();
     }
 
@@ -271,7 +270,7 @@ class Show extends Component
                 'updated_by' => auth()->id(),
             ]);
 
-            $this->invoice = $invoice->fresh(['order.customer', 'lines', 'branch']);
+            $this->invoice = $this->loadInvoiceRelations($invoice->fresh());
         });
 
         $this->isEditing = false;
@@ -301,7 +300,20 @@ class Show extends Component
         return true;
     }
 
-    public function sendByEmail(): void
+    public function openSendInvoiceModal(): void
+    {
+        $this->authorize('send', $this->invoice);
+        $this->resetErrorBag('emailTo');
+        $this->showSendInvoiceModal = true;
+    }
+
+    public function closeSendInvoiceModal(): void
+    {
+        $this->showSendInvoiceModal = false;
+        $this->resetErrorBag('emailTo');
+    }
+
+    public function sendByEmail(CustomerEmailDeliveryService $deliveryService): void
     {
         $this->authorize('send', $this->invoice);
 
@@ -310,28 +322,49 @@ class Show extends Component
         ]);
 
         try {
-            $invoice = $this->invoice->fresh(['order.customer', 'lines', 'branch']);
-            Mail::to($this->emailTo)->send(new InvoiceMailable($invoice, BusinessSetting::instance()));
+            $invoice = $this->loadInvoiceRelations($this->invoice->fresh());
+            $deliveryService->sendInvoiceManually($invoice, $this->emailTo, auth()->user());
 
-            $invoice->update([
-                'sent_at' => now(),
-                'sent_to_email' => $this->emailTo,
-                'updated_by' => auth()->id(),
-            ]);
-
-            $this->invoice = $invoice->fresh(['order.customer', 'lines', 'branch']);
+            $this->invoice = $this->loadInvoiceRelations($invoice->fresh());
+            $this->showSendInvoiceModal = false;
             session()->flash('success', "Invoice sent to {$this->emailTo}.");
-        } catch (\Throwable $e) {
-            $this->addError('emailTo', 'Failed to send invoice email: '.$e->getMessage());
+        } catch (\RuntimeException $exception) {
+            $this->addError('emailTo', $exception->getMessage());
+        } catch (\Throwable $exception) {
+            $this->addError('emailTo', app(MailFailureSanitizer::class)->message($exception));
         }
     }
 
     public function render()
     {
         $settings = BusinessSetting::instance();
+        $order = $this->invoice->order;
+        $financialSummary = $order?->financialSummary() ?? [
+            'total' => (float) $this->invoice->total,
+            'paid' => 0.0,
+            'balance' => (float) $this->invoice->total,
+            'status' => null,
+        ];
 
         return view('livewire.invoices.show', [
             'settings' => $settings,
+            'emailSendingEnabled' => (bool) $settings->email_sending_enabled,
+            'invoiceAttachmentFilename' => app(CanonicalInvoicePdf::class)->filename($this->invoice),
+            'financialSummary' => $financialSummary,
+            'isOverdue' => $this->invoice->due_date
+                && $this->invoice->due_date->isPast()
+                && $financialSummary['balance'] > 0,
         ])->title($this->getTitle());
+    }
+
+    protected function loadInvoiceRelations(Invoice $invoice): Invoice
+    {
+        return $invoice->load([
+            'order' => fn ($orderQuery) => $orderQuery
+                ->with(['customer', 'packageInstances'])
+                ->withSum('payments', 'amount'),
+            'lines.orderLine',
+            'branch',
+        ]);
     }
 }

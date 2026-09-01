@@ -4,11 +4,6 @@ namespace App\Services\Storefront\Payments;
 
 use App\Enums\PaymentTransactionStatus;
 use App\Enums\StorefrontFulfillmentStatus;
-use App\Mail\InvoiceMailable;
-use App\Mail\StorefrontPaymentConfirmationMailable;
-use App\Models\BusinessSetting;
-use App\Models\EmailTemplate;
-use App\Models\Invoice;
 use App\Models\Order;
 use App\Models\OrderPayment;
 use App\Models\PaymentMethod;
@@ -17,9 +12,8 @@ use App\Models\User;
 use App\Notifications\StorefrontPaymentStatusNotification;
 use App\Services\Orders\OrderPaymentService;
 use App\Services\Storefront\InventoryReservationService;
+use App\Support\BranchContext;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Mail;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Str;
 use RuntimeException;
 use Throwable;
@@ -30,8 +24,7 @@ class PaymentTransactionService
         protected PaymentGatewayManager $gatewayManager,
         protected OrderPaymentService $orderPaymentService,
         protected InventoryReservationService $inventoryReservationService,
-    ) {
-    }
+    ) {}
 
     /**
      * @param  array<string, mixed>  $attributes
@@ -74,9 +67,8 @@ class PaymentTransactionService
     public function verifyAndApply(PaymentTransaction $transaction, array $payload = []): PaymentTransaction
     {
         $shouldNotifyCustomer = false;
-        $shouldSendSuccessEmails = false;
 
-        $verifiedTransaction = DB::transaction(function () use ($transaction, $payload, &$shouldNotifyCustomer, &$shouldSendSuccessEmails) {
+        $verifiedTransaction = DB::transaction(function () use ($transaction, $payload, &$shouldNotifyCustomer) {
             /** @var PaymentTransaction $locked */
             $locked = PaymentTransaction::query()
                 ->lockForUpdate()
@@ -135,19 +127,11 @@ class PaymentTransactionService
                 $shouldNotifyCustomer = true;
             }
 
-            if ($locked->status === PaymentTransactionStatus::Verified) {
-                $shouldSendSuccessEmails = true;
-            }
-
             return $locked;
         });
 
         if ($shouldNotifyCustomer) {
             $this->notifyCustomerOfPaymentUpdate($verifiedTransaction);
-        }
-
-        if ($shouldSendSuccessEmails) {
-            $this->sendSuccessfulPaymentEmails($verifiedTransaction);
         }
 
         return $verifiedTransaction;
@@ -171,13 +155,25 @@ class PaymentTransactionService
 
         $actor = $transaction->actor ?: $this->fallbackActor($order);
 
-        $payment = $this->orderPaymentService->recordPayment($order, [
-            'amount' => (float) $transaction->amount,
-            'payment_method_id' => $transaction->payment_method_id,
-            'reference' => $transaction->merchant_reference,
-            'paid_at' => $transaction->verified_at ?: now(),
-            'note' => 'Online payment captured via '.strtoupper($transaction->gateway),
-        ], $actor);
+        $previousBranchId = BranchContext::id();
+        $branchContextWasInitialized = BranchContext::isInitialized();
+        BranchContext::set((int) $order->branch_id);
+
+        try {
+            $payment = $this->orderPaymentService->recordPayment($order, [
+                'amount' => (float) $transaction->amount,
+                'payment_method_id' => $transaction->payment_method_id,
+                'reference' => $transaction->merchant_reference,
+                'paid_at' => $transaction->verified_at ?: now(),
+                'note' => 'Online payment captured via '.strtoupper($transaction->gateway),
+            ], $actor);
+        } finally {
+            if ($branchContextWasInitialized) {
+                BranchContext::set($previousBranchId);
+            } else {
+                BranchContext::clear();
+            }
+        }
 
         $payment->update([
             'payment_transaction_id' => $transaction->id,
@@ -269,135 +265,5 @@ class PaymentTransactionService
         } catch (Throwable $exception) {
             report($exception);
         }
-    }
-
-    protected function sendSuccessfulPaymentEmails(PaymentTransaction $transaction): void
-    {
-        $order = $transaction->order;
-
-        if (! $order) {
-            return;
-        }
-
-        $order->loadMissing('customer.user', 'invoice.lines', 'invoice.order.customer', 'invoice.branch');
-
-        $recipientEmail = $this->resolveRecipientEmail($order);
-        if (blank($recipientEmail)) {
-            return;
-        }
-
-        $settings = BusinessSetting::instance();
-
-        $this->sendPaymentConfirmationEmail($order, $transaction, $settings, $recipientEmail);
-        $this->sendInvoiceEmail($order, $transaction, $settings, $recipientEmail);
-    }
-
-    protected function sendPaymentConfirmationEmail(
-        Order $order,
-        PaymentTransaction $transaction,
-        BusinessSetting $settings,
-        string $recipientEmail
-    ): void {
-        $currency = strtoupper((string) ($transaction->currency ?: $order->currency ?: 'TZS'));
-        $orderUrl = $order->customer?->user
-            ? ($order->order_type === 'tailoring'
-                ? route('storefront.account.custom-orders.show', $order)
-                : route('storefront.account.orders.show', $order))
-            : route('storefront.home');
-
-        $variables = [
-            'business_name' => $settings->business_name ?: config('app.name', 'Tailoring Business'),
-            'customer_name' => $order->customer?->name ?: 'Customer',
-            'order_number' => $order->order_no,
-            'currency' => $currency,
-            'amount_paid' => number_format((float) $transaction->amount, 2, '.', ''),
-            'order_total' => number_format((float) $order->payableTotal(), 2, '.', ''),
-            'payment_method' => $transaction->paymentMethod?->name ?: strtoupper((string) $transaction->gateway),
-            'payment_reference' => $transaction->merchant_reference ?: $transaction->gateway_reference ?: 'N/A',
-            'order_url' => $orderUrl,
-        ];
-
-        $template = $this->resolveEmailTemplate('storefront_payment_confirmation');
-        $subject = EmailTemplate::render((string) ($template['subject'] ?? ''), $variables);
-        $body = EmailTemplate::render((string) ($template['body'] ?? ''), $variables);
-
-        try {
-            Mail::to($recipientEmail)->send(
-                new StorefrontPaymentConfirmationMailable(
-                    $order,
-                    $transaction->loadMissing('paymentMethod'),
-                    $settings,
-                    $subject,
-                    $body
-                )
-            );
-        } catch (Throwable $exception) {
-            report($exception);
-        }
-    }
-
-    protected function sendInvoiceEmail(
-        Order $order,
-        PaymentTransaction $transaction,
-        BusinessSetting $settings,
-        string $recipientEmail
-    ): void {
-        try {
-            $invoice = $order->invoice;
-
-            if (! $invoice) {
-                $invoice = Invoice::syncFromOrder($order, $transaction->actor?->id);
-            }
-
-            $invoice->loadMissing('order.customer', 'branch', 'lines');
-
-            Mail::to($recipientEmail)->send(new InvoiceMailable($invoice, $settings));
-
-            $invoice->update([
-                'sent_at' => now(),
-                'sent_to_email' => $recipientEmail,
-                'updated_by' => $transaction->actor?->id,
-            ]);
-        } catch (Throwable $exception) {
-            report($exception);
-        }
-    }
-
-    protected function resolveRecipientEmail(Order $order): ?string
-    {
-        $email = $order->checkout_email
-            ?: $order->customer?->email
-            ?: $order->customer?->user?->email;
-
-        return filled($email) ? trim((string) $email) : null;
-    }
-
-    /**
-     * @return array{subject:string, body:string}
-     */
-    protected function resolveEmailTemplate(string $category): array
-    {
-        $defaults = EmailTemplate::defaultTemplates()[$category] ?? [
-            'subject' => '',
-            'body' => '',
-        ];
-
-        try {
-            if (Schema::hasTable('email_templates')) {
-                $template = EmailTemplate::instance()->template($category);
-
-                return [
-                    'subject' => (string) ($template['subject'] ?? $defaults['subject']),
-                    'body' => (string) ($template['body'] ?? $defaults['body']),
-                ];
-            }
-        } catch (Throwable $exception) {
-            report($exception);
-        }
-
-        return [
-            'subject' => (string) $defaults['subject'],
-            'body' => (string) $defaults['body'],
-        ];
     }
 }

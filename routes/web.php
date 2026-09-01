@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Administration\InvoiceTemplatePreviewController;
 use App\Http\Controllers\Media\PrivateImageController;
 use App\Http\Controllers\PosSaleController;
 use App\Http\Controllers\Storefront\AccountController as StorefrontAccountController;
@@ -54,7 +55,7 @@ use App\Models\BusinessSetting;
 use App\Models\Invoice;
 use App\Models\PaymentMethod;
 use App\Support\BranchContext;
-use App\Support\InvoicePdfRenderer;
+use App\Support\CanonicalInvoicePdf;
 use App\Support\InvoiceTemplateResolver;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
@@ -65,7 +66,7 @@ Route::get('/', function () {
         : redirect()->route('dashboard');
 })->name('home');
 
-Route::get('/booking', \App\Livewire\Public\OnlineBookingWizard::class)
+Route::get('/booking', \App\Livewire\Public\PremiumBookingWizard::class)
     ->middleware(['module.enabled:bookings', 'throttle:web'])
     ->name('booking.public');
 
@@ -279,9 +280,17 @@ Route::middleware(['auth', 'verified', 'branch.context'])->group(function () {
             ->middleware('can:availability.view')
             ->name('admin.availability.index');
 
-        Route::get('/garment-options', \App\Livewire\GarmentOptions\Index::class)
+        Route::get('/garment-options', \App\Livewire\GarmentOptions\OptionsIndex::class)
             ->middleware('can:garment-options.view')
             ->name('admin.garment-options.index');
+
+        Route::get('/garment-option-groups', \App\Livewire\GarmentOptions\Index::class)
+            ->middleware('can:garment-options.view')
+            ->name('admin.garment-option-groups.index');
+
+        Route::get('/garment-categories', \App\Livewire\GarmentOptions\CategoriesIndex::class)
+            ->middleware('can:garment-options.view')
+            ->name('admin.garment-categories.index');
     });
 
     // Payments Index
@@ -300,9 +309,9 @@ Route::middleware(['auth', 'verified', 'branch.context'])->group(function () {
 
             return [
                 'invoice' => $invoice->load([
-                    'order.customer',
-                    'order.branch',
-                    'order.packageInstances',
+                    'order' => fn ($orderQuery) => $orderQuery
+                        ->with(['customer', 'branch', 'packageInstances'])
+                        ->withSum('payments', 'amount'),
                     'lines.orderLine',
                     'branch',
                 ]),
@@ -323,18 +332,12 @@ Route::middleware(['auth', 'verified', 'branch.context'])->group(function () {
             return view('invoices.print', $invoiceDocumentData($invoice));
         })->name('invoices.print');
 
-        Route::get('/{invoice}/download', function (Invoice $invoice) use ($invoiceDocumentData) {
+        Route::get('/{invoice}/download', function (Invoice $invoice) {
             if (! auth()->user()->can('view', $invoice)) {
                 abort(403);
             }
 
-            $data = $invoiceDocumentData($invoice);
-            $pdf = app(InvoicePdfRenderer::class)->render(
-                $data['invoice'],
-                $data['settings'],
-                $data['paymentMethods'],
-                $data['template'],
-            );
+            $pdf = app(CanonicalInvoicePdf::class)->render($invoice);
 
             return response()->streamDownload(
                 fn () => print ($pdf),
@@ -566,6 +569,11 @@ Route::middleware(['auth', 'verified', 'branch.context'])->group(function () {
     Route::get('administration/settings', AdministrationBusinessSettings::class)
         ->middleware('can:roles.manage')
         ->name('administration.settings');
+
+    Route::get('administration/settings/invoice-templates/{template}/preview', InvoiceTemplatePreviewController::class)
+        ->middleware('can:roles.manage')
+        ->whereNumber('template')
+        ->name('administration.settings.invoice-template-preview');
 
     Route::get('administration/email-setup', AdministrationEmailSetup::class)
         ->middleware('can:roles.manage')

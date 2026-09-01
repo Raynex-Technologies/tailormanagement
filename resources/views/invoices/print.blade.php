@@ -11,6 +11,7 @@
     $template = $template ?? app(InvoiceTemplateResolver::class)->resolve($settings);
     $emailMode = (bool) ($emailMode ?? false);
     $downloadMode = (bool) ($downloadMode ?? false);
+    $previewMode = (bool) ($previewMode ?? false);
     $invoicePresentation = app(OrderPackagePresenter::class)->forInvoice($invoice);
 @endphp
 <!DOCTYPE html>
@@ -44,6 +45,24 @@
             border-radius: 16px;
             padding: 26px;
         }
+        @if ($previewMode)
+        html {
+            background: #e4e4e7;
+        }
+        body {
+            min-width: 0;
+            min-height: 100vh;
+            background: #e4e4e7;
+            padding: 0;
+        }
+        .invoice-shell {
+            width: 794px;
+            max-width: 100%;
+            min-height: 1123px;
+            border-radius: 0;
+            box-shadow: 0 18px 45px rgba(24, 24, 27, .12);
+        }
+        @endif
         .print-btn {
             position: fixed;
             top: 16px;
@@ -110,11 +129,25 @@
             }
             .no-print { display: none !important; }
         }
+        @if ($previewMode)
+        @media (max-width: 840px) {
+            body { padding: 0; }
+            .invoice-shell {
+                width: 100%;
+                border: 0;
+                box-shadow: none;
+            }
+        }
+        @endif
     </style>
 </head>
-<body>
-    @if (! $emailMode && ! $downloadMode)
+<body data-invoice-template="{{ $template->slug }}" @if ($previewMode) data-invoice-preview="true" @endif>
+    @if (! $emailMode && ! $downloadMode && ! $previewMode)
         <button class="print-btn no-print" onclick="window.print()">Print</button>
+    @endif
+
+    @if ($previewMode)
+        <span style="display: none;" data-preview-template-name>{{ $template->name }}</span>
     @endif
 
     <div class="invoice-shell">

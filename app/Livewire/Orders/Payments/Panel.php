@@ -35,11 +35,7 @@ class Panel extends Component
 
     public ?string $note = null;
 
-    // Payment summary (cached)
-    public float $totalAmount = 0;
-
-    public float $paidAmount = 0;
-
+    // Remaining balance used by the payment form.
     public float $balanceAmount = 0;
 
     protected function rules(): array
@@ -74,17 +70,13 @@ class Panel extends Component
             abort(403, 'You do not have permission to access payments for this order.');
         }
 
-        $this->order = $this->canViewPayments
-            ? $order->load('payments.receiver', 'payments.paymentMethod')
-            : $order;
+        $this->order = $order;
         $this->refreshSummary();
         $this->payment_method_id = $this->getDefaultPaymentMethodId();
     }
 
     public function refreshSummary(): void
     {
-        $this->totalAmount = (float) $this->order->total;
-        $this->paidAmount = $this->order->paid_amount;
         $this->balanceAmount = $this->order->balance_amount;
     }
 
@@ -136,7 +128,6 @@ class Panel extends Component
 
             // Refresh order and summary
             $this->order->refresh();
-            $this->order->load('payments.receiver', 'payments.paymentMethod');
             $this->refreshSummary();
 
             $this->showPaymentModal = false;
@@ -180,9 +171,6 @@ class Panel extends Component
     public function render()
     {
         return view('livewire.orders.payments.panel', [
-            'payments' => $this->canViewPayments
-                ? $this->order->payments()->with(['receiver', 'paymentMethod'])->latest('paid_at')->get()
-                : collect(),
             'paymentMethods' => $this->paymentMethods,
             'canViewPayments' => $this->canViewPayments,
             'canRecordPayments' => $this->canRecordPayments,

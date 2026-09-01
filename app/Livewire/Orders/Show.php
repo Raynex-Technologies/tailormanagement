@@ -58,8 +58,8 @@ class Show extends Component
     public function refreshOrderData(): void
     {
         $this->order->refresh();
-        $this->loadOrderRelations();
         $this->initializePermissions();
+        $this->loadOrderRelations();
         $this->initializeStorefrontForms();
     }
 
@@ -70,6 +70,7 @@ class Show extends Component
     public function refreshMaterialsData(): void
     {
         $this->order->refresh();
+        $this->initializePermissions();
         $this->loadOrderRelations();
         $this->initializeStorefrontForms();
     }
@@ -128,8 +129,8 @@ class Show extends Component
     {
         $this->authorize('view', $order);
         $this->order = $order;
-        $this->loadOrderRelations();
         $this->initializePermissions();
+        $this->loadOrderRelations();
         $this->initializeStorefrontForms();
     }
 
@@ -146,7 +147,6 @@ class Show extends Component
             'lines.assignedTailor',
             'packageInstances',
             'deliveryNote.deliveredBy',
-            'invoice',
             'branch',
             'statusHistory.actor',
             'customProgressUpdates.actor',
@@ -155,12 +155,21 @@ class Show extends Component
             'customer.user',
         ];
 
-        // Only load payments if user can view them
-        if (auth()->user()->can('payments.view')) {
-            $relations[] = 'payments';
+        if ($this->canViewFinancials) {
+            $relations[] = 'invoice';
+        }
+
+        // Payment history is permission-gated and eager loaded to avoid per-row queries.
+        if ($this->canViewPayments) {
+            $relations[] = 'payments.paymentMethod';
+            $relations[] = 'payments.receiver';
         }
 
         $this->order->load($relations);
+
+        if ($this->canViewFinancials && ! $this->canViewPayments) {
+            $this->order->loadSum('payments', 'amount');
+        }
     }
 
     /**
@@ -780,6 +789,9 @@ class Show extends Component
         $canManageStorefrontOperations = $user->can('storefront.orders.manage');
         $isStorefrontOrder = $this->order->isStorefrontOrder();
         $isTailoringOrder = $this->order->order_type === 'tailoring';
+        $orderInvoice = $this->canViewFinancials ? $this->order->invoice : null;
+        $canViewInvoice = $orderInvoice !== null && $user->can('view', $orderInvoice);
+        $visibleInvoice = $canViewInvoice ? $orderInvoice : null;
 
         $fulfillmentStatuses = collect(StorefrontFulfillmentStatus::cases())
             ->mapWithKeys(fn (StorefrontFulfillmentStatus $status) => [$status->value => $status->label()]);
@@ -810,6 +822,10 @@ class Show extends Component
             'canManageMaterials' => $this->canManageMaterials,
             'canViewPayments' => $this->canViewPayments,
             'canRecordPayments' => $this->canRecordPayments,
+            'orderInvoice' => $visibleInvoice,
+            'invoiceFinancialSummary' => $visibleInvoice ? $this->order->financialSummary() : null,
+            // The canonical print route uses the same InvoicePolicy view authorization.
+            'canPrintInvoice' => $canViewInvoice,
             'shipments' => $this->order->shipments()->latest('id')->get(),
             // Materials data for storekeeper
             'materials' => $this->materials,

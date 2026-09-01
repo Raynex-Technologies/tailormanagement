@@ -11,6 +11,8 @@ class OnlineBookingItem extends Model
     protected $fillable = [
         'online_booking_id',
         'garment_category_id',
+        'fabric_id',
+        'fabric_variant_id',
         'garment_name',
         'quantity',
         'fabric_source',
@@ -46,5 +48,15 @@ class OnlineBookingItem extends Model
     public function selectedOptions(): HasMany
     {
         return $this->hasMany(OnlineBookingItemOption::class);
+    }
+
+    public function fabric(): BelongsTo
+    {
+        return $this->belongsTo(Fabric::class);
+    }
+
+    public function fabricVariant(): BelongsTo
+    {
+        return $this->belongsTo(FabricVariant::class);
     }
 }

@@ -16,11 +16,17 @@ class Index extends Component
     use AuthorizesRequests;
 
     public ?int $categoryId = null;
+
     public ?int $groupId = null;
+
     public string $groupName = '';
+
     public string $inputType = 'select';
+
     public bool $isRequired = false;
+
     public bool $isActive = true;
+
     public int $sortOrder = 0;
 
     public string $optionLabel = '';
@@ -54,7 +60,7 @@ class Index extends Component
             ]
         );
 
-        session()->flash('success', 'Garment option group saved.');
+        session()->flash('success', 'Customization section saved.');
         $this->resetGroup();
     }
 
@@ -88,7 +94,7 @@ class Index extends Component
         );
 
         $this->optionLabel = '';
-        session()->flash('success', 'Option added.');
+        session()->flash('success', 'Choice added.');
     }
 
     public function toggleOption(int $optionId): void
@@ -115,6 +121,6 @@ class Index extends Component
                 ->when($this->categoryId, fn ($query) => $query->where('garment_category_id', $this->categoryId))
                 ->orderBy('sort_order')
                 ->get(),
-        ])->title(__('Garment Options'));
+        ])->title(__('Customization Sections'));
     }
 }

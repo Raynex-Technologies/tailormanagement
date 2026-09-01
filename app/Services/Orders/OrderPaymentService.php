@@ -5,8 +5,8 @@ namespace App\Services\Orders;
 use App\Enums\PaymentStatus;
 use App\Events\OrderPaymentRecorded;
 use App\Models\Order;
-use App\Models\PaymentMethod;
 use App\Models\OrderPayment;
+use App\Models\PaymentMethod;
 use App\Models\User;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -54,7 +54,7 @@ class OrderPaymentService
             if ($newTotal > ($orderTotal + $tolerance) && ! $actor->isGlobalAdmin()) {
                 $maxPayable = $orderTotal - $currentPaid;
                 throw ValidationException::withMessages([
-                    'amount' => "Payment amount exceeds remaining balance. Maximum payable: " . money_tzs($maxPayable),
+                    'amount' => 'Payment amount exceeds remaining balance. Maximum payable: '.money_tzs($maxPayable),
                 ]);
             }
 
@@ -102,18 +102,15 @@ class OrderPaymentService
      */
     public function getPaymentSummary(Order $order): array
     {
-        $total = $order->payableTotal();
-        $paid = (float) $order->payments()->sum('amount');
-        $balance = $total - $paid;
+        $order->unsetRelation('payments');
+        $order->offsetUnset('payments_sum_amount');
+        $summary = $order->financialSummary();
 
         return [
-            'total' => $total,
-            'paid' => $paid,
-            'balance' => max(0, $balance),
-            'status' => $order->payment_status,
-            'is_fully_paid' => $paid >= $total,
-            'is_overpaid' => $paid > $total,
-            'overpaid_amount' => $paid > $total ? $paid - $total : 0,
+            ...$summary,
+            'is_fully_paid' => $summary['paid'] >= $summary['total'],
+            'is_overpaid' => $summary['paid'] > $summary['total'],
+            'overpaid_amount' => max(0, $summary['paid'] - $summary['total']),
         ];
     }
 }

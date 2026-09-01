@@ -218,6 +218,14 @@ class Order extends Model
      */
     public function getPaidAmountAttribute(): float
     {
+        if (array_key_exists('payments_sum_amount', $this->attributes)) {
+            return (float) ($this->attributes['payments_sum_amount'] ?? 0);
+        }
+
+        if ($this->relationLoaded('payments')) {
+            return (float) $this->payments->sum('amount');
+        }
+
         return (float) $this->payments()->sum('amount');
     }
 
@@ -234,7 +242,7 @@ class Order extends Model
      */
     public function getBalanceDueAttribute(): float
     {
-        return max(0, $this->payableTotal() - $this->paid_amount);
+        return $this->financialSummary()['balance'];
     }
 
     /**
@@ -250,18 +258,27 @@ class Order extends Model
      */
     public function getComputedPaymentStatusAttribute(): PaymentStatus
     {
-        $paidAmount = $this->paid_amount;
+        return $this->financialSummary()['status'];
+    }
+
+    /**
+     * Resolve the canonical order total and its derived payment state.
+     *
+     * @return array{total: float, paid: float, balance: float, status: PaymentStatus}
+     */
+    public function financialSummary(): array
+    {
         $total = $this->payableTotal();
+        $paid = $this->paid_amount;
+        $balance = max(0.0, $total - $paid);
 
-        if ($paidAmount <= 0) {
-            return PaymentStatus::Unpaid;
-        }
+        $status = match (true) {
+            $paid <= 0 => PaymentStatus::Unpaid,
+            $paid >= $total => PaymentStatus::Paid,
+            default => PaymentStatus::Partial,
+        };
 
-        if ($paidAmount >= $total) {
-            return PaymentStatus::Paid;
-        }
-
-        return PaymentStatus::Partial;
+        return compact('total', 'paid', 'balance', 'status');
     }
 
     // ============================================

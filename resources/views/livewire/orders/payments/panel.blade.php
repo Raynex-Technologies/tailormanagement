@@ -1,98 +1,18 @@
-<div class="space-y-6">
-    {{-- Payment Summary Card --}}
-    <flux:card>
-        <div class="flex flex-col items-start gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <flux:heading size="lg">{{ __('Payments') }}</flux:heading>
-            @if ($canRecordPayments && $balanceAmount > 0 && $paymentMethods->isNotEmpty())
-                <flux:button size="sm" wire:click="openPaymentModal">
-                    <x-icon name="add" class="mr-1 size-4" />
-                    {{ __('Record Payment') }}
-                </flux:button>
-            @endif
-        </div>
-
-        <div class="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            <div class="rounded-lg bg-zinc-50 p-4 dark:bg-zinc-800">
-                <flux:text class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('Total Amount') }}</flux:text>
-                <flux:heading size="xl">{{ money_tzs($totalAmount) }}</flux:heading>
-            </div>
-            <div class="rounded-lg bg-green-50 p-4 dark:bg-green-900/30">
-                <flux:text class="text-sm text-green-600 dark:text-green-400">{{ __('Amount Paid') }}</flux:text>
-                <flux:heading size="xl" class="text-green-700 dark:text-green-300">{{ money_tzs($paidAmount) }}</flux:heading>
-            </div>
-            <div class="rounded-lg {{ $balanceAmount > 0 ? 'bg-amber-50 dark:bg-amber-900/30' : 'bg-green-50 dark:bg-green-900/30' }} p-4">
-                <flux:text class="text-sm {{ $balanceAmount > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-green-600 dark:text-green-400' }}">
-                    {{ __('Balance Due') }}
-                </flux:text>
-                <flux:heading size="xl" class="{{ $balanceAmount > 0 ? 'text-amber-700 dark:text-amber-300' : 'text-green-700 dark:text-green-300' }}">
-                    {{ money_tzs($balanceAmount) }}
-                </flux:heading>
-            </div>
-        </div>
-    </flux:card>
-
-    {{-- Payment History Table --}}
-    @if ($canViewPayments && $payments->isNotEmpty())
-        <flux:card>
-            <flux:heading size="md" class="mb-4">{{ __('Payment History') }}</flux:heading>
-
-            <flux:table>
-                <flux:table.columns>
-                    <flux:table.column>{{ __('Date') }}</flux:table.column>
-                    <flux:table.column>{{ __('Amount') }}</flux:table.column>
-                    <flux:table.column>{{ __('Method') }}</flux:table.column>
-                    <flux:table.column>{{ __('Reference') }}</flux:table.column>
-                    <flux:table.column>{{ __('Received By') }}</flux:table.column>
-                    <flux:table.column>{{ __('Note') }}</flux:table.column>
-                </flux:table.columns>
-
-                <flux:table.rows>
-                    @foreach ($payments as $payment)
-                        <flux:table.row>
-                            <flux:table.cell>
-                                {{ $payment->paid_at?->format('M d, Y H:i') ?? 'N/A' }}
-                            </flux:table.cell>
-                            <flux:table.cell class="font-semibold text-green-600 dark:text-green-400">
-                                {{ money_tzs($payment->amount) }}
-                            </flux:table.cell>
-                            <flux:table.cell>
-                                <div class="space-y-1">
-                                    <flux:badge size="sm">
-                                        {{ $payment->paymentMethod?->name ?? __('Default') }}
-                                    </flux:badge>
-                                    @if ($payment->paymentMethod?->account_number || $payment->paymentMethod?->account_holder_name)
-                                        <div class="text-xs text-zinc-500">
-                                            {{ $payment->paymentMethod?->account_number }}
-                                            @if ($payment->paymentMethod?->account_number && $payment->paymentMethod?->account_holder_name)
-                                                •
-                                            @endif
-                                            {{ $payment->paymentMethod?->account_holder_name }}
-                                        </div>
-                                    @endif
-                                </div>
-                            </flux:table.cell>
-                            <flux:table.cell class="text-zinc-500">
-                                {{ $payment->reference ?? '-' }}
-                            </flux:table.cell>
-                            <flux:table.cell>
-                                {{ $payment->receiver?->name ?? 'Unknown' }}
-                            </flux:table.cell>
-                            <flux:table.cell class="max-w-xs truncate text-zinc-500">
-                                {{ $payment->note ?? '-' }}
-                            </flux:table.cell>
-                        </flux:table.row>
-                    @endforeach
-                </flux:table.rows>
-            </flux:table>
-        </flux:card>
-    @elseif ($canViewPayments)
-        <flux:card>
-            <div class="py-6 text-center">
-                <x-icon name="payments" class="mx-auto size-12 text-zinc-300 dark:text-zinc-600" />
-                <flux:heading size="md" class="mt-4">{{ __('No payments recorded') }}</flux:heading>
-                <flux:text class="text-zinc-500">{{ __('Record the first payment when received.') }}</flux:text>
-            </div>
-        </flux:card>
+<div data-payment-recorder>
+    @if ($canRecordPayments && $balanceAmount > 0 && $paymentMethods->isNotEmpty())
+        <button
+            type="button"
+            wire:click="openPaymentModal"
+            wire:loading.attr="disabled"
+            wire:target="openPaymentModal"
+            class="inline-flex size-10 shrink-0 items-center justify-center rounded-lg bg-transparent text-navy-800 transition-colors hover:text-navy-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 dark:ring-offset-zinc-800"
+            aria-label="{{ __('Record Payment') }}"
+            title="{{ __('Record Payment') }}"
+            data-record-payment-trigger
+        >
+            <x-icon name="add" class="size-6" />
+            <span class="sr-only">{{ __('Record Payment') }}</span>
+        </button>
     @endif
 
     {{-- Record Payment Modal --}}

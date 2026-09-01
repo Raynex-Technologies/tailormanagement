@@ -4,7 +4,12 @@ namespace App\Livewire\Administration;
 
 use App\Models\BusinessSetting;
 use App\Models\EmailTemplate;
+use App\Services\Mail\MailConfiguration;
+use App\Services\Mail\MailFailureSanitizer;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
+use Illuminate\Mail\Message;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
@@ -40,6 +45,14 @@ class EmailSetup extends Component
 
     public ?int $mail_timeout = null;
 
+    public bool $email_sending_enabled = false;
+
+    public bool $email_order_created_enabled = false;
+
+    public bool $email_payment_received_enabled = false;
+
+    public string $test_email_to = '';
+
     public bool $incoming_enabled = false;
 
     public string $incoming_protocol = 'imap';
@@ -74,6 +87,10 @@ class EmailSetup extends Component
         $this->mail_password = '';
         $this->mail_encryption = (string) ($settings->mail_encryption ?: (config('mail.mailers.smtp.scheme') ?: 'tls'));
         $this->mail_timeout = $settings->mail_timeout ? (int) $settings->mail_timeout : null;
+        $this->email_sending_enabled = (bool) ($settings->email_sending_enabled ?? false);
+        $this->email_order_created_enabled = (bool) ($settings->email_order_created_enabled ?? false);
+        $this->email_payment_received_enabled = (bool) ($settings->email_payment_received_enabled ?? false);
+        $this->test_email_to = (string) (auth()->user()?->email ?? '');
 
         $this->incoming_enabled = (bool) ($settings->incoming_enabled ?? false);
         $this->incoming_protocol = (string) ($settings->incoming_protocol ?: 'imap');
@@ -98,6 +115,9 @@ class EmailSetup extends Component
             'mail_password',
             'mail_encryption',
             'mail_timeout',
+            'email_sending_enabled',
+            'email_order_created_enabled',
+            'email_payment_received_enabled',
             'incoming_enabled',
             'incoming_protocol',
             'incoming_host',
@@ -123,6 +143,9 @@ class EmailSetup extends Component
             'mail_password' => ['nullable', 'string', 'max:500'],
             'mail_encryption' => ['required', Rule::in(['none', 'tls', 'ssl'])],
             'mail_timeout' => ['nullable', 'integer', 'min:1', 'max:300'],
+            'email_sending_enabled' => ['boolean'],
+            'email_order_created_enabled' => ['boolean'],
+            'email_payment_received_enabled' => ['boolean'],
             'email_from_name' => ['nullable', 'string', 'max:191'],
             'email_from_address' => ['nullable', 'email', 'max:191'],
             'email_reply_to' => ['nullable', 'email', 'max:191'],
@@ -147,6 +170,9 @@ class EmailSetup extends Component
             'email_from_name' => $validated['email_from_name'] ?: null,
             'email_from_address' => $validated['email_from_address'] ?: null,
             'email_reply_to' => $validated['email_reply_to'] ?: null,
+            'email_sending_enabled' => (bool) $validated['email_sending_enabled'],
+            'email_order_created_enabled' => (bool) $validated['email_order_created_enabled'],
+            'email_payment_received_enabled' => (bool) $validated['email_payment_received_enabled'],
             'incoming_enabled' => (bool) $validated['incoming_enabled'],
             'incoming_protocol' => $validated['incoming_enabled']
                 ? ($validated['incoming_protocol'] ?: null)
@@ -174,11 +200,48 @@ class EmailSetup extends Component
         }
 
         $settings->update($data);
+        app(MailConfiguration::class)->apply($settings->refresh(), purgeResolvedMailers: true);
 
         $this->mail_password = '';
         $this->incoming_password = '';
 
         session()->flash('success', __('SMTP and mail server settings updated successfully.'));
+    }
+
+    public function sendTestEmail(): void
+    {
+        $this->authorize('roles.manage');
+
+        $validated = $this->validate([
+            'test_email_to' => ['required', 'email', 'max:191'],
+        ]);
+
+        try {
+            $settings = BusinessSetting::instance();
+            app(MailConfiguration::class)->apply($settings, purgeResolvedMailers: true);
+
+            Mail::raw(
+                __('This message confirms that :business can send email using the configured mail transport.', [
+                    'business' => $settings->business_name ?: config('app.name'),
+                ]),
+                function (Message $message) use ($validated): void {
+                    $message
+                        ->to($validated['test_email_to'])
+                        ->subject(__('TailorPro email delivery test'));
+                },
+            );
+        } catch (Throwable $exception) {
+            $reason = app(MailFailureSanitizer::class)->message($exception);
+            Log::warning('Email setup test failed.', [
+                'exception' => $exception::class,
+                'reason' => $reason,
+            ]);
+            session()->flash('error', $reason);
+
+            return;
+        }
+
+        session()->flash('success', __('Test email sent to :email.', ['email' => $validated['test_email_to']]));
     }
 
     public function saveTemplates(): void

@@ -6,6 +6,7 @@ use App\Enums\OrderStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\Priority;
 use App\Enums\StorefrontFulfillmentStatus;
+use App\Jobs\SendOrderCreatedCustomerEmail;
 use App\Models\Cart;
 use App\Models\Customer;
 use App\Models\Order;
@@ -31,8 +32,7 @@ class CheckoutService
         protected CartService $cartService,
         protected PaymentTransactionService $paymentTransactionService,
         protected InventoryReservationService $inventoryReservationService,
-    ) {
-    }
+    ) {}
 
     /**
      * @param  array<string, mixed>  $payload
@@ -192,6 +192,8 @@ class CheckoutService
             }
 
             $cart->items()->delete();
+
+            SendOrderCreatedCustomerEmail::dispatch($order->id)->afterCommit();
 
             return [
                 'order' => $order->fresh(['lines', 'customer', 'statusHistory', 'currentShipment']),

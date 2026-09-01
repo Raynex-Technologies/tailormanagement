@@ -39,7 +39,8 @@ class SmsService
         $whatsappMessage = app(SmsTemplateRenderer::class)->render($whatsappTemplateBody, $data);
 
         $smsReason = $gate->reasonSmsDisabled($templateCode);
-        $whatsappConfig = WhatsappIntegration::forBranch(BranchContext::requireId());
+        $branchId = $reference?->getAttribute('branch_id') ?? BranchContext::requireId();
+        $whatsappConfig = WhatsappIntegration::forBranch($branchId);
         $whatsappReason = $whatsappConfig->enabled
             ? $gate->reasonWhatsappDisabled($templateCode)
             : SmsNotificationGate::WHATSAPP_GLOBAL_DISABLED;

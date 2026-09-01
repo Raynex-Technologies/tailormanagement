@@ -15,6 +15,8 @@ class GarmentOptionGroup extends Model
         'description',
         'input_type',
         'is_required',
+        'minimum_selections',
+        'maximum_selections',
         'is_active',
         'sort_order',
     ];

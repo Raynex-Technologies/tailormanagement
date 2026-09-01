@@ -5,8 +5,7 @@ namespace App\Mail;
 use App\Models\BusinessSetting;
 use App\Models\EmailTemplate;
 use App\Models\Invoice;
-use App\Models\PaymentMethod;
-use App\Support\InvoiceTemplateResolver;
+use App\Support\CanonicalInvoicePdf;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Mail\Mailables\Attachment;
@@ -26,12 +25,19 @@ class InvoiceMailable extends Mailable
     public function build(): self
     {
         [$subject, $body] = $this->resolveSubjectAndBody();
+        $financialSummary = $this->invoice->order?->financialSummary() ?? [
+            'total' => (float) $this->invoice->total,
+            'paid' => 0.0,
+            'balance' => (float) $this->invoice->total,
+            'status' => null,
+        ];
 
         $mail = $this->subject($subject)
             ->view('emails.invoices.invoice', [
                 'invoice' => $this->invoice,
                 'settings' => $this->settings,
                 'emailBody' => $body,
+                'financialSummary' => $financialSummary,
             ]);
 
         if ($this->settings->email_from_address) {
@@ -55,6 +61,11 @@ class InvoiceMailable extends Mailable
     {
         $this->invoice->loadMissing('order.customer');
         $order = $this->invoice->order;
+        $summary = $order?->financialSummary() ?? [
+            'total' => (float) $this->invoice->total,
+            'paid' => 0.0,
+            'balance' => (float) $this->invoice->total,
+        ];
 
         $currency = strtoupper((string) ($order?->currency ?: 'TZS'));
         $businessName = $this->settings->business_name ?: config('app.name', 'Tailoring Business');
@@ -64,9 +75,9 @@ class InvoiceMailable extends Mailable
             'order_number' => $order?->order_no ?: 'N/A',
             'invoice_number' => $this->invoice->invoice_no,
             'currency' => $currency,
-            'order_total' => number_format((float) $this->invoice->total, 2, '.', ''),
-            'paid_amount' => number_format((float) ($order?->paid_amount ?? 0), 2, '.', ''),
-            'amount_due' => number_format((float) ($order?->balance_due ?? 0), 2, '.', ''),
+            'order_total' => number_format($summary['total'], 2, '.', ''),
+            'paid_amount' => number_format($summary['paid'], 2, '.', ''),
+            'amount_due' => number_format($summary['balance'], 2, '.', ''),
         ];
 
         $defaultTemplate = EmailTemplate::defaultTemplates()['invoice'];
@@ -91,19 +102,13 @@ class InvoiceMailable extends Mailable
 
     public function attachments(): array
     {
-        $template = app(InvoiceTemplateResolver::class)->resolve($this->settings);
-
-        $html = view('invoices.print', [
-            'invoice' => $this->invoice,
-            'settings' => $this->settings,
-            'paymentMethods' => PaymentMethod::forInvoiceDocument(),
-            'template' => $template,
-            'emailMode' => true,
-        ])->render();
+        $document = app(CanonicalInvoicePdf::class);
 
         return [
-            Attachment::fromData(fn () => $html, "{$this->invoice->invoice_no}.html")
-                ->withMime('text/html'),
+            Attachment::fromData(
+                fn () => $document->render($this->invoice, $this->settings),
+                $document->filename($this->invoice),
+            )->withMime('application/pdf'),
         ];
     }
 }

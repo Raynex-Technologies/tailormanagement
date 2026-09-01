@@ -14,6 +14,7 @@ use App\Models\OnlineBooking;
 use App\Models\Order;
 use App\Services\Appointments\AppointmentAvailabilityService;
 use App\Services\Sms\SmsService;
+use App\Support\Phone;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Validation\Rule;
@@ -240,7 +241,7 @@ class OnlineBookingWizard extends Component
         $state = [
             'hash' => Hash::make($pin),
             'expires_at' => now()->addMinutes(10)->timestamp,
-            'retry_at' => now()->addMinutes(10)->timestamp,
+            'retry_at' => now()->addSeconds(90)->timestamp,
             'channel' => $target['channel'],
             'target' => $target['value'],
             'verified' => false,
@@ -340,7 +341,7 @@ class OnlineBookingWizard extends Component
     {
         $this->validate($this->rulesForSubmit());
 
-        if (! $this->verificationVerified) {
+        if (! $this->hasValidServerVerification()) {
             throw ValidationException::withMessages([
                 'verification_code' => __('Please verify your booking code before submitting.'),
             ]);
@@ -359,7 +360,7 @@ class OnlineBookingWizard extends Component
             'branch_id' => $this->branch_id,
             'customer_id' => $this->matchedCustomerId(),
             'customer_name' => $this->customer_name,
-            'customer_phone' => $this->customer_phone,
+            'customer_phone' => Phone::toE164Tz($this->customer_phone) ?? trim($this->customer_phone),
             'customer_whatsapp' => $this->customer_whatsapp ?: null,
             'customer_email' => $this->customer_email ?: null,
             'customer_location' => $this->customer_location ?: null,
@@ -657,11 +658,17 @@ class OnlineBookingWizard extends Component
 
     protected function matchedCustomerId(): ?int
     {
-        return Customer::query()->where('phone', $this->customer_phone)->value('id');
+        return Customer::query()->where('phone', Phone::toE164Tz($this->customer_phone) ?? trim($this->customer_phone))->value('id');
     }
 
     protected function findMatchingOrders(): void
     {
+        if (! $this->hasValidServerVerification()) {
+            $this->matchingOrders = [];
+
+            return;
+        }
+
         if (! in_array($this->booking_type, ['repeat_previous_order', 'fitting_appointment'], true) || $this->customer_phone === '') {
             $this->matchingOrders = [];
 
@@ -670,7 +677,7 @@ class OnlineBookingWizard extends Component
 
         $this->matchingOrders = Order::query()
             ->with('customer:id,name,phone')
-            ->whereHas('customer', fn ($query) => $query->where('phone', 'like', '%'.$this->customer_phone.'%'))
+            ->whereHas('customer', fn ($query) => $query->where('phone', Phone::toE164Tz($this->customer_phone) ?? trim($this->customer_phone)))
             ->when($this->previous_order_no !== '', fn ($query) => $query->where('order_no', 'like', '%'.$this->previous_order_no.'%'))
             ->latest()
             ->limit(5)
@@ -690,7 +697,7 @@ class OnlineBookingWizard extends Component
             return ['channel' => 'email', 'value' => strtolower(trim($this->customer_email))];
         }
 
-        return ['channel' => 'sms', 'value' => trim($this->customer_phone)];
+        return ['channel' => 'sms', 'value' => Phone::toE164Tz($this->customer_phone) ?? trim($this->customer_phone)];
     }
 
     protected function verificationSessionKey(): string
@@ -706,6 +713,18 @@ class OnlineBookingWizard extends Component
 
         return is_array($state) ? $state : null;
     }
+    protected function hasValidServerVerification(): bool
+    {
+        $state = $this->verificationSessionState();
+        $destination = $this->verificationDestination();
+
+        return is_array($state)
+            && (bool) ($state['verified'] ?? false)
+            && (int) ($state['expires_at'] ?? 0) >= now()->timestamp
+            && hash_equals((string) ($state['target'] ?? ''), $destination['value'])
+            && hash_equals((string) ($state['channel'] ?? ''), $destination['channel']);
+    }
+
 
     protected function hydrateVerificationState(array $state): void
     {

@@ -25,6 +25,8 @@
             </flux:text>
         </div>
 
+        <x-administration.settings-navigation active="email" />
+
         <div class="mt-6 flex flex-wrap gap-2 border-b border-zinc-200 dark:border-zinc-700">
             <button
                 type="button"
@@ -47,6 +49,41 @@
                 <div class="space-y-6">
                     <div class="rounded-xl border border-zinc-200 bg-zinc-50 p-4 text-sm text-zinc-600 dark:border-zinc-700 dark:bg-zinc-800/40 dark:text-zinc-300">
                         {{ __('Configure outgoing SMTP and optional incoming server credentials. Supported security modes include None, TLS, and SSL.') }}
+                    </div>
+
+                    <div class="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900/40" data-email-delivery-controls>
+                        <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                            <div>
+                                <flux:heading size="lg">{{ __('Customer Email Delivery') }}</flux:heading>
+                                <flux:text class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+                                    {{ __('Control automatic customer messages and deliberate invoice sends. New installations keep every option off until enabled here.') }}
+                                </flux:text>
+                            </div>
+                            <flux:switch wire:model.live="email_sending_enabled" label="{{ __('Enable Email Sending') }}" />
+                        </div>
+
+                        <div class="mt-5 grid gap-3 sm:grid-cols-2">
+                            <label class="flex min-h-16 items-start gap-3 rounded-xl border border-zinc-200 p-3 dark:border-zinc-700">
+                                <flux:switch wire:model="email_order_created_enabled" />
+                                <span>
+                                    <span class="block text-sm font-semibold text-zinc-900 dark:text-white">{{ __('Send email when order is created') }}</span>
+                                    <span class="mt-0.5 block text-xs text-zinc-500 dark:text-zinc-400">{{ __('Includes order details and the canonical invoice PDF.') }}</span>
+                                </span>
+                            </label>
+                            <label class="flex min-h-16 items-start gap-3 rounded-xl border border-zinc-200 p-3 dark:border-zinc-700">
+                                <flux:switch wire:model="email_payment_received_enabled" />
+                                <span>
+                                    <span class="block text-sm font-semibold text-zinc-900 dark:text-white">{{ __('Send email when payment is received') }}</span>
+                                    <span class="mt-0.5 block text-xs text-zinc-500 dark:text-zinc-400">{{ __('Includes the new payment, cumulative balance, and updated invoice PDF.') }}</span>
+                                </span>
+                            </label>
+                        </div>
+
+                        @if (! $email_sending_enabled)
+                            <div class="mt-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+                                {{ __('Automatic customer emails and manual invoice sends are currently blocked. Test email remains available below.') }}
+                            </div>
+                        @endif
                     </div>
 
                     <div class="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900/40">
@@ -119,6 +156,24 @@
                             <x-icon name="check" class="mr-1 size-4" />
                             {{ __('Save SMTP Setup') }}
                         </flux:button>
+                    </div>
+
+                    <div class="rounded-xl border border-zinc-200 bg-white p-4 dark:border-zinc-700 dark:bg-zinc-900/40" data-email-test-section>
+                        <div class="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                            <div class="max-w-xl">
+                                <flux:heading size="lg">{{ __('Send Test Email') }}</flux:heading>
+                                <flux:text class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+                                    {{ __('Uses the saved effective transport and is allowed even when customer email sending is disabled.') }}
+                                </flux:text>
+                            </div>
+                            <div class="flex w-full flex-col gap-3 sm:flex-row lg:w-auto">
+                                <flux:input class="w-full sm:min-w-72" wire:model="test_email_to" type="email" label="{{ __('Test Recipient') }}" />
+                                <flux:button class="sm:self-end" type="button" variant="outline" wire:click="sendTestEmail" wire:loading.attr="disabled" wire:target="sendTestEmail">
+                                    <i class="fa-duotone fa-paper-plane mr-1.5" aria-hidden="true"></i>
+                                    {{ __('Send Test') }}
+                                </flux:button>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </flux:card>
