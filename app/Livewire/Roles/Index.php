@@ -14,6 +14,8 @@ class Index extends Component
 {
     use AuthorizesRequests;
 
+    public const PROTECTED_ROLES = ['superadmin'];
+
     public function mount(): void
     {
         $this->authorize('roles.manage');
@@ -24,6 +26,10 @@ class Index extends Component
         $this->authorize('roles.manage');
 
         $role = Role::withCount('users')->findOrFail($id);
+
+        if ($this->isProtected($role)) {
+            abort(403, __('Protected roles cannot be deleted.'));
+        }
 
         if ($role->users_count > 0) {
             session()->flash('error', "Cannot delete the role \"{$role->name}\" because it has {$role->users_count} user(s) assigned. Reassign or remove users from this role first.");
@@ -39,12 +45,19 @@ class Index extends Component
 
     public function render()
     {
-        $roles = Role::withCount('users', 'permissions')
+        $roles = Role::query()
+            ->withCount(['users', 'permissions'])
             ->orderBy('name')
             ->get();
 
         return view('livewire.roles.index', [
             'roles' => $roles,
+            'protectedRoles' => self::PROTECTED_ROLES,
         ]);
+    }
+
+    private function isProtected(Role $role): bool
+    {
+        return in_array($role->name, self::PROTECTED_ROLES, true);
     }
 }

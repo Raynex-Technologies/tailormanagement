@@ -87,25 +87,39 @@ class Form extends Component
         $this->redirect(route('access-control.roles.index'), navigate: true);
     }
 
-    public function toggleModule(string $moduleLabel): void
+    public function selectModule(string $moduleLabel): void
     {
-        $grouped = PermissionGroups::groupPermissions(Permission::orderBy('name')->get());
-        $permissionsInModule = $grouped[$moduleLabel] ?? collect();
-        $ids = $permissionsInModule->pluck('id')->all();
+        $this->authorize('roles.manage');
 
-        $allSelected = true;
-        foreach ($ids as $id) {
-            if (empty($this->permissions[$id])) {
-                $allSelected = false;
-                break;
-            }
-        }
-
-        foreach ($ids as $id) {
-            $this->permissions[$id] = ! $allSelected;
+        foreach ($this->permissionIdsForModule($moduleLabel) as $id) {
+            $this->permissions[$id] = true;
         }
     }
 
+    public function clearModule(string $moduleLabel): void
+    {
+        $this->authorize('roles.manage');
+
+        foreach ($this->permissionIdsForModule($moduleLabel) as $id) {
+            $this->permissions[$id] = false;
+        }
+    }
+
+    public function getSelectedPermissionsCountProperty(): int
+    {
+        return count(array_filter($this->permissions));
+    }
+
+    /** @return array<int, int> */
+    private function permissionIdsForModule(string $moduleLabel): array
+    {
+        $grouped = PermissionGroups::groupPermissions(Permission::query()->orderBy('name')->get());
+
+        return ($grouped[$moduleLabel] ?? collect())
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->all();
+    }
     public function render()
     {
         $permissions = Permission::orderBy('name')->get();

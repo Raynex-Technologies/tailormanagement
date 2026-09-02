@@ -145,6 +145,13 @@ class RolesAndPermissionsSeeder extends Seeder
             // Users & Access Control
             'users.view',
             'users.manage',
+
+            // Customers
+            'customers.view',
+            'customers.create',
+            'customers.update',
+            'customers.delete',
+
             'roles.manage',
             'settings.system-ui.view',
             'settings.system-ui.update',
@@ -302,6 +309,11 @@ class RolesAndPermissionsSeeder extends Seeder
                 // Users & Access
                 'users.view',
                 'users.manage',
+                // Customers - preserve legacy users.manage capability
+                'customers.view',
+                'customers.create',
+                'customers.update',
+                'customers.delete',
                 'roles.manage',
                 'settings.system-ui.view',
                 'settings.system-ui.update',
@@ -418,6 +430,11 @@ class RolesAndPermissionsSeeder extends Seeder
                 // Users & Access (within branch)
                 'users.view',
                 'users.manage',
+                // Customers - preserve legacy users.manage capability
+                'customers.view',
+                'customers.create',
+                'customers.update',
+                'customers.delete',
                 'branches.view',
                 // Orders - FULL ACCESS (within branch)
                 'orders.view',

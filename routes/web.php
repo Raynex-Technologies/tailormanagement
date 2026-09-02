@@ -207,10 +207,10 @@ Route::middleware(['auth', 'verified', 'branch.context'])->group(function () {
     });
 
     // Customers Management
-    Route::prefix('customers')->middleware('can:users.view')->group(function () {
+    Route::prefix('customers')->middleware('can:customers.view')->group(function () {
         Route::get('/', \App\Livewire\Customers\Index::class)->name('customers.index');
         Route::get('/{customer}/measurements/record', \App\Livewire\Customers\MeasurementForm::class)
-            ->middleware('can:users.manage')
+            ->middleware('can:customers.update')
             ->name('customers.measurements.record');
         Route::get('/{customer}/measurements/{measurementProfile}', \App\Livewire\Customers\MeasurementRevisionShow::class)
             ->name('customers.measurements.show');

@@ -211,6 +211,7 @@ class PosTerminal extends Component
     public function openCustomerModal(): void
     {
         $this->authorize('pos.sell');
+        $this->authorize('customers.create');
         $this->resetCustomerForm();
         $this->showCustomerModal = true;
     }
@@ -218,6 +219,7 @@ class PosTerminal extends Component
     public function createCustomer(): void
     {
         $this->authorize('pos.sell');
+        $this->authorize('customers.create');
 
         $branchId = BranchContext::getEffectiveBranchId();
 

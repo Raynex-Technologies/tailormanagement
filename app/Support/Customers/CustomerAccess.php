@@ -10,13 +10,13 @@ final class CustomerAccess
 {
     public static function authorizeView(Customer $customer): void
     {
-        Gate::authorize('users.view');
+        Gate::authorize('customers.view');
         self::enforceBranchBoundary($customer);
     }
 
     public static function authorizeManage(Customer $customer): void
     {
-        Gate::authorize('users.manage');
+        Gate::authorize('customers.update');
         self::enforceBranchBoundary($customer);
     }
 

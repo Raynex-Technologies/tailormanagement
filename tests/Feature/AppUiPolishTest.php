@@ -63,8 +63,8 @@ class AppUiPolishTest extends TestCase
         $css = file_get_contents(resource_path('css/app.css'));
         $sidebar = file_get_contents(resource_path('views/layouts/app/sidebar.blade.php'));
 
-        $this->assertStringContainsString('--tailorpro-navigation-accent-start: #A3E635', $css);
-        $this->assertStringContainsString('--tailorpro-navigation-accent-end: #84CC16', $css);
+        $this->assertStringContainsString('--tm-accent: #A3E635', $css);
+        $this->assertStringContainsString('--tm-accent-hover: #84CC16', $css);
         $this->assertStringContainsString('var(--tailorpro-navigation-accent-start)', $sidebar);
         $this->assertStringContainsString('app-profile-accent', $sidebar);
         $this->assertStringContainsString("desktopSidebarCollapsed ? 'is-collapsed w-20' : 'w-64'", $sidebar);

@@ -1,5 +1,5 @@
 <div class="mx-auto max-w-7xl space-y-5">
-    <section class="rounded-2xl p-5 text-white shadow-lg sm:p-6" style="background: linear-gradient(135deg, var(--tailorpro-primary) 0%, color-mix(in srgb, var(--tailorpro-primary) 88%, #ffffff 12%) 100%);" data-orders-workspace-header data-workspace-breadcrumb-accent="secondary">
+    <section class="rounded-2xl p-5 text-white shadow-lg sm:p-6" style="background: linear-gradient(135deg, var(--tm-hero) 0%, color-mix(in srgb, var(--tm-hero) 88%, #ffffff 12%) 100%);" data-theme-hero data-orders-workspace-header data-workspace-breadcrumb-accent="secondary">
         <div class="flex items-center justify-between gap-4">
             <div>
                 <flux:breadcrumbs class="mb-5 text-white/70">

@@ -25,3 +25,17 @@ This rule is mandatory for every code implementation in this repository.
 - ALWAYS prioritize user experience (clear behavior, accessible interactions, and no avoidable regressions in usability).
 - ALWAYS prioritize performance (avoid unnecessary queries, N+1 patterns, wasteful rendering, and inefficient logic paths).
 - When tradeoffs are required, do not ship silent compromises: call them out clearly and choose the safest and most maintainable option.
+
+## Hard Rule: Configurable Application Theme
+
+Application brand and theme colors are user-configurable through Administration > Settings > System UI Settings.
+
+- Structural branded surfaces must use the Navigation & Page Hero theme tokens.
+- Primary calls to action must use the Primary Action theme tokens.
+- Interactive selections, highlights, identity accents, active navigation, tabs, breadcrumbs, and focus treatments must use the Application Accent theme tokens.
+- Semantic states such as success, warning, danger, error, failed, overdue, and destructive actions must continue to use the appropriate semantic status tokens.
+- Neutral surfaces, borders, text, disabled states, and form backgrounds must use the neutral design-system tokens.
+- NEVER hard-code or replace configurable application brand colors when creating or redesigning UI.
+- All new or modified UI must consume the application's canonical theme tokens or CSS variables.
+- The shipped TailorPro palette is a fallback default only; persisted user-configured values always take precedence.
+- NEVER overwrite persisted UI theme settings through migrations, seeders, redesigns, Blade classes, or CSS.

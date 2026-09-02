@@ -139,7 +139,7 @@
                         @endif
                     </div>
 
-                    @can('pos.sell')
+                    @can('customers.create')
                         <div class="flex items-end">
                             <flux:button type="button" icon="user-plus" wire:click="openCustomerModal">
                                 {{ __('New') }}

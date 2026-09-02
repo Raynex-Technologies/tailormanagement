@@ -2,8 +2,8 @@
     <flux:main class="p-0">
         <section
             class="mb-6 overflow-hidden rounded-2xl p-5 text-white shadow-lg sm:p-6"
-            style="background: linear-gradient(135deg, var(--tailorpro-primary) 0%, color-mix(in srgb, var(--tailorpro-primary) 88%, #ffffff 12%) 100%);"
-            data-invoices-workspace-header
+            style="background: linear-gradient(135deg, var(--tm-hero) 0%, color-mix(in srgb, var(--tm-hero) 88%, #ffffff 12%) 100%);"
+            data-theme-hero data-invoices-workspace-header
         >
             <flux:breadcrumbs class="mb-5 text-white/70">
                 <flux:breadcrumbs.item :href="route('dashboard')" icon="home" class="!text-white/70 hover:!text-white" wire:navigate />

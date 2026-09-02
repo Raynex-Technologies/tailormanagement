@@ -1386,7 +1386,7 @@ class Form extends Component
 
     public function openNewCustomerModal(): void
     {
-        $this->authorize('users.manage');
+        $this->authorize('customers.create');
         $branchId = $this->getEffectiveBranchIdForCustomerSearch();
         if (! $branchId || ! Branch::query()->active()->whereKey($branchId)->exists()) {
             $this->addError('branch_id', __('Select a valid order branch before creating a customer.'));
@@ -1405,7 +1405,7 @@ class Form extends Component
 
     public function createNewCustomer(CustomerCreator $creator): void
     {
-        $this->authorize('users.manage');
+        $this->authorize('customers.create');
         $branchId = $this->getEffectiveBranchIdForCustomerSearch();
         if (! $branchId) {
             $this->addError('branch_id', __('Select a valid order branch before creating a customer.'));

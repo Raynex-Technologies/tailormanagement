@@ -152,7 +152,7 @@
                                         @endif
                                     </div>
 
-                                    @can('users.manage')
+                                    @can('customers.create')
                                     <flux:button
                                         type="button"
                                         size="base"

@@ -135,8 +135,8 @@
                             <div class="rounded-xl border border-zinc-200 p-4 dark:border-zinc-700">
                                 <div class="flex items-start justify-between gap-4">
                                     <div>
-                                        <flux:label>{{ __('Primary Color') }}</flux:label>
-                                        <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{{ __('Used mainly for sidebar background and main brand areas.') }}</p>
+                                        <flux:label>{{ __('Navigation & Page Hero') }}</flux:label>
+                                        <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{{ __('Used for the main sidebar and major page headers.') }}</p>
                                     </div>
                                     <input type="color" wire:model.live="ui_primary_color" value="{{ $previewPrimary }}" class="h-10 w-14 rounded border border-zinc-300 bg-transparent p-1 dark:border-zinc-600" />
                                 </div>
@@ -147,24 +147,24 @@
                             <div class="rounded-xl border border-zinc-200 p-4 dark:border-zinc-700">
                                 <div class="flex items-start justify-between gap-4">
                                     <div>
-                                        <flux:label>{{ __('Secondary Color 1') }}</flux:label>
-                                        <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{{ __('Used mainly for active buttons, active navigation items, and links.') }}</p>
+                                        <flux:label>{{ __('Primary Action') }}</flux:label>
+                                        <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{{ __('Used for primary call-to-action buttons such as New Order and Save.') }}</p>
                                     </div>
                                     <input type="color" wire:model.live="ui_secondary_color_1" value="{{ $previewSecondary }}" class="h-10 w-14 rounded border border-zinc-300 bg-transparent p-1 dark:border-zinc-600" />
                                 </div>
-                                <input type="text" wire:model.live.debounce.300ms="ui_secondary_color_1" placeholder="#2563EB" class="mt-3 block w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-600 dark:bg-zinc-900" />
+                                <input type="text" wire:model.live.debounce.300ms="ui_secondary_color_1" placeholder="#FE6328" class="mt-3 block w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-600 dark:bg-zinc-900" />
                                 @error('ui_secondary_color_1') <p class="mt-1 text-sm text-red-500">{{ $message }}</p> @enderror
                             </div>
 
                             <div class="rounded-xl border border-zinc-200 p-4 dark:border-zinc-700">
                                 <div class="flex items-start justify-between gap-4">
                                     <div>
-                                        <flux:label>{{ __('Secondary Color 2') }}</flux:label>
-                                        <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{{ __('Used for highlights, badges, secondary accents, and optional UI emphasis.') }}</p>
+                                        <flux:label>{{ __('Application Accent') }}</flux:label>
+                                        <p class="mt-1 text-xs text-zinc-500 dark:text-zinc-400">{{ __('Used for active navigation, selected tabs, focus accents, and application highlights.') }}</p>
                                     </div>
                                     <input type="color" wire:model.live="ui_secondary_color_2" value="{{ $previewAccent }}" class="h-10 w-14 rounded border border-zinc-300 bg-transparent p-1 dark:border-zinc-600" />
                                 </div>
-                                <input type="text" wire:model.live.debounce.300ms="ui_secondary_color_2" placeholder="#F59E0B" class="mt-3 block w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-600 dark:bg-zinc-900" />
+                                <input type="text" wire:model.live.debounce.300ms="ui_secondary_color_2" placeholder="#A3E635" class="mt-3 block w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-600 dark:bg-zinc-900" />
                                 @error('ui_secondary_color_2') <p class="mt-1 text-sm text-red-500">{{ $message }}</p> @enderror
                             </div>
                         </div>
@@ -186,7 +186,7 @@
                                     </div>
                                     <div class="space-y-2">
                                         <div class="rounded-lg px-3 py-2 text-sm opacity-75">{{ __('Dashboard') }}</div>
-                                        <div class="rounded-lg px-3 py-2 text-sm font-semibold" style="background-color: {{ $previewSecondary }}; color: {{ $previewSecondaryText }};">{{ __('Active Menu Item') }}</div>
+                                        <div class="rounded-lg px-3 py-2 text-sm font-semibold" style="background-color: {{ $previewAccent }}; color: {{ $previewAccentText }};">{{ __('Active Menu Item') }}</div>
                                         <div class="rounded-lg px-3 py-2 text-sm opacity-75">{{ __('Orders') }}</div>
                                     </div>
                                 </div>
@@ -211,7 +211,7 @@
                                 wire:click="resetSystemUiSettings"
                                 wire:confirm="{{ __('Are you sure you want to reset the UI colors to the default TailorPro colors?') }}"
                             >
-                                {{ __('Reset to Defaults') }}
+                                {{ __('Reset Theme to Default') }}
                             </flux:button>
                             <flux:button type="button" variant="primary" wire:click="saveSystemUiSettings">
                                 <x-icon name="check" class="mr-1 size-4" />

@@ -65,7 +65,7 @@ class Show extends Component
             'stats' => $stats,
             'currentMeasurementProfile' => $currentMeasurementProfile,
             'measurementHistory' => $measurementHistory,
-            'canManage' => auth()->user()?->can('users.manage') ?? false,
+            'canUpdate' => auth()->user()?->can('customers.update') ?? false,
         ])->title("Customer: {$this->customer->name}");
     }
 }

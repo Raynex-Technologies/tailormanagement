@@ -25,7 +25,7 @@
                 <flux:heading size="xl">{{ __('Customers') }}</flux:heading>
                 <flux:text class="text-zinc-500">{{ __('Manage customer profiles and contacts.') }}</flux:text>
             </div>
-            @if ($canManage)
+            @if ($canCreate)
                 <flux:button variant="primary" wire:click="openCreateModal">
                     <x-icon name="add" class="mr-1 size-4" />
                     {{ __('New Customer') }}
@@ -111,10 +111,12 @@
                                         <flux:button size="xs" variant="ghost" :href="route('customers.show', $customer)" wire:navigate>
                                             <x-icon name="visibility" class="size-4" />
                                         </flux:button>
-                                        @if ($canManage)
+                                        @if ($canUpdate)
                                         <flux:button size="xs" variant="ghost" wire:click="openEditModal({{ $customer->id }})">
                                             <x-icon name="edit" class="size-4" />
                                         </flux:button>
+                                        @endif
+                                        @if ($canDelete)
                                         <flux:button
                                             size="xs"
                                             variant="ghost"

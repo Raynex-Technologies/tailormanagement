@@ -11,9 +11,9 @@ class SystemUiSettings
 {
     public const DEFAULT_PRIMARY = '#111827';
 
-    public const DEFAULT_SECONDARY_1 = '#2563EB';
+    public const DEFAULT_SECONDARY_1 = '#FE6328';
 
-    public const DEFAULT_SECONDARY_2 = '#F59E0B';
+    public const DEFAULT_SECONDARY_2 = '#A3E635';
 
     public const CACHE_KEY = 'system-ui-settings:colors';
 
@@ -87,14 +87,32 @@ class SystemUiSettings
     public static function variables(): array
     {
         $colors = self::colors();
+        $sidebarForeground = self::foreground($colors['primary']);
+        $actionForeground = self::foreground($colors['secondary_1']);
+        $accentForeground = self::foreground($colors['secondary_2']);
 
         return [
-            '--tailorpro-primary' => $colors['primary'],
-            '--tailorpro-secondary' => $colors['secondary_1'],
-            '--tailorpro-secondary-2' => $colors['secondary_2'],
-            '--tailorpro-primary-foreground' => self::foreground($colors['primary']),
-            '--tailorpro-secondary-foreground' => self::foreground($colors['secondary_1']),
-            '--tailorpro-secondary-2-foreground' => self::foreground($colors['secondary_2']),
+            '--tm-sidebar' => $colors['primary'],
+            '--tm-sidebar-foreground' => $sidebarForeground,
+            '--tm-hero' => $colors['primary'],
+            '--tm-hero-foreground' => $sidebarForeground,
+            '--tm-primary-action' => $colors['secondary_1'],
+            '--tm-primary-action-hover' => "color-mix(in srgb, {$colors['secondary_1']} 88%, #000000 12%)",
+            '--tm-primary-action-foreground' => $actionForeground,
+            '--tm-accent' => $colors['secondary_2'],
+            '--tm-accent-hover' => "color-mix(in srgb, {$colors['secondary_2']} 86%, #000000 14%)",
+            '--tm-accent-foreground' => $accentForeground,
+
+            // Backward-compatible aliases for existing templates and integrations.
+            '--tailorpro-primary' => 'var(--tm-sidebar)',
+            '--tailorpro-secondary' => 'var(--tm-primary-action)',
+            '--tailorpro-secondary-2' => 'var(--tm-accent)',
+            '--tailorpro-primary-foreground' => 'var(--tm-sidebar-foreground)',
+            '--tailorpro-secondary-foreground' => 'var(--tm-primary-action-foreground)',
+            '--tailorpro-secondary-2-foreground' => 'var(--tm-accent-foreground)',
+            '--tailorpro-navigation-accent-start' => 'var(--tm-accent)',
+            '--tailorpro-navigation-accent-end' => 'var(--tm-accent-hover)',
+            '--tailorpro-navigation-accent-foreground' => 'var(--tm-accent-foreground)',
         ];
     }
 

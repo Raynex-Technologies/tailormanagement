@@ -29,20 +29,20 @@
             }
 
             .app-layout a:not(.sidebar-header-link):not([class*="text-white"]):not([class*="text-zinc"]):hover {
-                color: var(--tailorpro-secondary);
+                color: var(--tm-primary-action);
             }
 
             .desktop-sidebar,
             .app-mobile-sidebar {
-                background: linear-gradient(180deg, var(--tailorpro-primary) 0%, color-mix(in srgb, var(--tailorpro-primary) 88%, #ffffff 12%) 100%) !important;
-                color: var(--tailorpro-primary-foreground);
+                background: linear-gradient(180deg, var(--tm-sidebar) 0%, color-mix(in srgb, var(--tm-sidebar) 88%, #ffffff 12%) 100%) !important;
+                color: var(--tm-sidebar-foreground);
             }
 
             .desktop-sidebar-nav a.bg-lime-400,
             .app-mobile-sidebar a.bg-lime-400 {
                 background: linear-gradient(135deg, var(--tailorpro-navigation-accent-start) 0%, var(--tailorpro-navigation-accent-end) 100%) !important;
                 color: var(--tailorpro-navigation-accent-foreground) !important;
-                box-shadow: 0 4px 12px rgb(163 230 53 / 24%) !important;
+                box-shadow: 0 4px 12px color-mix(in srgb, var(--tm-accent) 24%, transparent) !important;
             }
 
             .desktop-sidebar-nav a.bg-lime-400:hover,
@@ -58,15 +58,15 @@
             .desktop-sidebar .sidebar-header-link > div,
             .app-mobile-sidebar a[href="{{ route('dashboard') }}"] > div,
             .app-ui-accent {
-                background: var(--tailorpro-secondary-2) !important;
-                color: var(--tailorpro-secondary-2-foreground) !important;
+                background: var(--tm-accent) !important;
+                color: var(--tm-accent-foreground) !important;
             }
 
             .app-layout button[data-flux-button][data-variant="primary"],
             .app-layout a[data-flux-button][data-variant="primary"] {
-                background: var(--tailorpro-secondary) !important;
-                color: var(--tailorpro-secondary-foreground) !important;
-                border-color: var(--tailorpro-secondary) !important;
+                background: var(--tm-primary-action) !important;
+                color: var(--tm-primary-action-foreground) !important;
+                border-color: var(--tm-primary-action) !important;
             }
 
             .app-layout button[data-flux-button][data-variant="primary"]:hover,
@@ -75,23 +75,23 @@
             }
 
             .app-layout .border-lime-500 {
-                border-color: var(--tailorpro-secondary) !important;
+                border-color: var(--tm-accent) !important;
             }
 
             .app-layout .bg-lime-50,
             .app-layout .bg-lime-100 {
-                background-color: color-mix(in srgb, var(--tailorpro-secondary) 14%, #ffffff 86%) !important;
+                background-color: color-mix(in srgb, var(--tm-accent) 14%, #ffffff 86%) !important;
             }
 
             .app-layout .text-lime-600,
             .app-layout .text-lime-700,
             .app-layout .hover\:text-lime-600:hover {
-                color: var(--tailorpro-secondary) !important;
+                color: var(--tm-accent) !important;
             }
 
             .app-layout .focus\:ring-lime-500:focus,
             .app-layout .focus-visible\:ring-lime-400\/70:focus-visible {
-                --tw-ring-color: var(--tailorpro-secondary) !important;
+                --tw-ring-color: var(--tm-accent) !important;
             }
 
             .sidebar-nav-groups .nav-group + .nav-group::before {
@@ -241,8 +241,8 @@
                 }
 
             .desktop-sidebar .nav-group.nav-group-active > h3 {
-                    color: var(--tailorpro-secondary-2);
-                    text-shadow: 0 0 12px color-mix(in srgb, var(--tailorpro-secondary-2) 35%, transparent);
+                    color: var(--tm-accent);
+                    text-shadow: 0 0 12px color-mix(in srgb, var(--tm-accent) 35%, transparent);
                 }
             }
         </style>
@@ -268,7 +268,7 @@
                     @if ($businessLogoUrl)
                         <img src="{{ $businessLogoUrl }}" alt="{{ $businessName }}" class="size-10 rounded-xl bg-white object-contain p-1 shadow-sm">
                     @else
-                        <div class="flex items-center justify-center size-10 rounded-xl" style="background: linear-gradient(135deg, #A3E635 0%, #84CC16 100%);">
+                        <div class="flex items-center justify-center size-10 rounded-xl" style="background: linear-gradient(135deg, var(--tm-accent) 0%, var(--tm-accent-hover) 100%);">
                             <x-app-logo-icon class="size-5 text-navy-900" />
                         </div>
                     @endif
@@ -312,7 +312,7 @@
 
                 {{-- Orders Group (Permission-based) --}}
                 @if ($ordersModuleEnabled)
-                @canany(['orders.view', 'order_catalog.view', 'users.view'])
+                @canany(['orders.view', 'order_catalog.view', 'customers.view'])
                 <div class="nav-group">
                     <h3 class="mb-2 flex items-center justify-between gap-2 px-3 text-[0.65rem] font-semibold uppercase tracking-wider text-white/35">
                         <span>{{ __('Orders') }}</span>
@@ -394,7 +394,7 @@
                     </a>
                     @endcan
 
-                    @can('users.view')
+                    @can('customers.view')
                     <a
                         href="{{ route('customers.index') }}"
                         wire:navigate
@@ -968,7 +968,7 @@
                         @if ($businessLogoUrl)
                             <img src="{{ $businessLogoUrl }}" alt="{{ $businessName }}" class="size-10 rounded-xl bg-white object-contain p-1 shadow-sm">
                         @else
-                            <div class="flex items-center justify-center size-10 rounded-xl" style="background: linear-gradient(135deg, #A3E635 0%, #84CC16 100%);">
+                            <div class="flex items-center justify-center size-10 rounded-xl" style="background: linear-gradient(135deg, var(--tm-accent) 0%, var(--tm-accent-hover) 100%);">
                                 <x-app-logo-icon class="size-5 text-navy-900" />
                             </div>
                         @endif
@@ -1002,7 +1002,7 @@
                     </div>
 
                     @if ($ordersModuleEnabled)
-                    @canany(['orders.view', 'order_catalog.view', 'users.view'])
+                    @canany(['orders.view', 'order_catalog.view', 'customers.view'])
                     <div class="nav-group">
                         <h3 class="px-3 mb-2 text-[0.65rem] font-semibold uppercase tracking-wider text-white/35">{{ __('Orders') }}</h3>
 
@@ -1046,7 +1046,7 @@
                         </a>
                         @endcan
 
-                        @can('users.view')
+                        @can('customers.view')
                         <a href="{{ route('customers.index') }}" wire:navigate @click="sidebarOpen = false"
                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('customers.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
                             <i class="fa-duotone fa-user size-5"></i>

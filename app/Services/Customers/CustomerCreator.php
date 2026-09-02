@@ -32,7 +32,7 @@ final class CustomerCreator
     /** @param array<string, mixed> $attributes */
     public function create(User $actor, int $branchId, array $attributes): Customer
     {
-        Gate::forUser($actor)->authorize('users.manage');
+        Gate::forUser($actor)->authorize('customers.create');
         $branch = Branch::query()->active()->findOrFail($branchId);
 
         if (! $actor->isGlobalAdmin() && (int) $actor->branch_id !== $branch->id) {

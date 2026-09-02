@@ -48,6 +48,62 @@ class SystemUiSettingsTest extends TestCase
         $this->assertSame('#F59E0B', $settings->ui_secondary_color_2);
     }
 
+    public function test_saved_theme_colors_drive_semantic_tokens_and_survive_reload(): void
+    {
+        $this->actingAsRole('admin');
+
+        Livewire::test(BusinessSettings::class)
+            ->set('ui_primary_color', '#123456')
+            ->set('ui_secondary_color_1', '#EEDD22')
+            ->set('ui_secondary_color_2', '#22CCAA')
+            ->call('saveSystemUiSettings')
+            ->assertHasNoErrors();
+
+        $this->get(route('dashboard'))
+            ->assertOk()
+            ->assertSee('--tm-sidebar: #123456;', false)
+            ->assertSee('--tm-hero: #123456;', false)
+            ->assertSee('--tm-primary-action: #EEDD22;', false)
+            ->assertSee('--tm-primary-action-foreground: #111827;', false)
+            ->assertSee('--tm-accent: #22CCAA;', false);
+
+        SystemUiSettings::clearCache();
+
+        $this->get(route('dashboard'))
+            ->assertSee('--tm-sidebar: #123456;', false)
+            ->assertSee('--tm-primary-action: #EEDD22;', false)
+            ->assertSee('--tm-accent: #22CCAA;', false);
+    }
+
+    public function test_modern_shell_and_page_heroes_consume_semantic_theme_tokens(): void
+    {
+        $css = file_get_contents(resource_path('css/app.css'));
+        $sidebar = file_get_contents(resource_path('views/layouts/app/sidebar.blade.php'));
+        $orders = file_get_contents(resource_path('views/livewire/orders/index.blade.php'));
+        $invoices = file_get_contents(resource_path('views/livewire/invoices/index.blade.php'));
+        $users = file_get_contents(resource_path('views/livewire/users/index.blade.php'));
+
+        $this->assertStringContainsString('var(--tm-sidebar)', $sidebar);
+        $this->assertStringContainsString('var(--tm-primary-action)', $sidebar);
+        $settingsNavigation = file_get_contents(resource_path('views/components/administration/settings-navigation.blade.php'));
+        $catalog = file_get_contents(resource_path('views/livewire/order-catalog/index.blade.php'));
+
+        $this->assertStringContainsString('var(--tm-accent)', $sidebar);
+        $this->assertStringContainsString('app-profile-accent', $sidebar);
+        $this->assertStringContainsString('var(--tm-primary-action)', $css);
+        $this->assertStringContainsString('var(--tm-hero)', $orders);
+        $this->assertStringContainsString('var(--tm-hero)', $invoices);
+        $this->assertStringContainsString('var(--tm-hero)', $users);
+        $this->assertStringContainsString('tm-active', $settingsNavigation);
+        $this->assertStringContainsString('tm-active', $catalog);
+        $this->assertStringContainsString('[data-flux-breadcrumbs-item] > a > svg', $css);
+        $this->assertStringContainsString('[role="tab"][aria-selected="true"]', $css);
+        $this->assertSame('#111827', SystemUiSettings::foreground('#F4F4A1'));
+        $this->assertSame('#FFFFFF', SystemUiSettings::foreground('#1B315F'));
+        $this->assertStringContainsString('.badge-warning', $css);
+        $this->assertStringContainsString('#D97706', $css);
+    }
+
     public function test_invalid_color_values_are_rejected(): void
     {
         $this->actingAsRole('admin');
@@ -73,8 +129,8 @@ class SystemUiSettingsTest extends TestCase
 
         $this->assertSame([
             'primary' => '#111827',
-            'secondary_1' => '#2563EB',
-            'secondary_2' => '#F59E0B',
+            'secondary_1' => '#FE6328',
+            'secondary_2' => '#A3E635',
         ], SystemUiSettings::colors());
     }
 
@@ -112,9 +168,11 @@ class SystemUiSettingsTest extends TestCase
 
         $this->get(route('dashboard'))
             ->assertOk()
-            ->assertSee('--tailorpro-primary: #123456;', false)
-            ->assertSee('--tailorpro-secondary: #654321;', false)
-            ->assertSee('--tailorpro-secondary-2: #F59E0B;', false)
+            ->assertSee('--tm-sidebar: #123456;', false)
+            ->assertSee('--tm-hero: #123456;', false)
+            ->assertSee('--tm-primary-action: #654321;', false)
+            ->assertSee('--tm-accent: #A3E635;', false)
+            ->assertSee('--tailorpro-primary: var(--tm-sidebar);', false)
             ->assertDontSee('url(javascript:alert(1))', false);
     }
 }

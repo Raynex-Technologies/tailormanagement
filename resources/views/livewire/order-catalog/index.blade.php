@@ -1,5 +1,5 @@
 <div class="space-y-5">
-    <section class="rounded-2xl p-5 text-white shadow-lg sm:p-6" style="background: linear-gradient(135deg, var(--tailorpro-primary) 0%, color-mix(in srgb, var(--tailorpro-primary) 88%, #ffffff 12%) 100%);" data-orders-workspace-header>
+    <section class="rounded-2xl p-5 text-white shadow-lg sm:p-6" style="background: linear-gradient(135deg, var(--tm-hero) 0%, color-mix(in srgb, var(--tm-hero) 88%, #ffffff 12%) 100%);" data-theme-hero data-orders-workspace-header>
         <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
                 <flux:breadcrumbs class="mb-5 text-white/70">
@@ -32,13 +32,13 @@
     @endif
 
     <div class="flex rounded-xl border border-zinc-200 bg-white p-1 shadow-sm dark:border-white/10 dark:bg-[#1e1f2e]" role="tablist" aria-label="{{ __('Order Catalog sections') }}">
-        <button wire:click="setTab('items')" class="flex-1 rounded-lg px-4 py-2.5 text-sm font-semibold transition {{ $tab === 'items' ? 'bg-lime-400 text-[#1e1f2e] shadow-sm' : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-white/5' }}" role="tab" aria-selected="{{ $tab === 'items' ? 'true' : 'false' }}">
+        <button wire:click="setTab('items')" class="flex-1 rounded-lg px-4 py-2.5 text-sm font-semibold transition {{ $tab === 'items' ? 'tm-active' : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-white/5' }}" role="tab" aria-selected="{{ $tab === 'items' ? 'true' : 'false' }}">
             <i class="fa-duotone fa-shirt mr-2"></i>{{ __('Catalog Items') }}
         </button>
-        <button wire:click="setTab('packages')" class="flex-1 rounded-lg px-4 py-2.5 text-sm font-semibold transition {{ $tab === 'packages' ? 'bg-lime-400 text-[#1e1f2e] shadow-sm' : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-white/5' }}" role="tab" aria-selected="{{ $tab === 'packages' ? 'true' : 'false' }}">
+        <button wire:click="setTab('packages')" class="flex-1 rounded-lg px-4 py-2.5 text-sm font-semibold transition {{ $tab === 'packages' ? 'tm-active' : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-white/5' }}" role="tab" aria-selected="{{ $tab === 'packages' ? 'true' : 'false' }}">
             <i class="fa-duotone fa-box-open-full mr-2"></i>{{ __('Packages') }}
         </button>
-        <button wire:click="setTab('measurements')" class="flex-1 rounded-lg px-4 py-2.5 text-sm font-semibold transition {{ $tab === 'measurements' ? 'bg-lime-400 text-[#1e1f2e] shadow-sm' : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-white/5' }}" role="tab" aria-selected="{{ $tab === 'measurements' ? 'true' : 'false' }}">
+        <button wire:click="setTab('measurements')" class="flex-1 rounded-lg px-4 py-2.5 text-sm font-semibold transition {{ $tab === 'measurements' ? 'tm-active' : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-white/5' }}" role="tab" aria-selected="{{ $tab === 'measurements' ? 'true' : 'false' }}">
             <i class="fa-duotone fa-ruler-combined mr-2"></i>{{ __('Measurements') }}
         </button>
     </div>

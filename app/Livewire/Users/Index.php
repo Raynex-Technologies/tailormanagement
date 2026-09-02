@@ -4,7 +4,6 @@ namespace App\Livewire\Users;
 
 use App\Models\Branch;
 use App\Models\User;
-use App\Support\BranchContext;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
@@ -28,6 +27,7 @@ class Index extends Component
     #[Url]
     public string $branchFilter = '';
 
+    #[Url]
     public int $perPage = 15;
 
     protected string $paginationTheme = 'tailwind';
@@ -52,6 +52,15 @@ class Index extends Component
         $this->resetPage();
     }
 
+    public function updatingPerPage($value): void
+    {
+        if (! in_array((int) $value, [10, 15, 25, 50], true)) {
+            $this->perPage = 15;
+        }
+
+        $this->resetPage();
+    }
+
     public function clearFilters(): void
     {
         $this->reset(['search', 'roleFilter', 'branchFilter']);
@@ -60,44 +69,42 @@ class Index extends Component
 
     public function render()
     {
-        $user = auth()->user();
-        $query = User::with(['roles', 'branch']);
+        $actor = auth()->user();
+        $query = User::query()->with(['roles:id,name', 'branch:id,name']);
+        $scopedUsers = User::query();
 
-        // Branch scoping for non-global admins
-        if (! $user->isGlobalAdmin()) {
-            $query->where('branch_id', $user->branch_id);
-        } else {
-            // Admin can filter by branch
-            if ($this->branchFilter) {
-                $query->where('branch_id', $this->branchFilter);
-            }
+        if (! $actor->isGlobalAdmin()) {
+            $query->where('branch_id', $actor->branch_id);
+            $scopedUsers->where('branch_id', $actor->branch_id);
+        } elseif ($this->branchFilter) {
+            $query->where('branch_id', $this->branchFilter);
         }
 
-        // Search
-        if ($this->search) {
-            $query->where(function ($q) {
-                $q->where('name', 'like', "%{$this->search}%")
-                    ->orWhere('email', 'like', "%{$this->search}%");
-            });
-        }
-
-        // Role filter
-        if ($this->roleFilter) {
-            $query->role($this->roleFilter);
-        }
+        $query
+            ->when($this->search, fn ($users) => $users->where(
+                fn ($search) => $search
+                    ->where('name', 'like', "%{$this->search}%")
+                    ->orWhere('email', 'like', "%{$this->search}%")
+            ))
+            ->when($this->roleFilter, fn ($users) => $users->role($this->roleFilter));
 
         $users = $query->orderBy('name')->paginate($this->perPage);
-
-        // Get available roles and branches for filters
-        $roles = Role::orderBy('name')->pluck('name');
-        $branches = $user->isGlobalAdmin()
+        $roles = Role::query()->orderBy('name')->pluck('name');
+        $branches = $actor->isGlobalAdmin()
             ? Branch::active()->orderBy('name')->get(['id', 'name'])
             : collect();
 
-        // Stats
+        // These non-sensitive directory counts are inherent to user administration.
         $stats = [
-            'total' => User::when(! $user->isGlobalAdmin(), fn ($q) => $q->where('branch_id', $user->branch_id))->count(),
-            'active_today' => 0, // Placeholder - would need last_login tracking
+            'total' => (clone $scopedUsers)->count(),
+            'with_roles' => (clone $scopedUsers)->whereHas('roles')->count(),
+            'without_roles' => (clone $scopedUsers)->whereDoesntHave('roles')->count(),
+            'roles_in_use' => Role::query()
+                ->whereHas('users', fn ($users) => $users->when(
+                    ! $actor->isGlobalAdmin(),
+                    fn ($users) => $users->where('branch_id', $actor->branch_id)
+                ))
+                ->count(),
         ];
 
         return view('livewire.users.index', [
@@ -105,8 +112,8 @@ class Index extends Component
             'roles' => $roles,
             'branches' => $branches,
             'stats' => $stats,
-            'canManage' => $user->can('users.manage'),
-            'isGlobalAdmin' => $user->isGlobalAdmin(),
+            'canCreate' => $actor->can('create', User::class),
+            'isGlobalAdmin' => $actor->isGlobalAdmin(),
         ]);
     }
 }

@@ -40,7 +40,7 @@ class CustomerMeasurements1BPortfolioTest extends TestCase
 
         auth()->logout();
         $viewer = User::factory()->forBranch($this->branch)->create();
-        $viewer->givePermissionTo('users.view');
+        $viewer->givePermissionTo('customers.view');
         BranchContext::setActiveBranch($this->branch->id);
         $this->actingAs($viewer);
 

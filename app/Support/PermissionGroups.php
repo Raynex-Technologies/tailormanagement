@@ -38,6 +38,12 @@ class PermissionGroups
             'branches.view',
             'branches.manage',
         ],
+        'Customers' => [
+            'customers.view',
+            'customers.create',
+            'customers.update',
+            'customers.delete',
+        ],
         'Orders' => [
             'orders.view',
             'orders.view_kpis',
@@ -164,6 +170,11 @@ class PermissionGroups
     ];
 
     protected static array $displayNames = [
+        'customers.view' => 'View Customers',
+        'customers.create' => 'Create Customers',
+        'customers.update' => 'Edit Customers',
+        'customers.delete' => 'Delete Customers',
+        'orders.mark_completed' => 'Mark Orders Completed',
         'orders.view_kpis' => 'View Order KPIs',
         'invoices.view_kpis' => 'View Invoice KPIs',
         'invoices.send_email' => 'Send Invoices by Email',
@@ -171,7 +182,7 @@ class PermissionGroups
 
     public static function displayName(string $permission): string
     {
-        return static::$displayNames[$permission] ?? $permission;
+        return static::$displayNames[$permission] ?? str((string) str_replace(['.', '_'], ' ', $permission))->headline()->toString();
     }
 
     /**

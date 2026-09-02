@@ -78,7 +78,7 @@
                         @class([
                             'min-h-10 shrink-0 whitespace-nowrap rounded-xl px-4 py-2 text-center text-sm font-semibold transition duration-150 first:ml-auto last:mr-auto',
                             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-50 dark:focus-visible:ring-offset-zinc-900',
-                            'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.18)]' => $isActiveSettingsTab,
+                            'tm-active' => $isActiveSettingsTab,
                             'text-zinc-600 hover:bg-lime-50 hover:text-lime-900 dark:text-zinc-300 dark:hover:bg-lime-400/10 dark:hover:text-lime-200' => ! $isActiveSettingsTab,
                         ])
                     >
@@ -95,7 +95,7 @@
                         @class([
                             'inline-flex min-h-10 shrink-0 items-center whitespace-nowrap rounded-xl px-4 py-2 text-center text-sm font-semibold transition duration-150 first:ml-auto last:mr-auto',
                             'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime-500 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-50 dark:focus-visible:ring-offset-zinc-900',
-                            'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.18)]' => $isActiveSettingsTab,
+                            'tm-active' => $isActiveSettingsTab,
                             'text-zinc-600 hover:bg-lime-50 hover:text-lime-900 dark:text-zinc-300 dark:hover:bg-lime-400/10 dark:hover:text-lime-200' => ! $isActiveSettingsTab,
                         ])
                     >

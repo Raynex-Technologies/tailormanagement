@@ -1,126 +1,48 @@
-<flux:main class="space-y-6">
-    {{-- Breadcrumbs --}}
-    <flux:breadcrumbs>
-        <flux:breadcrumbs.item href="{{ route('dashboard') }}" icon="home" wire:navigate />
-        <flux:breadcrumbs.item href="{{ route('users.index') }}" wire:navigate>{{ __('Users') }}</flux:breadcrumbs.item>
-        <flux:breadcrumbs.item>{{ $user->name }}</flux:breadcrumbs.item>
-    </flux:breadcrumbs>
-
-    {{-- Flash Messages --}}
-    @if (session('success'))
-        <flux:callout variant="success" icon="check-circle">
-            {{ session('success') }}
-        </flux:callout>
-    @endif
-
-    {{-- Header --}}
-    <flux:card>
-        <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+<flux:main class="p-0">
+    <section class="mb-6 overflow-hidden rounded-2xl p-5 text-white shadow-lg sm:p-6" style="background: linear-gradient(135deg, var(--tm-hero) 0%, color-mix(in srgb, var(--tm-hero) 88%, #ffffff 12%) 100%);" data-theme-hero data-user-detail-header>
+        <flux:breadcrumbs class="mb-5 text-white/70">
+            <flux:breadcrumbs.item :href="route('dashboard')" icon="home" class="!text-white/70 hover:!text-white" wire:navigate />
+            <flux:breadcrumbs.item :href="route('users.index')" class="!text-white/70 hover:!text-white" wire:navigate>{{ __('Users') }}</flux:breadcrumbs.item>
+            <flux:breadcrumbs.item class="!text-white">{{ $user->name }}</flux:breadcrumbs.item>
+        </flux:breadcrumbs>
+        <div class="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
             <div class="flex items-center gap-4">
-                <div class="flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 text-xl font-bold text-white">
-                    {{ $user->initials() }}
-                </div>
-                <div>
-                    <flux:heading size="xl">{{ $user->name }}</flux:heading>
-                    <flux:text>{{ $user->email }}</flux:text>
-                </div>
+                <span class="flex size-14 shrink-0 items-center justify-center rounded-full bg-white/15 text-lg font-bold text-white ring-1 ring-white/20">{{ $user->initials() }}</span>
+                <div class="min-w-0"><flux:heading size="xl" class="!text-white">{{ $user->name }}</flux:heading><p class="mt-1 truncate text-sm text-white/70">{{ $user->email }}</p></div>
             </div>
-            @if ($canEdit)
-                <flux:button variant="primary" :href="route('users.edit', $user)" wire:navigate>
-                    <x-icon name="edit" class="mr-1 size-4" />
-                    {{ __('Edit User') }}
-                </flux:button>
-            @endif
+            @if ($canEdit)<flux:button variant="primary" icon="pencil-square" :href="route('users.edit', $user)" wire:navigate>{{ __('Edit User') }}</flux:button>@endif
         </div>
-    </flux:card>
+    </section>
+
+    @if (session('success'))<flux:callout class="mb-4" variant="success" icon="check-circle">{{ session('success') }}</flux:callout>@endif
+
+    <section class="mb-6" aria-labelledby="account-summary-heading">
+        <h2 id="account-summary-heading" class="mb-3 text-sm font-semibold text-zinc-900 dark:text-white">{{ __('Account summary') }}</h2>
+        <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <flux:card><p class="text-sm text-zinc-500">{{ __('Email verification') }}</p><p class="mt-2 font-semibold text-zinc-950 dark:text-white">{{ $user->email_verified_at ? __('Verified') : __('Not verified') }}</p></flux:card>
+            <flux:card><p class="text-sm text-zinc-500">{{ __('Role') }}</p><p class="mt-2 font-semibold text-zinc-950 dark:text-white">{{ str($user->roles->first()?->name ?? 'Unassigned')->replace('_', ' ')->title() }}</p></flux:card>
+            <flux:card><p class="text-sm text-zinc-500">{{ __('Access Scope') }}</p><p class="mt-2 font-semibold text-zinc-950 dark:text-white">{{ $user->branch?->name ?? __('Global access') }}</p></flux:card>
+            <flux:card><p class="text-sm text-zinc-500">{{ __('Member Since') }}</p><p class="mt-2 font-semibold text-zinc-950 dark:text-white">{{ $user->created_at->format('M d, Y') }}</p></flux:card>
+        </div>
+    </section>
 
     <div class="grid gap-6 lg:grid-cols-2">
-        {{-- User Details --}}
         <flux:card>
-            <flux:heading size="lg" class="mb-4">{{ __('User Details') }}</flux:heading>
-
-            <dl class="space-y-4">
-                <div class="flex justify-between">
-                    <dt class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('Email') }}</dt>
-                    <dd class="text-sm font-medium text-zinc-900 dark:text-zinc-100">{{ $user->email }}</dd>
-                </div>
-
-                <div class="flex justify-between">
-                    <dt class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('Role') }}</dt>
-                    <dd>
-                        @foreach ($user->roles as $role)
-                            <span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium
-                                @if(in_array($role->name, ['superadmin', 'admin'])) bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400
-                                @elseif($role->name === 'branch_manager') bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400
-                                @else bg-zinc-100 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-300
-                                @endif">
-                                {{ ucfirst(str_replace('_', ' ', $role->name)) }}
-                            </span>
-                        @endforeach
-                    </dd>
-                </div>
-
-                <div class="flex justify-between">
-                    <dt class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('Branch') }}</dt>
-                    <dd class="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                        {{ $user->branch?->name ?? __('Global (No Branch)') }}
-                    </dd>
-                </div>
-
-                <div class="flex justify-between">
-                    <dt class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('Created') }}</dt>
-                    <dd class="text-sm font-medium text-zinc-900 dark:text-zinc-100">
-                        {{ $user->created_at->format('M d, Y \a\t H:i') }}
-                    </dd>
-                </div>
-
-                <div class="flex justify-between">
-                    <dt class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('Email Verified') }}</dt>
-                    <dd class="text-sm font-medium">
-                        @if ($user->email_verified_at)
-                            <span class="text-emerald-600 dark:text-emerald-400">
-                                {{ $user->email_verified_at->format('M d, Y') }}
-                            </span>
-                        @else
-                            <span class="text-amber-600 dark:text-amber-400">{{ __('Not Verified') }}</span>
-                        @endif
-                    </dd>
-                </div>
+            <flux:heading size="lg">{{ __('Account information') }}</flux:heading>
+            <dl class="mt-5 divide-y divide-zinc-200 dark:divide-zinc-700">
+                <div class="grid gap-1 py-3 first:pt-0 sm:grid-cols-3"><dt class="text-sm text-zinc-500">{{ __('Full Name') }}</dt><dd class="break-words text-sm font-medium text-zinc-900 sm:col-span-2 dark:text-white">{{ $user->name }}</dd></div>
+                <div class="grid gap-1 py-3 sm:grid-cols-3"><dt class="text-sm text-zinc-500">{{ __('Email') }}</dt><dd class="break-all text-sm font-medium text-zinc-900 sm:col-span-2 dark:text-white">{{ $user->email }}</dd></div>
+                <div class="grid gap-1 py-3 last:pb-0 sm:grid-cols-3"><dt class="text-sm text-zinc-500">{{ __('Email verification') }}</dt><dd class="text-sm font-medium sm:col-span-2"><span class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold {{ $user->email_verified_at ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300' : 'bg-amber-50 text-amber-700 dark:bg-amber-950/50 dark:text-amber-300' }}">{{ $user->email_verified_at ? __('Verified') : __('Not verified') }}</span></dd></div>
             </dl>
         </flux:card>
 
-        {{-- Activity Summary --}}
         <flux:card>
-            <flux:heading size="lg" class="mb-4">{{ __('Activity Summary') }}</flux:heading>
-
-            <div class="grid grid-cols-2 gap-4">
-                <div class="rounded-lg border border-zinc-200 p-4 dark:border-zinc-700">
-                    <div class="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
-                        {{ number_format($activity['orders_created']) }}
-                    </div>
-                    <div class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('Orders Created') }}</div>
-                </div>
-
-                <div class="rounded-lg border border-zinc-200 p-4 dark:border-zinc-700">
-                    <div class="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
-                        {{ number_format($activity['orders_assigned']) }}
-                    </div>
-                    <div class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('Orders Assigned') }}</div>
-                </div>
-
-                <div class="rounded-lg border border-zinc-200 p-4 dark:border-zinc-700">
-                    <div class="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
-                        {{ number_format($activity['payments_received']) }}
-                    </div>
-                    <div class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('Payments Received') }}</div>
-                </div>
-
-                <div class="rounded-lg border border-zinc-200 p-4 dark:border-zinc-700">
-                    <div class="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
-                        {{ number_format($activity['expenses_created']) }}
-                    </div>
-                    <div class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('Expenses Created') }}</div>
-                </div>
+            <flux:heading size="lg">{{ __('Activity summary') }}</flux:heading>
+            <p class="mt-1 text-sm text-zinc-500">{{ __('Canonical records associated with this account.') }}</p>
+            <div class="mt-5 grid grid-cols-2 gap-3">
+                @foreach ([['orders_created', __('Orders Created')], ['orders_assigned', __('Orders Assigned')], ['payments_received', __('Payments Received')], ['expenses_created', __('Expenses Created')]] as [$key, $label])
+                    <div class="rounded-xl border border-zinc-200 p-4 dark:border-zinc-700"><p class="text-2xl font-bold text-zinc-950 dark:text-white">{{ number_format($activity[$key]) }}</p><p class="mt-1 text-xs text-zinc-500">{{ $label }}</p></div>
+                @endforeach
             </div>
         </flux:card>
     </div>

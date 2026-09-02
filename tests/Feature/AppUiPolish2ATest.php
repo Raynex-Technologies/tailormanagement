@@ -21,7 +21,7 @@ class AppUiPolish2ATest extends TestCase
         $css = file_get_contents(resource_path('css/app.css'));
         $sidebar = file_get_contents(resource_path('views/layouts/app/sidebar.blade.php'));
 
-        $this->assertStringContainsString('--tailorpro-breadcrumb-accent: color-mix(in srgb, var(--tailorpro-navigation-accent-end)', $css);
+        $this->assertStringContainsString('--tailorpro-breadcrumb-accent: color-mix(in srgb, var(--tm-accent-hover)', $css);
         $this->assertStringContainsString('[data-flux-breadcrumbs] [data-flux-breadcrumbs-item] > a', $css);
         $this->assertStringContainsString('var(--tailorpro-navigation-accent-start)', $css);
         $this->assertStringContainsString('var(--tailorpro-navigation-accent-start)', $sidebar);

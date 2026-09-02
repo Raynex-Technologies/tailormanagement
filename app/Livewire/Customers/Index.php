@@ -77,7 +77,7 @@ class Index extends Component
 
     public function mount(): void
     {
-        $this->authorize('users.view');
+        $this->authorize('customers.view');
 
         $user = auth()->user();
         $this->showBranchSelector = (bool) $user?->isGlobalAdmin();
@@ -107,7 +107,7 @@ class Index extends Component
 
     public function openCreateModal(): void
     {
-        $this->authorize('users.manage');
+        $this->authorize('customers.create');
 
         $this->resetForm();
         $this->editingId = null;
@@ -117,7 +117,7 @@ class Index extends Component
 
     public function openEditModal(int $customerId): void
     {
-        $this->authorize('users.manage');
+        $this->authorize('customers.update');
 
         $customer = $this->findManageableCustomer($customerId);
 
@@ -134,7 +134,7 @@ class Index extends Component
 
     public function save(): void
     {
-        $this->authorize('users.manage');
+        $this->authorize($this->editingId ? 'customers.update' : 'customers.create');
         $this->validate();
 
         $payload = [
@@ -172,7 +172,7 @@ class Index extends Component
 
     public function delete(int $customerId): void
     {
-        $this->authorize('users.manage');
+        $this->authorize('customers.delete');
 
         $customer = $this->findManageableCustomer($customerId);
 
@@ -228,8 +228,10 @@ class Index extends Component
             'customers' => $customers,
             'stats' => $stats,
             'branches' => $branches,
-            'canView' => $user?->can('users.view') ?? false,
-            'canManage' => $user?->can('users.manage') ?? false,
+            'canView' => $user?->can('customers.view') ?? false,
+            'canCreate' => $user?->can('customers.create') ?? false,
+            'canUpdate' => $user?->can('customers.update') ?? false,
+            'canDelete' => $user?->can('customers.delete') ?? false,
         ])->title(__('Customers'));
     }
 

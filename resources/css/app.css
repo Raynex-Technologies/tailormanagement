@@ -2,11 +2,25 @@
 @import '../../vendor/livewire/flux/dist/flux.css';
 
 :root {
-    --tailorpro-navigation-accent-start: #A3E635;
-    --tailorpro-navigation-accent-end: #84CC16;
-    --tailorpro-navigation-accent-foreground: #1E1F2E;
-    --tailorpro-breadcrumb-accent: color-mix(in srgb, var(--tailorpro-navigation-accent-end) 48%, var(--tailorpro-navigation-accent-foreground) 52%);
-    --tailorpro-breadcrumb-accent-hover: color-mix(in srgb, var(--tailorpro-navigation-accent-end) 58%, var(--tailorpro-navigation-accent-foreground) 42%);
+    /* TailorPro fallback palette. Runtime System UI Settings override these tokens. */
+    --tm-sidebar: #111827;
+    --tm-sidebar-foreground: #FFFFFF;
+    --tm-hero: #111827;
+    --tm-hero-foreground: #FFFFFF;
+    --tm-primary-action: #FE6328;
+    --tm-primary-action-hover: #DF5723;
+    --tm-primary-action-foreground: #FFFFFF;
+    --tm-accent: #A3E635;
+    --tm-accent-hover: #84CC16;
+    --tm-accent-foreground: #111827;
+    --tailorpro-primary: var(--tm-sidebar);
+    --tailorpro-secondary: var(--tm-primary-action);
+    --tailorpro-secondary-2: var(--tm-accent);
+    --tailorpro-navigation-accent-start: var(--tm-accent);
+    --tailorpro-navigation-accent-end: var(--tm-accent-hover);
+    --tailorpro-navigation-accent-foreground: var(--tm-accent-foreground);
+    --tailorpro-breadcrumb-accent: color-mix(in srgb, var(--tm-accent-hover) 48%, var(--tm-accent-foreground) 52%);
+    --tailorpro-breadcrumb-accent-hover: color-mix(in srgb, var(--tm-accent-hover) 58%, var(--tm-accent-foreground) 42%);
 }
 
 /* Shared application breadcrumb treatment. */
@@ -80,7 +94,7 @@
 [data-sidebar-active] {
     background: linear-gradient(135deg, var(--tailorpro-navigation-accent-start) 0%, var(--tailorpro-navigation-accent-end) 100%) !important;
     color: var(--tailorpro-navigation-accent-foreground) !important;
-    box-shadow: 0 4px 12px rgb(163 230 53 / 24%) !important;
+    box-shadow: 0 4px 12px color-mix(in srgb, var(--tm-accent) 24%, transparent) !important;
 }
 
 @source '../views';
@@ -134,16 +148,16 @@
     --color-zinc-950: #0a0a0a;
 
     /* Accent Colors */
-    --color-accent: var(--color-brand-orange-500);
-    --color-accent-content: var(--color-brand-orange-600);
-    --color-accent-foreground: var(--color-white);
+    --color-accent: var(--tm-primary-action);
+    --color-accent-content: var(--tm-primary-action-hover);
+    --color-accent-foreground: var(--tm-primary-action-foreground);
 }
 
 @layer theme {
     .dark {
-        --color-accent: var(--color-brand-orange-500);
-        --color-accent-content: var(--color-brand-orange-400);
-        --color-accent-foreground: var(--color-white);
+        --color-accent: var(--tm-primary-action);
+        --color-accent-content: var(--tm-primary-action);
+        --color-accent-foreground: var(--tm-primary-action-foreground);
     }
 }
 
@@ -179,7 +193,7 @@
     top: 1rem;
     bottom: 1rem;
     width: 16rem;
-    background: linear-gradient(180deg, #1E1F2E 0%, #252637 100%);
+    background: linear-gradient(180deg, var(--tm-sidebar) 0%, color-mix(in srgb, var(--tm-sidebar) 88%, #ffffff 12%) 100%);
     border-radius: 1.5rem;
     box-shadow: 
         0 25px 50px -12px rgba(0, 0, 0, 0.25),
@@ -191,7 +205,7 @@
 }
 
 .dark .floating-sidebar {
-    background: linear-gradient(180deg, #1E1F2E 0%, #252637 100%);
+    background: linear-gradient(180deg, var(--tm-sidebar) 0%, color-mix(in srgb, var(--tm-sidebar) 88%, #ffffff 12%) 100%);
     box-shadow: 
         0 25px 50px -12px rgba(0, 0, 0, 0.5),
         0 0 0 1px rgba(255, 255, 255, 0.03);
@@ -293,14 +307,14 @@
 }
 
 .nav-item.active {
-    background: var(--color-lime-400);
-    color: #1E1F2E;
+    background: var(--tm-accent);
+    color: var(--tm-accent-foreground);
     font-weight: 600;
     box-shadow: 0 4px 12px rgba(191, 255, 0, 0.25);
 }
 
 .nav-item.active:hover {
-    background: var(--color-lime-500);
+    background: var(--tm-accent-hover);
 }
 
 .nav-item-icon {
@@ -324,8 +338,8 @@
     padding: 0 0.375rem;
     font-size: 0.7rem;
     font-weight: 600;
-    background: var(--color-lime-400);
-    color: #1E1F2E;
+    background: var(--tm-accent);
+    color: var(--tm-accent-foreground);
     border-radius: 9999px;
 }
 
@@ -337,10 +351,10 @@
 
 /* Promo card at bottom of sidebar */
 .promo-card {
-    background: linear-gradient(135deg, #A3E635 0%, #84CC16 100%);
+    background: linear-gradient(135deg, var(--tm-accent) 0%, var(--tm-accent-hover) 100%);
     border-radius: 1rem;
     padding: 1rem;
-    color: #1E1F2E;
+    color: var(--tm-accent-foreground);
     position: relative;
     overflow: hidden;
 }
@@ -375,13 +389,13 @@
     width: 2.25rem;
     height: 2.25rem;
     border-radius: 0.75rem;
-    background: linear-gradient(135deg, #A3E635 0%, #84CC16 100%);
+    background: linear-gradient(135deg, var(--tm-accent) 0%, var(--tm-accent-hover) 100%);
     display: flex;
     align-items: center;
     justify-content: center;
     font-weight: 600;
     font-size: 0.8rem;
-    color: #1E1F2E;
+    color: var(--tm-accent-foreground);
 }
 
 .sidebar-profile-info {
@@ -477,7 +491,7 @@
 .search-input:focus {
     outline: none;
     background: white;
-    box-shadow: 0 0 0 2px var(--color-lime-400);
+    box-shadow: 0 0 0 2px var(--tm-accent);
 }
 
 .dark .search-input {
@@ -495,13 +509,13 @@
 
 /* Override Flux sidebar to use our floating design */
 [data-flux-sidebar] {
-    background: linear-gradient(180deg, #1E1F2E 0%, #252637 100%) !important;
+    background: linear-gradient(180deg, var(--tm-sidebar) 0%, color-mix(in srgb, var(--tm-sidebar) 88%, #ffffff 12%) 100%) !important;
     border: none !important;
     border-radius: 1.5rem;
 }
 
 .dark [data-flux-sidebar] {
-    background: linear-gradient(180deg, #1E1F2E 0%, #252637 100%) !important;
+    background: linear-gradient(180deg, var(--tm-sidebar) 0%, color-mix(in srgb, var(--tm-sidebar) 88%, #ffffff 12%) 100%) !important;
 }
 
 /* Sidebar items */
@@ -522,7 +536,7 @@
     background: linear-gradient(135deg, var(--tailorpro-navigation-accent-start) 0%, var(--tailorpro-navigation-accent-end) 100%) !important;
     color: var(--tailorpro-navigation-accent-foreground) !important;
     font-weight: 600 !important;
-    box-shadow: 0 4px 12px rgb(163 230 53 / 24%) !important;
+    box-shadow: 0 4px 12px color-mix(in srgb, var(--tm-accent) 24%, transparent) !important;
 }
 
 [data-flux-sidebar-item][data-current="true"]:hover,
@@ -564,26 +578,26 @@ input:focus[data-flux-control],
 textarea:focus[data-flux-control],
 select:focus[data-flux-control] {
     @apply outline-hidden ring-2 ring-offset-2;
-    --tw-ring-color: var(--color-lime-400);
+    --tw-ring-color: var(--tm-accent);
     --tw-ring-offset-color: white;
 }
 
 .dark input:focus[data-flux-control],
 .dark textarea:focus[data-flux-control],
 .dark select:focus[data-flux-control] {
-    --tw-ring-offset-color: #1E1F2E;
+    --tw-ring-offset-color: var(--tm-accent-foreground);
 }
 
 /* Primary buttons use the brand orange accent */
 [data-flux-button][data-variant="primary"] {
-    background: var(--color-brand-orange-500) !important;
-    color: white !important;
+    background: var(--tm-primary-action) !important;
+    color: var(--tm-primary-action-foreground) !important;
     border: none !important;
     font-weight: 600 !important;
 }
 
 [data-flux-button][data-variant="primary"]:hover {
-    background: var(--color-brand-orange-600) !important;
+    background: var(--tm-primary-action-hover) !important;
 }
 
 /* ============================================
@@ -722,8 +736,8 @@ ui-table-scroll-area,
 }
 
 .calendar-day.active {
-    background: var(--color-lime-400);
-    color: #1E1F2E;
+    background: var(--tm-accent);
+    color: var(--tm-accent-foreground);
     border-radius: 9999px;
     font-weight: 600;
 }
@@ -736,11 +750,11 @@ ui-table-scroll-area,
 }
 
 .chart-bar:hover {
-    background: linear-gradient(180deg, var(--color-lime-400) 0%, var(--color-lime-500) 100%);
+    background: linear-gradient(180deg, var(--tm-accent) 0%, var(--tm-accent-hover) 100%);
 }
 
 .chart-bar.highlight {
-    background: linear-gradient(180deg, var(--color-lime-400) 0%, var(--color-lime-500) 100%);
+    background: linear-gradient(180deg, var(--tm-accent) 0%, var(--tm-accent-hover) 100%);
 }
 
 /* ============================================
@@ -845,4 +859,57 @@ ui-table-scroll-area,
 .floating-sidebar::-webkit-scrollbar-thumb:hover,
 [data-flux-sidebar]::-webkit-scrollbar-thumb:hover {
     background: rgba(255, 255, 255, 0.25);
+}
+
+
+/* Canonical brand-theme consumers. Semantic status colors remain independent. */
+.tm-active {
+    background: var(--tm-accent) !important;
+    color: var(--tm-accent-foreground) !important;
+    border-color: var(--tm-accent) !important;
+    box-shadow: 0 4px 12px color-mix(in srgb, var(--tm-accent) 20%, transparent);
+}
+
+.tm-active:hover {
+    background: var(--tm-accent-hover) !important;
+}
+
+[data-theme-hero] {
+    color: var(--tm-hero-foreground) !important;
+}
+
+[data-theme-hero] .text-white,
+[data-theme-hero] .\!text-white,
+[data-theme-hero] [data-flux-heading] {
+    color: var(--tm-hero-foreground) !important;
+}
+
+[data-theme-hero] [data-flux-text] {
+    color: color-mix(in srgb, var(--tm-hero-foreground) 72%, transparent) !important;
+}
+
+[data-flux-breadcrumbs] [data-flux-breadcrumbs-item] > a > svg {
+    color: var(--tm-accent) !important;
+}
+
+
+.app-layout [role="tab"][aria-selected="true"],
+[data-current-invoice-template],
+[data-active-invoice-template="true"] {
+    border-color: var(--tm-accent) !important;
+}
+
+.app-layout [role="tab"][aria-selected="true"] {
+    background: var(--tm-accent) !important;
+    color: var(--tm-accent-foreground) !important;
+}
+
+[data-current-invoice-template],
+[data-active-invoice-template="true"] [class*="bg-lime"] {
+    background: color-mix(in srgb, var(--tm-accent) 14%, transparent) !important;
+}
+
+[data-current-invoice-template] [class*="text-lime"],
+[data-active-invoice-template="true"] [class*="text-lime"] {
+    color: var(--tm-accent) !important;
 }

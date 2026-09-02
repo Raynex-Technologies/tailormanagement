@@ -304,7 +304,7 @@
                     @can('dashboard.top-customers.view')
                     <div class="flex items-center justify-between">
                         <h2 class="text-lg font-semibold text-zinc-900 dark:text-white">{{ __('Top Customers') }}</h2>
-                        @can('users.view')
+                        @can('customers.view')
                             <a href="{{ route('customers.index') }}" wire:navigate class="flex items-center justify-center size-8 rounded-full bg-lime-100 dark:bg-lime-900/30 text-lime-600 dark:text-lime-400 hover:bg-lime-200 dark:hover:bg-lime-800/40 transition-colors">
                                 <i class="fa-duotone fa-plus size-3.5"></i>
                             </a>
@@ -322,7 +322,7 @@
                             $icon = $customerIcons[$loop->index % count($customerIcons)];
                         @endphp
                         <a
-                            @can('users.view') href="{{ route('customers.show', $customer) }}" wire:navigate @endcan
+                            @can('customers.view') href="{{ route('customers.show', $customer) }}" wire:navigate @endcan
                             class="flex items-center gap-3 rounded-2xl bg-white dark:bg-zinc-800/50 p-4 shadow-sm border border-zinc-200/50 dark:border-zinc-700/50 group hover:border-lime-300 dark:hover:border-lime-700/50 transition-colors"
                         >
                             <div class="flex items-center justify-center size-11 rounded-xl bg-{{ $color }}-100 dark:bg-{{ $color }}-900/30 shrink-0">

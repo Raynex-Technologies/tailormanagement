@@ -34,7 +34,7 @@
                 <flux:button type="button" variant="ghost" :href="route('customers.index')" wire:navigate>
                     {{ __('Back') }}
                 </flux:button>
-                @if ($canManage)
+                @if ($canUpdate)
                     <flux:button type="button" variant="subtle" :href="route('customers.index')" wire:navigate>
                         <x-icon name="edit" class="mr-1 size-4" />
                         {{ __('Manage') }}
@@ -76,7 +76,7 @@
                 </div>
                 <flux:text class="mt-1 text-sm text-zinc-500">{{ __('Saved body measurements and immutable revision history.') }}</flux:text>
             </div>
-            @if ($canManage)
+            @if ($canUpdate)
                 <flux:button type="button" variant="subtle" :href="route('customers.measurements.record', $customer)" wire:navigate>
                     {{ $currentMeasurementProfile ? __('Update Measurements') : __('Record Measurements') }}
                 </flux:button>
