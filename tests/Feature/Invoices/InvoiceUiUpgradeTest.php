@@ -20,6 +20,46 @@ use Tests\TestCase;
 
 class InvoiceUiUpgradeTest extends TestCase
 {
+    public function test_invoice_defaults_show_latest_fifteen_across_months_and_dates_are_optional(): void
+    {
+        $this->travelTo(now()->setDate(2026, 9, 8));
+        $user = $this->actingAsRole('branch_manager', $this->branch);
+        $user->givePermissionTo('invoices.view_kpis');
+
+        $ids = [];
+        foreach (range(1, 16) as $index) {
+            $invoice = $this->createInvoice($this->branch, "Historical Client {$index}", 10000);
+            $invoice->update(['issue_date' => '2026-08-15']);
+            $ids[] = $invoice->id;
+        }
+
+        $component = Livewire::test(InvoicesIndex::class)
+            ->assertSet('dateFrom', '')
+            ->assertSet('dateTo', '')
+            ->assertSet('perPage', 15)
+            ->assertViewHas('invoices', fn ($invoices): bool => $invoices->total() === 16
+                && $invoices->modelKeys() === array_slice(array_reverse($ids), 0, 15))
+            ->assertViewHas('kpiPeriodLabel', 'All time')
+            ->assertDontSee('vs previous month');
+
+        $component->set('dateFrom', '2026-09-01')
+            ->assertViewHas('invoices', fn ($invoices): bool => $invoices->total() === 0)
+            ->set('dateFrom', '')
+            ->set('dateTo', '2026-08-14')
+            ->assertViewHas('invoices', fn ($invoices): bool => $invoices->total() === 0)
+            ->set('dateFrom', '2026-08-01')
+            ->set('dateTo', '2026-08-31')
+            ->assertViewHas('invoices', fn ($invoices): bool => $invoices->total() === 16)
+            ->assertSee('vs previous month')
+            ->call('gotoPage', 2)
+            ->call('clearFilters')
+            ->assertSet('dateFrom', '')
+            ->assertSet('dateTo', '')
+            ->assertViewHas('invoices', fn ($invoices): bool => $invoices->currentPage() === 1
+                && $invoices->count() === 15 && $invoices->total() === 16)
+            ->assertDontSee('vs previous month');
+    }
+
     public function test_user_with_invoice_kpi_permission_sees_canonical_invoice_overview(): void
     {
         $user = $this->actingAsRole('branch_manager', $this->branch);

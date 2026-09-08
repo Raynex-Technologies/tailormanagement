@@ -32,11 +32,6 @@ class Index extends Component
     public function mount(): void
     {
         $this->authorize('viewAny', Invoice::class);
-
-        if ($this->dateFrom === '' && $this->dateTo === '') {
-            $this->dateFrom = now()->startOfMonth()->toDateString();
-            $this->dateTo = now()->endOfMonth()->toDateString();
-        }
     }
 
     public function updatingSearch(): void
@@ -66,8 +61,8 @@ class Index extends Component
     public function clearFilters(): void
     {
         $this->search = '';
-        $this->dateFrom = now()->startOfMonth()->toDateString();
-        $this->dateTo = now()->endOfMonth()->toDateString();
+        $this->dateFrom = '';
+        $this->dateTo = '';
         $this->resetPage();
     }
 
@@ -89,15 +84,20 @@ class Index extends Component
         $invoices = $query
             ->orderByDesc('issue_date')
             ->orderByDesc('created_at')
+            ->orderByDesc('id')
             ->paginate($this->perPage);
 
         $canViewKpis = $user->can('invoices.view_kpis');
         $kpis = [];
+        $kpiComparesPreviousMonth = $dateFrom !== null || $dateTo !== null;
 
         if ($canViewKpis) {
             $currentStats = $this->invoiceStats($dateFrom, $dateTo, $user->id, $isTailor);
-            [$previousFrom, $previousTo] = $this->previousMonthRange($dateFrom, $dateTo);
-            $previousStats = $this->invoiceStats($previousFrom, $previousTo, $user->id, $isTailor);
+            $previousStats = $currentStats;
+            if ($kpiComparesPreviousMonth) {
+                [$previousFrom, $previousTo] = $this->previousMonthRange($dateFrom, $dateTo);
+                $previousStats = $this->invoiceStats($previousFrom, $previousTo, $user->id, $isTailor);
+            }
             $kpis = collect($currentStats)->mapWithKeys(fn ($value, $key) => [
                 $key => [
                     'value' => $value,
@@ -110,6 +110,7 @@ class Index extends Component
             'invoices' => $invoices,
             'canViewKpis' => $canViewKpis,
             'kpis' => $kpis,
+            'kpiComparesPreviousMonth' => $kpiComparesPreviousMonth,
             'kpiPeriodLabel' => $canViewKpis ? $this->periodLabel($dateFrom, $dateTo) : null,
         ]);
     }

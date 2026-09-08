@@ -42,7 +42,12 @@
             <section class="mb-4" aria-labelledby="invoice-kpis-heading" data-invoice-kpis>
                 <div class="mb-3">
                     <h2 id="invoice-kpis-heading" class="text-sm font-semibold text-zinc-900 dark:text-white">{{ __('Invoice Overview') }}</h2>
-                    <p class="text-xs text-zinc-500 dark:text-zinc-400">{{ $kpiPeriodLabel }} · {{ __('compared with the previous month') }}</p>
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400">
+                        {{ $kpiPeriodLabel }}
+                        @if ($kpiComparesPreviousMonth)
+                            · {{ __('compared with the previous month') }}
+                        @endif
+                    </p>
                 </div>
 
                 <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -66,6 +71,7 @@
                                     <i class="fa-duotone {{ $card['icon'] }}" aria-hidden="true"></i>
                                 </span>
                             </div>
+                            @if ($kpiComparesPreviousMonth)
                             <div class="mt-4 flex items-center gap-1.5 text-xs">
                                 <span class="inline-flex items-center gap-1 font-semibold {{ $growth > 0 ? 'text-emerald-600 dark:text-emerald-400' : ($growth < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-zinc-500') }}">
                                     <i class="fa-solid {{ $growth > 0 ? 'fa-arrow-trend-up' : ($growth < 0 ? 'fa-arrow-trend-down' : 'fa-minus') }}" aria-hidden="true"></i>
@@ -73,6 +79,7 @@
                                 </span>
                                 <span class="text-zinc-500 dark:text-zinc-400">{{ __('vs previous month') }}</span>
                             </div>
+                            @endif
                         </flux:card>
                     @endforeach
                 </div>
@@ -104,22 +111,30 @@
         </div>
 
         <flux:card id="invoice-filters" x-show="filtersOpen" x-collapse x-cloak class="mb-6" wire:key="invoice-filter-panel">
-            <div class="grid gap-4 sm:grid-cols-2 xl:grid-cols-6">
-                <flux:input
-                    wire:model.live.debounce.300ms="search"
-                    placeholder="{{ __('Search invoice, order, customer...') }}"
-                    icon="magnifying-glass"
-                    class="sm:col-span-2 xl:col-span-2"
-                />
-                <flux:input wire:model.live="dateFrom" type="date" label="{{ __('From date') }}" />
-                <flux:input wire:model.live="dateTo" type="date" label="{{ __('To date') }}" />
-                <flux:select wire:model.live="perPage" label="{{ __('Rows') }}">
-                    <flux:select.option value="10">10</flux:select.option>
-                    <flux:select.option value="15">15</flux:select.option>
-                    <flux:select.option value="25">25</flux:select.option>
-                    <flux:select.option value="50">50</flux:select.option>
-                </flux:select>
-                <div class="flex items-end">
+            <div class="flex flex-wrap items-end gap-4">
+                <div class="min-w-0 basis-full sm:basis-72 sm:grow">
+                    <flux:input
+                        wire:model.live.debounce.300ms="search"
+                        label="{{ __('Search') }}"
+                        placeholder="{{ __('Search invoice, order, customer...') }}"
+                        icon="magnifying-glass"
+                    />
+                </div>
+                <div class="min-w-0 basis-full sm:basis-48 sm:grow">
+                    <flux:input wire:model.live="dateFrom" type="date" label="{{ __('From date') }}" />
+                </div>
+                <div class="min-w-0 basis-full sm:basis-48 sm:grow">
+                    <flux:input wire:model.live="dateTo" type="date" label="{{ __('To date') }}" />
+                </div>
+                <div class="min-w-0 basis-24 grow sm:grow-0">
+                    <flux:select wire:model.live="perPage" label="{{ __('Rows') }}">
+                        <flux:select.option value="10">10</flux:select.option>
+                        <flux:select.option value="15">15</flux:select.option>
+                        <flux:select.option value="25">25</flux:select.option>
+                        <flux:select.option value="50">50</flux:select.option>
+                    </flux:select>
+                </div>
+                <div class="shrink-0">
                     <flux:button class="w-full" variant="ghost" icon="x-mark" wire:click="clearFilters">
                         {{ __('Clear') }}
                     </flux:button>

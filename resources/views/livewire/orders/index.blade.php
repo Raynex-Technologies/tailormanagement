@@ -54,7 +54,12 @@
             <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <div>
                     <h2 id="orders-kpis-heading" class="text-sm font-semibold text-zinc-900 dark:text-white">{{ __('Order overview') }}</h2>
-                    <p class="text-xs text-zinc-500 dark:text-zinc-400">{{ $kpiPeriodLabel }} · {{ __('compared with the previous month') }}</p>
+                    <p class="text-xs text-zinc-500 dark:text-zinc-400">
+                        {{ $kpiPeriodLabel }}
+                        @if ($kpiComparesPreviousMonth)
+                            · {{ __('compared with the previous month') }}
+                        @endif
+                    </p>
                 </div>
             </div>
 
@@ -80,6 +85,7 @@
                                 <i class="fa-duotone {{ $card['icon'] }}" aria-hidden="true"></i>
                             </span>
                         </div>
+                        @if ($kpiComparesPreviousMonth)
                         <div class="mt-4 flex items-center gap-1.5 text-xs">
                             <span class="inline-flex items-center gap-1 font-semibold {{ $growth > 0 ? 'text-emerald-600 dark:text-emerald-400' : ($growth < 0 ? 'text-rose-600 dark:text-rose-400' : 'text-zinc-500') }}">
                                 <i class="fa-solid {{ $growth > 0 ? 'fa-arrow-trend-up' : ($growth < 0 ? 'fa-arrow-trend-down' : 'fa-minus') }}" aria-hidden="true"></i>
@@ -87,6 +93,7 @@
                             </span>
                             <span class="text-zinc-500 dark:text-zinc-400">{{ __('vs previous month') }}</span>
                         </div>
+                        @endif
                     </flux:card>
                 @endforeach
             </div>

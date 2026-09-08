@@ -87,7 +87,12 @@ class InvoiceTemplateSelectionTest extends TestCase
 
         $pdfResponse = $this->get(route('invoices.download', $invoice));
         $pdfResponse->assertOk();
-        $this->assertStringContainsString('[MODERN TEMPLATE]', $pdfResponse->streamedContent());
+        $pdf = $pdfResponse->streamedContent();
+        $this->assertStringStartsWith('%PDF-', $pdf);
+        $this->assertStringContainsString(
+            "\xFE\xFF".mb_convert_encoding('modern', 'UTF-16BE'),
+            $pdf
+        );
     }
 
     public function test_invoice_download_falls_back_to_default_template_when_selected_template_is_inactive(): void
@@ -102,7 +107,10 @@ class InvoiceTemplateSelectionTest extends TestCase
 
         $pdfResponse = $this->get(route('invoices.download', $invoice));
         $pdfResponse->assertOk();
-        $this->assertStringContainsString('Tailwind Basic', $pdfResponse->streamedContent());
+        $this->assertStringContainsString(
+            "\xFE\xFF".mb_convert_encoding('tailwind', 'UTF-16BE'),
+            $pdfResponse->streamedContent()
+        );
     }
 
     public function test_settings_route_requires_existing_settings_permission(): void

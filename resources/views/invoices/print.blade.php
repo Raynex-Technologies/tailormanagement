@@ -6,7 +6,6 @@
 
     $settings = $settings ?? BusinessSetting::instance();
     $paymentMethods = ($paymentMethods ?? PaymentMethod::forInvoiceDocument())
-        ->take(3)
         ->values();
     $template = $template ?? app(InvoiceTemplateResolver::class)->resolve($settings);
     $emailMode = (bool) ($emailMode ?? false);

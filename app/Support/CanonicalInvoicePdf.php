@@ -6,11 +6,11 @@ use App\Models\BusinessSetting;
 use App\Models\Invoice;
 use App\Models\PaymentMethod;
 use App\Models\Scopes\BranchScope;
+use Barryvdh\DomPDF\Facade\Pdf;
 
 class CanonicalInvoicePdf
 {
     public function __construct(
-        protected InvoicePdfRenderer $renderer,
         protected InvoiceTemplateResolver $templateResolver,
     ) {}
 
@@ -32,13 +32,19 @@ class CanonicalInvoicePdf
     {
         $settings ??= BusinessSetting::instance();
         $invoice = $this->invoice($invoice);
+        $template = $this->templateResolver->resolve($settings);
 
-        return $this->renderer->render(
-            $invoice,
-            $settings,
-            PaymentMethod::forInvoiceDocument(),
-            $this->templateResolver->resolve($settings),
-        );
+        $pdf = Pdf::loadView('invoices.print', [
+            'invoice' => $invoice,
+            'settings' => $settings,
+            'template' => $template,
+            'paymentMethods' => PaymentMethod::forInvoiceDocument(),
+            'downloadMode' => true,
+        ])->setPaper('a4');
+
+        $pdf->getDomPDF()->add_info('InvoiceTemplate', $template->slug);
+
+        return $pdf->output(['compress' => 0]);
     }
 
     public function filename(Invoice $invoice): string

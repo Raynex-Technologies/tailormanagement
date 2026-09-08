@@ -250,9 +250,9 @@
                                 <th class="px-4 py-3">{{ __('Code') }}</th>
                                 <th class="px-4 py-3">{{ __('Type') }}</th>
                                 <th class="px-4 py-3">{{ __('Enabled') }}</th>
+                                <th class="px-4 py-3">{{ __('On Invoices') }}</th>
                                 <th class="px-4 py-3">{{ __('Account Number') }}</th>
                                 <th class="px-4 py-3">{{ __('Account Holder') }}</th>
-                                <th class="px-4 py-3">{{ __('Sort') }}</th>
                                 <th class="px-4 py-3 text-right">{{ __('Actions') }}</th>
                             </tr>
                         </thead>
@@ -274,19 +274,24 @@
                                             {{ $method->is_enabled ? __('Enabled') : __('Disabled') }}
                                         </flux:badge>
                                     </td>
+                                    <td class="px-4 py-3">{{ $method->show_on_invoice ? __('Yes') : __('No') }}</td>
                                     <td class="px-4 py-3 text-zinc-500">{{ $method->account_number ?: '-' }}</td>
                                     <td class="px-4 py-3 text-zinc-500">{{ $method->account_holder_name ?: '-' }}</td>
-                                    <td class="px-4 py-3 text-zinc-500">{{ $method->sort_order }}</td>
                                     <td class="px-4 py-3">
-                                        <div class="flex justify-end gap-2">
-                                            <flux:button type="button" size="sm" variant="ghost" wire:click="editPaymentMethod({{ $method->id }})">
-                                                {{ __('Edit') }}
-                                            </flux:button>
-                                            @if ($method->id !== 1)
-                                                <flux:button type="button" size="sm" variant="ghost" wire:click="deletePaymentMethod({{ $method->id }})" class="text-red-600">
-                                                    {{ __('Delete') }}
-                                                </flux:button>
-                                            @endif
+                                        <div class="flex justify-end">
+                                            <flux:dropdown position="bottom" align="end">
+                                                <flux:button type="button" size="sm" variant="ghost" icon="ellipsis-horizontal" aria-label="{{ __('Actions for :method', ['method' => $method->name]) }}" />
+                                                <flux:menu>
+                                                    <flux:menu.item icon="pencil-square" wire:click="editPaymentMethod({{ $method->id }})">
+                                                        {{ __('Edit') }}
+                                                    </flux:menu.item>
+                                                    @if ($method->id !== 1)
+                                                        <flux:menu.item icon="trash" variant="danger" wire:click="deletePaymentMethod({{ $method->id }})">
+                                                            {{ __('Delete') }}
+                                                        </flux:menu.item>
+                                                    @endif
+                                                </flux:menu>
+                                            </flux:dropdown>
                                         </div>
                                     </td>
                                 </tr>
@@ -327,6 +332,8 @@
                                 <input type="checkbox" wire:model="paymentMethodOnline" class="rounded border-zinc-300 text-lime-600 focus:ring-lime-500" />
                             </label>
                         </div>
+
+                        <flux:switch wire:model="paymentMethodShowOnInvoice" label="{{ __('Show on printed and downloaded invoices') }}" description="{{ __('Include this payment method and its account details in the invoice Payment Methods section.') }}" />
 
                         <flux:textarea wire:model.blur="paymentMethodDescription" label="{{ __('Checkout Description') }}" rows="2" />
 

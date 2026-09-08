@@ -1,6 +1,5 @@
 @php
     $paymentMethods = ($paymentMethods ?? \App\Models\PaymentMethod::forInvoiceDocument())
-        ->take(3)
         ->values();
 
     $invoiceSentAt = data_get($invoice, 'sent_at');
@@ -33,26 +32,27 @@
     }
     .container { max-width: 900px; margin: 0 auto; }
     .header {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
+        display: table;
+        width: 100%;
+        table-layout: fixed;
         border-bottom: 2px solid #111827;
         padding-bottom: 16px;
         margin-bottom: 20px;
     }
-    .brand { max-width: 60%; }
+    .brand { display: table-cell; width: 60%; vertical-align: top; }
     .brand h1 { font-size: 24px; margin-bottom: 4px; }
     .brand p { margin-top: 4px; color: #4b5563; }
     .logo { max-height: 70px; max-width: 180px; margin-bottom: 8px; }
-    .doc-meta { text-align: right; }
+    .doc-meta { display: table-cell; width: 40%; vertical-align: top; text-align: right; }
     .doc-meta h2 { font-size: 20px; margin-bottom: 8px; }
     .doc-meta p { margin-bottom: 4px; }
     .info {
-        display: grid;
-        grid-template-columns: 1fr 1fr;
-        gap: 16px;
+        table-layout: fixed;
         margin-bottom: 20px;
     }
+    .info td { border: 0; padding: 0; vertical-align: top; }
+    .info .info-left { width: 50%; padding-right: 8px; }
+    .info .info-right { width: 50%; padding-left: 8px; }
     .card {
         border: 1px solid #d1d5db;
         border-radius: 8px;
@@ -89,11 +89,14 @@
         width: 320px;
     }
     .totals .row {
-        display: flex;
-        justify-content: space-between;
+        display: table;
+        width: 100%;
         padding: 6px 0;
         border-bottom: 1px solid #e5e7eb;
     }
+    .totals .row > span,
+    .totals .row > strong { display: table-cell; }
+    .totals .row > strong { text-align: right; }
     .totals .total {
         font-weight: 700;
         font-size: 18px;
@@ -167,7 +170,9 @@
         </div>
     </div>
 
-    <div class="info">
+    <table class="info" role="presentation">
+        <tr>
+        <td class="info-left">
         <div class="card">
             <h3>Bill To</h3>
             <p><strong>{{ $invoice->order?->customer?->name ?? 'Customer' }}</strong></p>
@@ -181,6 +186,8 @@
                 <p>{{ $invoice->order->customer->address }}</p>
             @endif
         </div>
+        </td>
+        <td class="info-right">
         <div class="card">
             <h3>Invoice Summary</h3>
             <p><strong>Branch:</strong> {{ $invoice->branch?->name ?? 'N/A' }}</p>
@@ -193,7 +200,9 @@
                 <p><strong>Sent:</strong> {{ $invoiceSentAtLabel }}</p>
             @endif
         </div>
-    </div>
+        </td>
+        </tr>
+    </table>
 
     @if ($paymentMethods->isNotEmpty())
         <div class="card" style="margin-bottom: 20px;">

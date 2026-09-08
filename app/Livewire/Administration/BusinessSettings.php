@@ -81,6 +81,8 @@ class BusinessSettings extends Component
 
     public bool $paymentMethodEnabled = true;
 
+    public bool $paymentMethodShowOnInvoice = false;
+
     public bool $paymentMethodOnline = false;
 
     public int $paymentMethodSortOrder = 0;
@@ -418,6 +420,7 @@ class BusinessSettings extends Component
             'paymentMethodAccountHolderName' => ['nullable', 'string', 'max:191'],
             'paymentMethodType' => ['required', Rule::in(['online', 'offline'])],
             'paymentMethodEnabled' => ['boolean'],
+            'paymentMethodShowOnInvoice' => ['boolean'],
             'paymentMethodOnline' => ['boolean'],
             'paymentMethodSortOrder' => ['nullable', 'integer', 'min:0', 'max:9999'],
             'paymentMethodDescription' => ['nullable', 'string', 'max:2000'],
@@ -450,6 +453,7 @@ class BusinessSettings extends Component
                 'account_holder_name' => $validated['paymentMethodAccountHolderName'] ?: null,
                 'type' => $isOnlineGateway ? 'online' : 'offline',
                 'is_enabled' => (bool) $validated['paymentMethodEnabled'],
+                'show_on_invoice' => (bool) $validated['paymentMethodShowOnInvoice'],
                 'is_online' => $isOnlineGateway,
                 'sort_order' => (int) ($validated['paymentMethodSortOrder'] ?? 0),
                 'description' => $validated['paymentMethodDescription'] ?: null,
@@ -482,6 +486,7 @@ class BusinessSettings extends Component
         $this->paymentMethodAccountHolderName = $paymentMethod->account_holder_name ?? '';
         $this->paymentMethodType = $paymentMethod->type ?? ($paymentMethod->is_online ? 'online' : 'offline');
         $this->paymentMethodEnabled = (bool) $paymentMethod->is_enabled;
+        $this->paymentMethodShowOnInvoice = (bool) $paymentMethod->show_on_invoice;
         $this->paymentMethodOnline = (bool) $paymentMethod->is_online;
         $this->paymentMethodSortOrder = (int) ($paymentMethod->sort_order ?? 0);
         $this->paymentMethodDescription = $paymentMethod->description ?? '';
@@ -533,6 +538,7 @@ class BusinessSettings extends Component
         $this->paymentMethodAccountHolderName = '';
         $this->paymentMethodType = 'offline';
         $this->paymentMethodEnabled = true;
+        $this->paymentMethodShowOnInvoice = false;
         $this->paymentMethodOnline = false;
         $this->paymentMethodSortOrder = 0;
         $this->paymentMethodDescription = '';

@@ -32,7 +32,7 @@ class OrdersIndexFiltersTest extends TestCase
             ->assertDontSee('View Payments');
     }
 
-    public function test_orders_kpis_default_to_current_month_and_include_payments_and_growth(): void
+    public function test_orders_default_to_all_dates_and_kpis_include_payments(): void
     {
         $user = $this->actingAsRole('branch_manager', $this->branch);
         $user->givePermissionTo('orders.view_kpis');
@@ -70,15 +70,17 @@ class OrdersIndexFiltersTest extends TestCase
         $this->assertSame(50000.0, (float) OrderPayment::query()->where('order_id', $current->id)->sum('amount'));
 
         $component = Livewire::test(OrdersIndex::class)
-            ->assertSet('dateFrom', now()->startOfMonth()->toDateString())
-            ->assertSet('dateTo', now()->endOfMonth()->toDateString())
-            ->assertSee('Tsh 120K')
-            ->assertSee('Tsh 120,000')
-            ->assertSee('Tsh 50K')
-            ->assertSee('Tsh 70K')
-            ->assertSee('100.0%');
+            ->assertSet('dateFrom', '')
+            ->assertSet('dateTo', '')
+            ->assertSet('perPage', 50)
+            ->assertSee($current->order_no)
+            ->assertSee($previous->order_no)
+            ->assertSee('Tsh 180K')
+            ->assertSee('Tsh 180,000')
+            ->assertSee('Tsh 75K')
+            ->assertSee('Tsh 105K');
 
-        $this->assertSame(50000.0, (float) $component->viewData('kpis')['paid']['value']);
+        $this->assertSame(75000.0, (float) $component->viewData('kpis')['paid']['value']);
     }
 
     public function test_orders_management_sorts_by_order_date_desc(): void
@@ -174,5 +176,18 @@ class OrdersIndexFiltersTest extends TestCase
             ->set('dateTo', now()->endOfMonth()->toDateString())
             ->assertSee($currentMonthOrder->order_no)
             ->assertDontSee($lastMonthOrder->order_no);
+    }
+
+    public function test_clear_filters_removes_an_explicit_date_range(): void
+    {
+        $this->actingAsRole('branch_manager', $this->branch);
+
+        Livewire::test(OrdersIndex::class)
+            ->set('dateFrom', now()->startOfMonth()->toDateString())
+            ->set('dateTo', now()->endOfMonth()->toDateString())
+            ->call('clearFilters')
+            ->assertSet('dateFrom', '')
+            ->assertSet('dateTo', '')
+            ->assertSet('perPage', 50);
     }
 }

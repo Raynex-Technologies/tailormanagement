@@ -39,7 +39,7 @@ class InvoicePdfRenderer
         ?InvoiceTemplate $template = null
     ): string {
         $paymentMethods = $paymentMethods->isNotEmpty()
-            ? $paymentMethods->take(3)->values()
+            ? $paymentMethods->values()
             : PaymentMethod::forInvoiceDocument();
 
         $template ??= app(InvoiceTemplateResolver::class)->resolve($settings);

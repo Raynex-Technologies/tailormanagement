@@ -19,6 +19,7 @@ class PaymentMethod extends Model
         'account_holder_name',
         'type',
         'is_enabled',
+        'show_on_invoice',
         'is_online',
         'sort_order',
         'description',
@@ -29,6 +30,7 @@ class PaymentMethod extends Model
     {
         return [
             'is_enabled' => 'boolean',
+            'show_on_invoice' => 'boolean',
             'is_online' => 'boolean',
             'settings' => 'array',
         ];
@@ -47,20 +49,14 @@ class PaymentMethod extends Model
     public function scopeForInvoiceDocument(Builder $query): Builder
     {
         return $query
-            ->where(function (Builder $documentQuery) {
-                $documentQuery->where('id', '!=', 1)
-                    ->orWhereNotNull('account_number')
-                    ->orWhereNotNull('account_holder_name')
-                    ->orWhere('name', '!=', 'Default');
-            })
+            ->where('show_on_invoice', true)
             ->orderBy('name');
     }
 
-    public static function forInvoiceDocument(int $limit = 3): Collection
+    public static function forInvoiceDocument(): Collection
     {
         return static::query()
             ->forInvoiceDocument()
-            ->limit($limit)
             ->get();
     }
 

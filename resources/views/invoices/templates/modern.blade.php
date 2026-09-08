@@ -1,5 +1,4 @@
 @php
-    $defaultPaymentMethod = $paymentMethods->firstWhere('id', 1) ?? $paymentMethods->first();
     $businessName = $settings->business_name ?: config('app.name', 'Tailoring Business');
     $customer = $invoice->order?->customer;
     $isPdf = (bool) ($downloadMode ?? false);
@@ -156,7 +155,7 @@
                     <div style="margin-top: 16px;">
                         <p style="margin: 0; font-size: 16px; font-weight: 800; text-transform: uppercase;">Payment Method</p>
 
-                        @if ($defaultPaymentMethod)
+                        @foreach ($paymentMethods as $defaultPaymentMethod)
                             <p style="margin: 8px 0 0; font-size: 13px; color: #2d3d31;">
                                 <strong>Account No :</strong> {{ $defaultPaymentMethod->account_number ?: '-' }}
                             </p>
@@ -166,9 +165,7 @@
                             <p style="margin: 4px 0 0; font-size: 13px; color: #2d3d31;">
                                 <strong>Bank :</strong> {{ $defaultPaymentMethod->name ?: '-' }}
                             </p>
-                        @else
-                            <p style="margin: 8px 0 0; font-size: 13px; color: #2d3d31;">No default payment method configured.</p>
-                        @endif
+                        @endforeach
                     </div>
                 </td>
             </tr>
@@ -348,7 +345,7 @@
                 <div style="margin-top: 18px;">
                     <p style="margin: 0; font-size: 22px; line-height: 1; font-weight: 800; letter-spacing: 0.02em; text-transform: uppercase;">Payment Method</p>
 
-                    @if ($defaultPaymentMethod)
+                    @foreach ($paymentMethods as $defaultPaymentMethod)
                         <p style="margin: 10px 0 0; font-size: 16px; color: #2d3d31;">
                             <strong>Account No :</strong> {{ $defaultPaymentMethod->account_number ?: '-' }}
                         </p>
@@ -358,9 +355,7 @@
                         <p style="margin: 5px 0 0; font-size: 16px; color: #2d3d31;">
                             <strong>Bank :</strong> {{ $defaultPaymentMethod->name ?: '-' }}
                         </p>
-                    @else
-                        <p style="margin: 10px 0 0; font-size: 16px; color: #2d3d31;">No default payment method configured.</p>
-                    @endif
+                    @endforeach
                 </div>
             </section>
         </div>

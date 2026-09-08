@@ -341,7 +341,7 @@ Route::middleware(['auth', 'verified', 'branch.context'])->group(function () {
 
             return response()->streamDownload(
                 fn () => print ($pdf),
-                $invoice->invoice_no.'.pdf',
+                app(CanonicalInvoicePdf::class)->filename($invoice),
                 ['Content-Type' => 'application/pdf']
             );
         })->name('invoices.download');

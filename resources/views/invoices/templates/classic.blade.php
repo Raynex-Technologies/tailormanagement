@@ -1,7 +1,3 @@
-@php
-    $defaultPaymentMethod = $paymentMethods->firstWhere('id', 1) ?? $paymentMethods->first();
-@endphp
-
 <div style="font-family: Arial, Helvetica, sans-serif; color: #171821;">
     {{-- HEADER --}}
     <table style="width: 100%; border-collapse: collapse; margin-bottom: 14px;">
@@ -124,16 +120,15 @@
                 <span style="display: inline-block; margin-bottom: 8px; border-radius: 999px; background: #c93d95; color: #ffffff; padding: 2px 14px; font-size: 12px; font-weight: 700;">
                     Payment Method
                 </span>
-                @if ($defaultPaymentMethod)
+                @foreach ($paymentMethods as $defaultPaymentMethod)
+                    <p style="margin: 8px 0 2px; font-size: 13px; font-weight: bold;">{{ $defaultPaymentMethod->name }}</p>
                     <p style="margin: 0 0 2px; font-size: 13px; color: #2f3440;">
                         Account {{ $defaultPaymentMethod->account_number ?: '-' }}
                     </p>
                     <p style="margin: 0; font-size: 13px; color: #2f3440;">
                         A/C Name {{ $defaultPaymentMethod->account_holder_name ?: ($defaultPaymentMethod->name ?: '-') }}
                     </p>
-                @else
-                    <p style="margin: 0; font-size: 13px; color: #2f3440;">No default payment method configured.</p>
-                @endif
+                @endforeach
 
                 <span style="display: inline-block; margin: 16px 0 8px; border-radius: 999px; background: #c93d95; color: #ffffff; padding: 2px 14px; font-size: 12px; font-weight: 700;">
                     Terms & Condition

@@ -209,22 +209,25 @@ class InvoiceGenerationTest extends TestCase
         $this->assertStringStartsWith('%PDF-', $response->streamedContent());
     }
 
-    public function test_invoice_document_limits_configured_payment_methods_to_three(): void
+    public function test_invoice_document_only_includes_selected_payment_methods(): void
     {
         $user = $this->actingAsRole('admin', $this->branch);
 
         PaymentMethod::query()->create([
             'name' => 'Bank Transfer',
+            'show_on_invoice' => true,
             'account_number' => '111222333',
             'account_holder_name' => 'Raynex Tailors',
         ]);
         PaymentMethod::query()->create([
             'name' => 'Card',
+            'show_on_invoice' => true,
             'account_number' => 'CARD-4455',
             'account_holder_name' => 'Raynex Tailors',
         ]);
         PaymentMethod::query()->create([
             'name' => 'Cash Office',
+            'show_on_invoice' => true,
             'account_holder_name' => 'Front Desk',
         ]);
         PaymentMethod::query()->create([

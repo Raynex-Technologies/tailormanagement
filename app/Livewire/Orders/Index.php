@@ -40,15 +40,7 @@ class Index extends Component
     #[Url]
     public string $dateTo = '';
 
-    public int $perPage = 15;
-
-    public function mount(): void
-    {
-        if ($this->dateFrom === '' && $this->dateTo === '') {
-            $this->dateFrom = now()->startOfMonth()->toDateString();
-            $this->dateTo = now()->endOfMonth()->toDateString();
-        }
-    }
+    public int $perPage = 50;
 
     public function updatedSearch(): void
     {
@@ -87,9 +79,7 @@ class Index extends Component
 
     public function clearFilters(): void
     {
-        $this->reset(['search', 'statusFilter', 'tailorFilter', 'priorityFilter']);
-        $this->dateFrom = now()->startOfMonth()->toDateString();
-        $this->dateTo = now()->endOfMonth()->toDateString();
+        $this->reset(['search', 'statusFilter', 'tailorFilter', 'priorityFilter', 'dateFrom', 'dateTo']);
         $this->resetPage();
     }
 
@@ -114,8 +104,13 @@ class Index extends Component
 
         if ($canViewKpis) {
             $currentStats = $this->orderStats($dateFrom, $dateTo, $user->id, $isTailor);
-            [$previousFrom, $previousTo] = $this->previousMonthRange($dateFrom, $dateTo);
-            $previousStats = $this->orderStats($previousFrom, $previousTo, $user->id, $isTailor);
+            $previousStats = $currentStats;
+
+            if ($dateFrom || $dateTo) {
+                [$previousFrom, $previousTo] = $this->previousMonthRange($dateFrom, $dateTo);
+                $previousStats = $this->orderStats($previousFrom, $previousTo, $user->id, $isTailor);
+            }
+
             $kpis = collect($currentStats)->mapWithKeys(fn ($value, $key) => [
                 $key => [
                     'value' => $value,
@@ -150,6 +145,7 @@ class Index extends Component
             'canViewKpis' => $canViewKpis,
             'kpis' => $kpis,
             'kpiPeriodLabel' => $canViewKpis ? $this->periodLabel($dateFrom, $dateTo) : null,
+            'kpiComparesPreviousMonth' => $canViewKpis && ($dateFrom || $dateTo),
         ]);
     }
 
