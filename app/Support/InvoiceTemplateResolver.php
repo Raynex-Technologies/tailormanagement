@@ -4,10 +4,17 @@ namespace App\Support;
 
 use App\Models\BusinessSetting;
 use App\Models\InvoiceTemplate;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 
 class InvoiceTemplateResolver
 {
     public function resolve(?BusinessSetting $settings = null): InvoiceTemplate
+    {
+        return $this->find($settings)
+            ?? throw (new ModelNotFoundException)->setModel(InvoiceTemplate::class);
+    }
+
+    public function find(?BusinessSetting $settings = null): ?InvoiceTemplate
     {
         $settings ??= BusinessSetting::instance();
 
@@ -45,7 +52,6 @@ class InvoiceTemplateResolver
         return InvoiceTemplate::query()
             ->orderByDesc('is_default')
             ->orderBy('sort_order')
-            ->firstOrFail();
+            ->first();
     }
 }
-

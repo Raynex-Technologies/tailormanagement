@@ -134,7 +134,7 @@ class BusinessSettings extends Component
         $this->email_from_address = $settings->email_from_address ?? '';
         $this->email_reply_to = $settings->email_reply_to ?? '';
         $this->invoice_template_id = $settings->invoice_template_id
-            ?: app(InvoiceTemplateResolver::class)->resolve($settings)->id;
+            ?: app(InvoiceTemplateResolver::class)->find($settings)?->id;
 
         $this->tax_enabled = (bool) $settings->tax_enabled;
         $this->tax_name = $settings->tax_name ?? 'VAT';
@@ -594,7 +594,7 @@ class BusinessSettings extends Component
                 ->orderBy('name')
                 ->get(),
             'invoiceTemplates' => $invoiceTemplates,
-            'activeInvoiceTemplate' => app(InvoiceTemplateResolver::class)->resolve($settings),
+            'activeInvoiceTemplate' => app(InvoiceTemplateResolver::class)->find($settings),
             'previewInvoiceTemplate' => $this->preview_invoice_template_id
                 ? $invoiceTemplates->firstWhere('id', $this->preview_invoice_template_id)
                 : null,

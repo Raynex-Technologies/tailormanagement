@@ -418,7 +418,7 @@
 
                     <div class="shrink-0 rounded-xl border border-lime-300 bg-lime-50 px-3 py-2 dark:border-lime-500/50 dark:bg-lime-400/10" data-current-invoice-template>
                         <p class="text-[11px] font-semibold uppercase tracking-wide text-lime-800 dark:text-lime-300">{{ __('Current template') }}</p>
-                        <p class="mt-0.5 text-sm font-bold text-zinc-900 dark:text-white">{{ $activeInvoiceTemplate->name }}</p>
+                        <p class="mt-0.5 text-sm font-bold text-zinc-900 dark:text-white">{{ $activeInvoiceTemplate?->name ?? __('Not configured') }}</p>
                     </div>
                 </div>
 
@@ -428,9 +428,15 @@
                     </flux:callout>
                 @enderror
 
+                @if ($invoiceTemplates->isEmpty())
+                    <flux:callout variant="warning" icon="exclamation-triangle">
+                        {{ __('No invoice templates are available. Contact your administrator to restore the invoice templates. Other business settings can still be updated.') }}
+                    </flux:callout>
+                @endif
+
                 <div class="grid gap-5 md:grid-cols-2 xl:grid-cols-3" data-invoice-template-grid>
                     @foreach ($invoiceTemplates as $template)
-                        @php($isActiveTemplate = (int) $activeInvoiceTemplate->id === (int) $template->id)
+                        @php($isActiveTemplate = (int) $activeInvoiceTemplate?->id === (int) $template->id)
 
                         <article
                             wire:key="invoice-template-card-{{ $template->id }}"
@@ -501,7 +507,7 @@
 
             <flux:modal wire:model="showInvoiceTemplatePreview" class="!w-[calc(100vw-1rem)] !max-w-[1000px] sm:!w-[calc(100vw-3rem)]">
                 @if ($previewInvoiceTemplate)
-                    @php($previewIsActive = (int) $activeInvoiceTemplate->id === (int) $previewInvoiceTemplate->id)
+                    @php($previewIsActive = (int) $activeInvoiceTemplate?->id === (int) $previewInvoiceTemplate->id)
 
                     <div class="flex max-h-[calc(100dvh-2rem)] min-h-0 flex-col" data-invoice-template-preview-dialog>
                         <div class="flex items-start justify-between gap-4 border-b border-zinc-200 pb-4 pr-8 dark:border-zinc-700">
