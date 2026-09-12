@@ -1,16 +1,16 @@
-<div data-payment-recorder>
+<div class="flex shrink-0 items-center" data-payment-recorder>
     @if ($canRecordPayments && $balanceAmount > 0 && $paymentMethods->isNotEmpty())
         <button
             type="button"
             wire:click="openPaymentModal"
             wire:loading.attr="disabled"
             wire:target="openPaymentModal"
-            class="inline-flex size-10 shrink-0 items-center justify-center rounded-lg bg-transparent text-navy-800 transition-colors hover:text-navy-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 dark:ring-offset-zinc-800"
+            class="inline-flex size-10 shrink-0 items-center justify-center rounded-lg bg-transparent text-zinc-700 transition-colors hover:text-[var(--tm-accent)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--tm-accent)] focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-60 dark:text-zinc-100 dark:hover:text-[var(--tm-accent)] dark:ring-offset-zinc-800"
             aria-label="{{ __('Record Payment') }}"
             title="{{ __('Record Payment') }}"
             data-record-payment-trigger
         >
-            <x-icon name="add" class="size-6" />
+            <flux:icon.plus class="size-6" />
             <span class="sr-only">{{ __('Record Payment') }}</span>
         </button>
     @endif

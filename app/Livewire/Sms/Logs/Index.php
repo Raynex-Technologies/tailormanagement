@@ -31,6 +31,8 @@ class Index extends Component
 
     public bool $showRetryModal = false;
 
+    public bool $showClearLogsModal = false;
+
     public ?string $retryDateFrom = null;
 
     public ?string $retryDateTo = null;
@@ -61,6 +63,16 @@ class Index extends Component
     }
 
     public function updatingIncludeResolvedFailures(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatingDateFrom(): void
+    {
+        $this->resetPage();
+    }
+
+    public function updatingDateTo(): void
     {
         $this->resetPage();
     }
@@ -105,6 +117,29 @@ class Index extends Component
         $this->retryDateFrom = $this->dateFrom ?: now()->toDateString();
         $this->retryDateTo = $this->dateTo ?: now()->toDateString();
         $this->showRetryModal = true;
+    }
+
+    public function openClearLogsModal(): void
+    {
+        $this->authorize('sms.logs.view');
+        $this->authorize('sms.send');
+
+        $this->showClearLogsModal = true;
+    }
+
+    public function clearLogs(): void
+    {
+        $this->authorize('sms.logs.view');
+        $this->authorize('sms.send');
+
+        SmsLog::query()->delete();
+
+        $this->closeDetails();
+        $this->showClearLogsModal = false;
+        $this->showRetryModal = false;
+        $this->clearFilters();
+
+        session()->flash('success', __('All SMS logs in your current branch scope have been cleared.'));
     }
 
     public function retryFailedMessages(SmsService $smsService): void
@@ -206,14 +241,13 @@ class Index extends Component
             'total' => $totalQuery->count(),
             'sent' => SmsLog::where('status', SmsStatus::Sent)->count(),
             'failed' => SmsLog::query()->unresolvedFailedRetries()->count(),
-            'resolved' => SmsLog::query()->resolvedFailedRetries()->count(),
             'queued' => SmsLog::where('status', SmsStatus::Queued)->count(),
-            'skipped' => SmsLog::where('status', SmsStatus::Skipped)->count(),
         ];
 
         return view('livewire.sms.logs.index', [
             'logs' => $logs,
             'stats' => $stats,
+            'hasLogsToClear' => SmsLog::query()->exists(),
             'smsStatuses' => $this->smsStatuses,
         ])->layout('layouts.app', ['title' => __('SMS Logs')]);
     }

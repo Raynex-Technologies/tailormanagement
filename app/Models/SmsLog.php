@@ -9,11 +9,12 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Database\Query\Builder as QueryBuilder;
 
 class SmsLog extends Model
 {
-    use BranchScoped, HasFactory;
+    use BranchScoped, HasFactory, SoftDeletes;
 
     protected $fillable = [
         'branch_id',

@@ -1,123 +1,93 @@
-<flux:main class="space-y-6">
-    {{-- Breadcrumbs --}}
-    <flux:breadcrumbs>
-        <flux:breadcrumbs.item href="{{ route('dashboard') }}" icon="home" wire:navigate />
-        <flux:breadcrumbs.item>{{ __('SMS Logs') }}</flux:breadcrumbs.item>
-    </flux:breadcrumbs>
-
-    {{-- Flash Messages --}}
-    @if (session('success'))
-        <flux:callout variant="success" icon="check-circle">
-            {{ session('success') }}
-        </flux:callout>
-    @endif
-
-    @if (session('error'))
-        <flux:callout variant="danger" icon="exclamation-circle">
-            {{ session('error') }}
-        </flux:callout>
-    @endif
-
-    {{-- Header & Stats --}}
-    <flux:card>
-        <div class="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+<flux:main class="space-y-6 p-0" x-data="{ filtersOpen: @js((bool) ($search || $statusFilter || $dateFrom || $dateTo || $includeResolvedFailures)) }">
+    <section class="overflow-hidden rounded-2xl p-5 shadow-lg sm:p-6" style="background: linear-gradient(135deg, var(--tm-hero) 0%, color-mix(in srgb, var(--tm-hero) 88%, var(--tm-hero-foreground) 12%) 100%);" data-theme-hero data-sms-workspace-header>
+        <flux:breadcrumbs class="mb-5">
+            <flux:breadcrumbs.item :href="route('dashboard')" icon="home" wire:navigate />
+            <flux:breadcrumbs.item>{{ __('SMS Logs') }}</flux:breadcrumbs.item>
+        </flux:breadcrumbs>
+        <div class="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
             <div>
                 <flux:heading size="xl">{{ __('SMS Logs') }}</flux:heading>
-                <flux:text class="text-zinc-500">{{ __('View all SMS messages sent from the system.') }}</flux:text>
+                <flux:text class="mt-1 block text-sm">{{ __('View all SMS messages sent from the system.') }}</flux:text>
             </div>
             @can('sms.send')
-                <flux:button type="button" variant="primary" icon="arrow-path" wire:click="openRetryModal">
-                    {{ __('Retry Failed') }}
-                </flux:button>
+                @if ($hasLogsToClear)
+                <div class="flex flex-wrap items-center gap-2">
+                    @if ($stats['failed'] > 0)
+                        <flux:button type="button" variant="primary" icon="arrow-path" wire:click="openRetryModal">
+                            {{ __('Retry Failed') }}
+                        </flux:button>
+                    @endif
+                    <flux:button type="button" variant="danger" icon="trash" wire:click="openClearLogsModal">
+                        {{ __('Clear Logs') }}
+                    </flux:button>
+                </div>
+                @endif
             @endcan
         </div>
+    </section>
 
-        {{-- Stats Cards --}}
-        <div class="mt-6 grid grid-cols-2 gap-4 md:grid-cols-6">
-            <div class="rounded-lg bg-zinc-50 p-4 dark:bg-zinc-800">
-                <flux:text class="text-sm text-zinc-500">{{ __('Total') }}</flux:text>
-                <flux:heading size="xl">{{ number_format($stats['total']) }}</flux:heading>
-            </div>
-            <div class="rounded-lg bg-green-50 p-4 dark:bg-green-900/30">
-                <flux:text class="text-sm text-green-600 dark:text-green-400">{{ __('Sent') }}</flux:text>
-                <flux:heading size="xl" class="text-green-700 dark:text-green-300">{{ number_format($stats['sent']) }}</flux:heading>
-            </div>
-            <div class="rounded-lg bg-red-50 p-4 dark:bg-red-900/30">
-                <flux:text class="text-sm text-red-600 dark:text-red-400">{{ __('Failed') }}</flux:text>
-                <flux:heading size="xl" class="text-red-700 dark:text-red-300">{{ number_format($stats['failed']) }}</flux:heading>
-            </div>
-            <div class="rounded-lg bg-blue-50 p-4 dark:bg-blue-900/30">
-                <flux:text class="text-sm text-blue-600 dark:text-blue-400">{{ __('Resolved') }}</flux:text>
-                <flux:heading size="xl" class="text-blue-700 dark:text-blue-300">{{ number_format($stats['resolved']) }}</flux:heading>
-            </div>
-            <div class="rounded-lg bg-amber-50 p-4 dark:bg-amber-900/30">
-                <flux:text class="text-sm text-amber-600 dark:text-amber-400">{{ __('Queued') }}</flux:text>
-                <flux:heading size="xl" class="text-amber-700 dark:text-amber-300">{{ number_format($stats['queued']) }}</flux:heading>
-            </div>
-            <div class="rounded-lg bg-zinc-50 p-4 dark:bg-zinc-800">
-                <flux:text class="text-sm text-zinc-500">{{ __('Skipped') }}</flux:text>
-                <flux:heading size="xl">{{ number_format($stats['skipped']) }}</flux:heading>
-            </div>
+    @if (session('success'))
+        <flux:callout variant="success" icon="check-circle">{{ session('success') }}</flux:callout>
+    @endif
+    @if (session('error'))
+        <flux:callout variant="danger" icon="exclamation-circle">{{ session('error') }}</flux:callout>
+    @endif
+
+    <section aria-labelledby="sms-overview-heading">
+        <div class="mb-3">
+            <h2 id="sms-overview-heading" class="text-sm font-semibold text-zinc-900 dark:text-white">{{ __('SMS overview') }}</h2>
+            <p class="text-xs text-zinc-500 dark:text-zinc-400">{{ __('All dates in your current branch scope') }}</p>
         </div>
-    </flux:card>
-
-    {{-- Filters --}}
-    <flux:card>
-        <div class="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-            {{-- Search --}}
-            <div class="w-full md:w-1/3">
-                <flux:label for="search">{{ __('Search') }}</flux:label>
-                <flux:input
-                    type="text"
-                    id="search"
-                    wire:model.blur="search"
-                    placeholder="Phone, message, order no..."
-                />
-            </div>
-
-            {{-- Status Filter --}}
-            <div class="flex flex-wrap items-center gap-2">
-                <flux:button
-                    size="sm"
-                    :variant="$statusFilter === null ? 'primary' : 'ghost'"
-                    wire:click="setStatusFilter(null)"
-                >
-                    {{ __('All') }}
-                </flux:button>
-                @foreach ($smsStatuses as $status)
-                    <flux:button
-                        size="sm"
-                        :variant="$statusFilter === $status->value ? 'primary' : 'ghost'"
-                        wire:click="setStatusFilter('{{ $status->value }}')"
-                    >
-                        {{ $status->label() }}
-                    </flux:button>
-                @endforeach
-            </div>
+        @php
+            $smsMetrics = [
+                ['key' => 'total', 'label' => __('Total'), 'icon' => 'chat-bubble-left-right', 'color' => 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300'],
+                ['key' => 'sent', 'label' => __('Sent'), 'icon' => 'check-circle', 'color' => 'bg-green-50 text-green-600 dark:bg-green-950/50 dark:text-green-300'],
+                ['key' => 'failed', 'label' => __('Failed'), 'icon' => 'exclamation-circle', 'color' => 'bg-red-50 text-red-600 dark:bg-red-950/50 dark:text-red-300'],
+                ['key' => 'queued', 'label' => __('Queued'), 'icon' => 'clock', 'color' => 'bg-amber-50 text-amber-600 dark:bg-amber-950/50 dark:text-amber-300'],
+            ];
+        @endphp
+        <div class="grid grid-cols-2 gap-4 xl:grid-cols-4">
+            @foreach ($smsMetrics as $metric)
+                <flux:card class="relative overflow-hidden">
+                    <div class="flex flex-wrap items-start justify-between gap-3">
+                        <div class="min-w-0">
+                            <p class="text-sm font-medium text-zinc-500 dark:text-zinc-400">{{ $metric['label'] }}</p>
+                            <p class="mt-2 break-words text-2xl font-bold tracking-tight text-zinc-950 dark:text-white">{{ number_format($stats[$metric['key']]) }}</p>
+                        </div>
+                        <span class="inline-flex size-10 shrink-0 items-center justify-center rounded-xl {{ $metric['color'] }}">
+                            <flux:icon :name="$metric['icon']" class="size-5" />
+                        </span>
+                    </div>
+                </flux:card>
+            @endforeach
         </div>
+    </section>
 
-        {{-- Date Range --}}
-        <div class="mt-4 flex flex-col gap-4 md:flex-row md:items-end">
-            <div class="w-full md:w-1/4">
-                <flux:label for="dateFrom">{{ __('From Date') }}</flux:label>
-                <flux:input type="date" id="dateFrom" wire:model.blur="dateFrom" />
-            </div>
-            <div class="w-full md:w-1/4">
-                <flux:label for="dateTo">{{ __('To Date') }}</flux:label>
-                <flux:input type="date" id="dateTo" wire:model.blur="dateTo" />
-            </div>
-            <div class="w-full md:w-auto">
-                <flux:checkbox
-                    wire:model.live="includeResolvedFailures"
-                    label="{{ __('Include resolved failed attempts') }}"
-                />
-            </div>
+    <div class="flex flex-wrap items-center justify-between gap-3">
+        <flux:heading size="lg">{{ __('Message history') }}</flux:heading>
+        <flux:button type="button" variant="ghost" icon="funnel" x-on:click="filtersOpen = !filtersOpen" x-bind:aria-expanded="filtersOpen" aria-controls="sms-filters">
+            {{ __('Filters') }}
             @if ($search || $statusFilter || $dateFrom || $dateTo || $includeResolvedFailures)
-                <flux:button size="sm" variant="ghost" wire:click="clearFilters">
-                    <x-icon name="close" class="mr-1 size-4" />
-                    {{ __('Clear Filters') }}
-                </flux:button>
+                <span class="size-2 rounded-full" style="background: var(--tm-accent);" aria-label="{{ __('Filters active') }}"></span>
             @endif
+        </flux:button>
+    </div>
+
+    <flux:card id="sms-filters" x-show="filtersOpen" x-collapse x-cloak wire:key="sms-filter-panel">
+        <div class="grid items-end gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <flux:input wire:model.live.debounce.300ms="search" :label="__('Search')" :placeholder="__('Phone, message, order no...')" icon="magnifying-glass" />
+            <flux:select wire:model.live="statusFilter" :label="__('Status')">
+                <flux:select.option value="">{{ __('All statuses') }}</flux:select.option>
+                @foreach ($smsStatuses as $status)
+                    <flux:select.option value="{{ $status->value }}">{{ $status->label() }}</flux:select.option>
+                @endforeach
+            </flux:select>
+            <flux:input type="date" wire:model.live="dateFrom" :label="__('From Date')" />
+            <flux:input type="date" wire:model.live="dateTo" :label="__('To Date')" />
+        </div>
+        <div class="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-zinc-200 pt-4 dark:border-zinc-700">
+            <flux:checkbox wire:model.live="includeResolvedFailures" :label="__('Include resolved failed attempts')" />
+            <flux:button type="button" size="sm" variant="ghost" icon="x-mark" wire:click="clearFilters">{{ __('Clear Filters') }}</flux:button>
         </div>
     </flux:card>
 
@@ -160,7 +130,7 @@
                                     @if ($log->reference instanceof \App\Models\Order)
                                         <a
                                             href="{{ route('orders.show', $log->reference) }}"
-                                            class="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400"
+                                            class="font-medium text-[var(--tailorpro-breadcrumb-accent)] underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tm-accent)] dark:text-[var(--tm-accent)]"
                                             wire:navigate
                                         >
                                             Order #{{ $log->reference->order_no }}
@@ -179,7 +149,7 @@
                                 {{ $log->provider_message_id ?? '-' }}
                             </flux:table.cell>
                             <flux:table.cell>
-                                <flux:button size="xs" variant="ghost" wire:click="showDetails({{ $log->id }})">
+                                <flux:button size="xs" variant="ghost" wire:click="showDetails({{ $log->id }})" :aria-label="__('View SMS details')">
                                     <x-icon name="visibility" class="size-4" />
                                 </flux:button>
                             </flux:table.cell>
@@ -242,7 +212,7 @@
                                 @if ($selectedLog->reference instanceof \App\Models\Order)
                                     <a
                                         href="{{ route('orders.show', $selectedLog->reference) }}"
-                                        class="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400"
+                                        class="font-medium text-[var(--tailorpro-breadcrumb-accent)] underline-offset-4 hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--tm-accent)] dark:text-[var(--tm-accent)]"
                                         wire:navigate
                                     >
                                         Order #{{ $selectedLog->reference->order_no }}
@@ -284,6 +254,17 @@
                 </div>
             </div>
         @endif
+    </flux:modal>
+
+    <flux:modal wire:model="showClearLogsModal" class="w-full max-w-lg">
+        <form wire:submit="clearLogs" class="space-y-5">
+            <flux:heading size="lg">{{ __('Clear Logs') }}</flux:heading>
+            <flux:text>{{ __('Soft delete all SMS logs in your current branch scope? This includes every date and status, regardless of the current filters. Records will remain in the database but will no longer appear in SMS logs.') }}</flux:text>
+            <div class="flex justify-end gap-3">
+                <flux:button type="button" variant="ghost" wire:click="$set('showClearLogsModal', false)">{{ __('Cancel') }}</flux:button>
+                <flux:button type="submit" variant="danger" icon="trash" wire:loading.attr="disabled" wire:target="clearLogs">{{ __('Delete All') }}</flux:button>
+            </div>
+        </form>
     </flux:modal>
 
     <flux:modal wire:model="showRetryModal" class="w-full max-w-lg">
