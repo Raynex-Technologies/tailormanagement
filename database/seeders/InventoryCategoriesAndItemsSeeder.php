@@ -102,15 +102,15 @@ class InventoryCategoriesAndItemsSeeder extends Seeder
                         $createdItems++;
                     }
 
-                    $stock = InventoryStock::withoutBranchScope()->firstOrCreate(
-                        ['inventory_item_id' => $item->id],
-                        [
-                            'branch_id' => $branch->id,
-                            'inventory_item_id' => $item->id,
-                            'qty_on_hand' => $itemData['qty_on_hand'],
-                            'qty_reserved' => 0,
-                        ]
-                    );
+                    $hadStock = InventoryStock::withoutBranchScope()->where('inventory_item_id', $item->id)->exists();
+                    $stock = app(\App\Services\Inventory\StockMovementService::class)->initialize($item);
+                    if (! $hadStock && $itemData['qty_on_hand'] > 0) {
+                        $actor = \App\Models\User::where('branch_id', $branch->id)->first();
+                        if (! $actor) {
+                            throw new \RuntimeException('Sample inventory requires a branch user to record its opening adjustment.');
+                        }
+                        app(\App\Services\Inventory\StockMovementService::class)->adjust($item, (string) $itemData['qty_on_hand'], 'Sample inventory opening adjustment', $actor);
+                    }
 
                     if ($stock->wasRecentlyCreated) {
                         $createdStocks++;
@@ -131,7 +131,7 @@ class InventoryCategoriesAndItemsSeeder extends Seeder
         $normalized = Str::upper(preg_replace('/[^A-Za-z0-9]/', '', $code) ?? '');
 
         if ($normalized === '') {
-            return 'BRANCH' . $branch->id;
+            return 'BRANCH'.$branch->id;
         }
 
         return $normalized;

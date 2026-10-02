@@ -112,15 +112,12 @@ class ProductForm extends Component
         $payload = [
             'branch_id' => $branchId,
             'inventory_category_id' => $validated['productCategoryId'] ?: null,
-            'inventory_unit_id' => null,
             'sku' => $this->prepareSku($validated['productSku'] ?? null),
             'name' => $name,
             'slug' => $this->generateUniqueProductSlug($name, $branchId, $this->editingProductId),
-            'unit' => 'pcs',
             'short_description' => $this->sanitizeText($validated['productShortDescription'] ?? null),
             'full_description' => $this->sanitizeText($validated['productDescription'] ?? null),
             'status' => $status,
-            'default_buy_price' => null,
             'default_sell_price' => round((float) $validated['productPrice'], 2),
             'compare_at_price' => $validated['productCompareAtPrice'] !== null
                 ? round((float) $validated['productCompareAtPrice'], 2)
@@ -164,17 +161,11 @@ class ProductForm extends Component
                     $payload['featured_image_path'] = $featuredImagePath;
                 }
 
+                $payload['unit'] = $product->exists ? $product->unit : 'pcs';
                 $product->fill($payload);
                 $product->save();
 
-                $product->stock()->updateOrCreate(
-                    ['inventory_item_id' => $product->id],
-                    [
-                        'branch_id' => $product->branch_id,
-                        'qty_on_hand' => round((float) ($validated['productStockQuantity'] ?? 0), 2),
-                        'qty_reserved' => (float) ($product->stock?->qty_reserved ?? 0),
-                    ]
-                );
+                app(\App\Services\Inventory\StockMovementService::class)->initialize($product);
 
                 $this->syncProductVariants(
                     $product,
@@ -285,9 +276,9 @@ class ProductForm extends Component
         $this->productLength = data_get($product->dimensions, 'length');
         $this->productWidth = data_get($product->dimensions, 'width');
         $this->productHeight = data_get($product->dimensions, 'height');
-        $this->productSizes = $product->variants->pluck('size')->filter()->unique()->implode(', ');
+        $this->productSizes = $product->variants->where('is_active', true)->pluck('size')->filter()->unique()->implode(', ');
         $this->productColorOptions = $this->normalizeProductColors(
-            $product->variants->pluck('color')->filter()->all()
+            $product->variants->where('is_active', true)->pluck('color')->filter()->all()
         );
         $this->syncProductColorsString();
         $this->existingProductGallery = $product->media->map(fn (InventoryItemMedia $media) => [
@@ -322,11 +313,7 @@ class ProductForm extends Component
             }
         }
 
-        $product->variants()->delete();
-
-        if ($variants !== []) {
-            $product->variants()->createMany($variants);
-        }
+        app(\App\Services\Inventory\VariantSynchronizationService::class)->sync($product, $variants);
     }
 
     protected function variantPayload(InventoryItem $product, ?string $size, ?string $color, int $index): array

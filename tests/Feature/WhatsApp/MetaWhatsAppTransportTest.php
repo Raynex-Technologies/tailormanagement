@@ -18,6 +18,13 @@ use Tests\TestCase;
 
 class MetaWhatsAppTransportTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+        config(['twilio.active' => false]);
+        $this->app->bind(\App\Contracts\WhatsAppProvider::class, \App\Services\WhatsApp\MetaWhatsAppProvider::class);
+    }
+
     public function test_free_form_send_is_queued_inside_window_and_meta_wamid_is_accepted(): void
     {
         Queue::fake();

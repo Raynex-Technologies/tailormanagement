@@ -68,7 +68,7 @@
                             wire:focus="searchInventory"
                             wire:keydown.escape="closeSearchDropdown"
                             placeholder="{{ $canSearch ? __('Search by product name or SKU...') : __('Select a branch first...') }}"
-                            class="w-full rounded-lg border border-zinc-300 bg-white py-3 pl-10 pr-4 text-sm shadow-sm transition focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-zinc-600 dark:bg-zinc-800 dark:text-white dark:focus:border-indigo-400 {{ !$canSearch ? 'cursor-not-allowed opacity-60' : '' }}"
+                            class="w-full rounded-lg border border-zinc-300 bg-white py-3 pl-10 pr-4 text-sm shadow-sm transition focus:border-[var(--tm-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--tm-accent)]/20 dark:border-zinc-600 dark:bg-zinc-800 dark:text-white dark:focus:border-[var(--tm-accent)] {{ !$canSearch ? 'cursor-not-allowed opacity-60' : '' }}"
                             autocomplete="off"
                             {{ !$canSearch ? 'disabled' : '' }}
                         />
@@ -93,11 +93,11 @@
                                 <button
                                     type="button"
                                     wire:click="selectProduct({{ $product['id'] }})"
-                                    class="flex w-full items-center justify-between px-4 py-3 text-left transition hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
+                                    class="flex w-full items-center justify-between px-4 py-3 text-left transition hover:bg-[var(--tm-accent)]/10"
                                 >
                                     <div class="flex-1">
                                         <div class="flex items-center gap-2">
-                                            <span class="font-medium text-zinc-900 dark:text-white">{{ $product['name'] }}</span>
+                                            <span class="font-medium text-zinc-900 dark:text-white">{{ $product['name'] }} @if($product['has_variations'] ?? false)<span class="ml-2 text-xs text-[var(--tm-accent)]">{{ __('Choose variation') }}</span>@endif</span>
                                             @if ($product['sku'])
                                                 <span class="rounded bg-zinc-100 px-2 py-0.5 text-xs font-mono text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
                                                     {{ $product['sku'] }}
@@ -119,7 +119,7 @@
                                             @endif
                                         </div>
                                     </div>
-                                    <x-icon name="add_circle" class="size-6 text-indigo-600 dark:text-indigo-400" />
+                                    <x-icon name="add_circle" class="size-6 text-[var(--tm-accent)]" />
                                 </button>
                             @endforeach
                         </div>
@@ -132,7 +132,7 @@
                             <button
                                 type="button"
                                 wire:click="addManualItem"
-                                class="mt-3 text-sm font-medium text-indigo-600 hover:text-indigo-800 dark:text-indigo-400"
+                                class="mt-3 text-sm font-medium text-[var(--tm-accent)] hover:underline"
                             >
                                 {{ __('+ Add as manual item') }}
                             </button>
@@ -193,6 +193,7 @@
                                         @if ($item['inventory_item_id'])
                                             <div class="flex items-center gap-2">
                                                 <span class="font-medium text-zinc-900 dark:text-white">{{ $item['item_name'] }}</span>
+                                                @if($item['variation_description'] ?? null)<span class="block text-sm text-zinc-600 dark:text-zinc-300">{{ $item['variation_description'] }}</span>@endif
                                                 @if ($item['sku'] ?? null)
                                                     <span class="rounded bg-zinc-100 px-2 py-0.5 text-xs font-mono text-zinc-500 dark:bg-zinc-700 dark:text-zinc-400">
                                                         {{ $item['sku'] }}
@@ -282,7 +283,7 @@
                     <div class="flex justify-end rounded-lg bg-zinc-50 p-4 dark:bg-zinc-800/50">
                         <div class="text-right">
                             <flux:label>{{ __('Estimated Total') }}</flux:label>
-                            <flux:heading size="xl" class="font-mono text-indigo-600 dark:text-indigo-400">
+                            <flux:heading size="xl" class="font-mono text-[var(--tm-accent)]">
                                 {{ money_tzs($lineTotal) }}
                             </flux:heading>
                         </div>
@@ -320,6 +321,7 @@
                     {{ $isEdit ? __('Update Request') : __('Save as Draft') }}
                 </flux:button>
             </div>
-        </div>
+</div>
     </form>
+    @include('livewire.partials.order-inventory-selector', ['inventorySelectionCostContext' => true])
 </flux:main>

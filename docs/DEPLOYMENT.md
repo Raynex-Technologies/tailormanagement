@@ -110,6 +110,8 @@ Only run `storage:link` if your deployment still needs legacy `/storage/*` asset
 
 ### 6. Configure Cron Job
 
+For Hostinger Cloud Startup and queued WhatsApp delivery, also configure the bounded queue cron in [HOSTINGER-CLOUD-STARTUP.md](HOSTINGER-CLOUD-STARTUP.md). The scheduler alone does not process queued messages or webhook events.
+
 In Hostinger hPanel → Cron Jobs:
 ```
 * * * * * cd /path/to/your/project && php artisan schedule:run >> /dev/null 2>&1

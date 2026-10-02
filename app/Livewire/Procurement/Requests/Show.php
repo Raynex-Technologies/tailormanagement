@@ -39,7 +39,7 @@ class Show extends Component
         $this->purchaseRequest = $purchaseRequest->load([
             'requester',
             'reviewer',
-            'items.inventoryItem',
+            'items.inventoryItem', 'items.stockUnit',
             'capitalAllocation',
             'purchaseOrder.supplier',
         ]);
@@ -79,7 +79,7 @@ class Show extends Component
             $service->approve($this->purchaseRequest, auth()->user(), $items, $this->reviewNote);
 
             $this->purchaseRequest->refresh();
-            $this->purchaseRequest->load(['requester', 'reviewer', 'items.inventoryItem', 'capitalAllocation']);
+            $this->purchaseRequest->load(['requester', 'reviewer', 'items.inventoryItem', 'items.stockUnit', 'capitalAllocation']);
 
             session()->flash('success', 'Purchase request approved.');
         } catch (\Exception $e) {

@@ -23,7 +23,7 @@ class Show extends Component
         $this->purchaseOrder = $purchaseOrder->load([
             'supplier',
             'creator',
-            'items.inventoryItem',
+            'items.inventoryItem', 'items.stockUnit',
             'purchaseRequest.requester',
             'goodsReceipts.items',
         ]);
@@ -46,7 +46,11 @@ class Show extends Component
     {
         $this->authorize('cancel', $this->purchaseOrder);
 
-        $this->purchaseOrder->update(['status' => PurchaseOrderStatus::Cancelled]);
+        \Illuminate\Support\Facades\DB::transaction(function () {
+            $po = PurchaseOrder::whereKey($this->purchaseOrder->id)->lockForUpdate()->firstOrFail();
+            $this->authorize('cancel', $po);
+            $po->update(['status' => PurchaseOrderStatus::Cancelled]);
+        });
         $this->purchaseOrder->refresh();
 
         session()->flash('success', 'Purchase order cancelled.');

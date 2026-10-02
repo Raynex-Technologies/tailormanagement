@@ -21,7 +21,7 @@ class GarmentCategoriesCrudTest extends TestCase
     {
         $this->get(route('admin.garment-categories.index'))
             ->assertOk()
-            ->assertSee('Garment Categories')
+            ->assertSee('Garment Types')
             ->assertSee('Customization Choices')
             ->assertSee('Customization Sections');
 

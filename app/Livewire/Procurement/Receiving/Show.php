@@ -22,15 +22,19 @@ class Show extends Component
 
     public ?string $note = null;
 
+    #[\Livewire\Attributes\Locked]
+    public string $receiptOperationKey;
+
     public function mount(PurchaseOrder $purchaseOrder): void
     {
         $this->authorize('receive', $purchaseOrder);
         $this->purchaseOrder = $purchaseOrder->load([
             'supplier',
-            'items.inventoryItem',
+            'items.inventoryItem', 'items.stockUnit',
             'goodsReceipts.items',
         ]);
 
+        $this->receiptOperationKey = (string) \Illuminate\Support\Str::uuid();
         // Initialize receiving items
         foreach ($this->purchaseOrder->items as $item) {
             $pendingQty = $item->qty_ordered - $item->qty_received;
@@ -47,6 +51,13 @@ class Show extends Component
         $this->normalizeMoneyInputs();
         $this->authorize('receive', $this->purchaseOrder);
 
+        $this->validate([
+            'receivingItems' => ['required', 'array'],
+            'receivingItems.*.purchase_order_item_id' => ['required', 'integer'],
+            'receivingItems.*.qty_received' => ['required', 'numeric', 'min:0', 'decimal:0,2'],
+            'receivingItems.*.unit_cost' => ['required', 'numeric', 'min:0', 'decimal:0,2'],
+            'note' => ['nullable', 'string', 'max:1000'],
+        ]);
         // Filter out items with zero qty
         $itemsToReceive = collect($this->receivingItems)
             ->filter(fn ($item) => ($item['qty_received'] ?? 0) > 0)
@@ -64,7 +75,8 @@ class Show extends Component
                 $this->purchaseOrder,
                 $itemsToReceive,
                 auth()->user(),
-                $this->note
+                $this->note,
+                $this->receiptOperationKey
             );
 
             session()->flash('success', "Goods Receipt {$grn->grn_no} created successfully.");

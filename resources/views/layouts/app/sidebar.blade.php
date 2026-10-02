@@ -312,7 +312,7 @@
 
                 {{-- Orders Group (Permission-based) --}}
                 @if ($ordersModuleEnabled)
-                @canany(['orders.view', 'order_catalog.view', 'customers.view'])
+                @canany(['orders.view', 'order_catalog.view', 'customers.view', 'garment-options.view'])
                 <div class="nav-group">
                     <h3 class="mb-2 flex items-center justify-between gap-2 px-3 text-[0.65rem] font-semibold uppercase tracking-wider text-white/35">
                         <span>{{ __('Orders') }}</span>
@@ -387,13 +387,20 @@
                     <a
                         href="{{ route('order-catalog.index') }}"
                         wire:navigate
-                        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('order-catalog.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}"
+                        class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('order-catalog.*', 'admin.garment-*') ? 'tm-active font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}"
                     >
                         <i class="fa-duotone fa-books size-5"></i>
                         {{ __('Order Catalog') }}
                     </a>
                     @endcan
 
+                    @can('garment-options.view')
+                    @cannot('order_catalog.view')
+                    <a href="{{ route('order-catalog.garment-types.index') }}" wire:navigate class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium {{ request()->routeIs('order-catalog.garment-types.*', 'admin.garment-*') ? 'tm-active' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
+                        <i class="fa-duotone fa-shirt size-5" aria-hidden="true"></i>{{ __('Garment Types') }}
+                    </a>
+                    @endcannot
+                    @endcan
                     @can('customers.view')
                     <a
                         href="{{ route('customers.index') }}"
@@ -409,7 +416,7 @@
                 @endif
 
                 @if ($bookingsModuleEnabled)
-                @canany(['online-bookings.view', 'appointments.view', 'availability.view', 'garment-options.view'])
+                @canany(['online-bookings.view', 'appointments.view', 'availability.view'])
                 <div class="nav-group">
                     <h3 class="px-3 mb-2 text-[0.65rem] font-semibold uppercase tracking-wider text-white/35">{{ __('Bookings') }}</h3>
                     @can('online-bookings.view')
@@ -428,12 +435,6 @@
                     <a href="{{ route('admin.availability.index') }}" wire:navigate class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('admin.availability.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
                         <i class="fa-duotone fa-clock size-5"></i>
                         {{ __('Availability') }}
-                    </a>
-                    @endcan
-                    @can('garment-options.view')
-                    <a href="{{ route('admin.garment-options.index') }}" wire:navigate class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('admin.garment-options.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
-                        <i class="fa-duotone fa-shirt size-5"></i>
-                        {{ __('Garment Customizations') }}
                     </a>
                     @endcan
                 </div>
@@ -1002,7 +1003,7 @@
                     </div>
 
                     @if ($ordersModuleEnabled)
-                    @canany(['orders.view', 'order_catalog.view', 'customers.view'])
+                    @canany(['orders.view', 'order_catalog.view', 'customers.view', 'garment-options.view'])
                     <div class="nav-group">
                         <h3 class="px-3 mb-2 text-[0.65rem] font-semibold uppercase tracking-wider text-white/35">{{ __('Orders') }}</h3>
 
@@ -1040,13 +1041,20 @@
                         @endcan
                         @can('order_catalog.view')
                         <a href="{{ route('order-catalog.index') }}" wire:navigate @click="sidebarOpen = false"
-                           class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('order-catalog.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
+                           class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('order-catalog.*', 'admin.garment-*') ? 'tm-active font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
                             <i class="fa-duotone fa-books size-5"></i>
                             {{ __('Order Catalog') }}
                         </a>
                         @endcan
 
-                        @can('customers.view')
+                        @can('garment-options.view')
+                    @cannot('order_catalog.view')
+                    <a href="{{ route('order-catalog.garment-types.index') }}" wire:navigate class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium {{ request()->routeIs('order-catalog.garment-types.*', 'admin.garment-*') ? 'tm-active' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
+                        <i class="fa-duotone fa-shirt size-5" aria-hidden="true"></i>{{ __('Garment Types') }}
+                    </a>
+                    @endcannot
+                    @endcan
+                    @can('customers.view')
                         <a href="{{ route('customers.index') }}" wire:navigate @click="sidebarOpen = false"
                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('customers.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
                             <i class="fa-duotone fa-user size-5"></i>
@@ -1058,7 +1066,7 @@
                     @endif
 
                     @if ($bookingsModuleEnabled)
-                    @canany(['online-bookings.view', 'appointments.view', 'availability.view', 'garment-options.view'])
+                    @canany(['online-bookings.view', 'appointments.view', 'availability.view'])
                     <div class="nav-group">
                         <h3 class="px-3 mb-2 text-[0.65rem] font-semibold uppercase tracking-wider text-white/35">{{ __('Bookings') }}</h3>
                         @can('online-bookings.view')
@@ -1080,13 +1088,6 @@
                            class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('admin.availability.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
                             <i class="fa-duotone fa-clock size-5"></i>
                             {{ __('Availability') }}
-                        </a>
-                        @endcan
-                        @can('garment-options.view')
-                        <a href="{{ route('admin.garment-options.index') }}" wire:navigate @click="sidebarOpen = false"
-                           class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 {{ request()->routeIs('admin.garment-options.*') ? 'bg-lime-400 text-navy-900 shadow-[0_4px_12px_rgba(191,255,0,0.25)] font-semibold' : 'text-white/70 hover:bg-white/5 hover:text-white' }}">
-                            <i class="fa-duotone fa-shirt size-5"></i>
-                            {{ __('Garment Customizations') }}
                         </a>
                         @endcan
                     </div>

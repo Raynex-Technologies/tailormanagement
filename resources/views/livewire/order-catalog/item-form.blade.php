@@ -14,9 +14,10 @@
         </x-slot:breadcrumbs>
 
     </x-orders.workspace-header>
+    <x-orders.catalog-navigation active="items" />
 
     <form id="catalog-item-form" wire:submit="save" class="space-y-5">
-        <section class="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-[#1e1f2e] sm:p-6">
+        <section class="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-zinc-900 sm:p-6">
             <h2 class="font-semibold text-zinc-900 dark:text-white">{{ __('Basic information') }}</h2>
             <div class="mt-5 grid gap-5 md:grid-cols-2">
                 <div class="md:col-span-2"><flux:input wire:model="name" label="{{ __('Name') }}" required />@error('name')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror</div>
@@ -25,13 +26,13 @@
                 <div><x-money-input wire:model.blur="defaultSellingPrice" min="0" step="0.01" label="{{ __('Default selling price (TZS)') }}" required />@error('defaultSellingPrice')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror</div>
                 @if ($type === 'garment')
                     <div class="md:col-span-2">
-                        <flux:select wire:model="garmentCategoryId" label="{{ __('Garment Category') }}">
-                            <flux:select.option value="">{{ __('Select category...') }}</flux:select.option>
+                        <flux:select wire:model.live="garmentCategoryId" label="{{ __('Garment Type') }}">
+                            <flux:select.option value="">{{ __('Select garment type...') }}</flux:select.option>
                             @foreach ($garmentCategories as $category)
-                                <flux:select.option value="{{ $category->id }}">{{ $category->name }}</flux:select.option>
+                                <flux:select.option value="{{ $category->id }}">{{ $category->name }}{{ ! $category->is_active ? ' ('.__('Archived').')' : '' }}</flux:select.option>
                             @endforeach
                         </flux:select>
-                        <p class="mt-1 text-xs text-zinc-500">{{ __('Optional for now. The category determines which measurements can be suggested during later order entry.') }}</p>
+                        <p class="mt-1 text-xs text-zinc-500">{{ __('The garment type connects this offering to its measurement template and garment customization choices.') }}</p>
                         @error('garmentCategoryId')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
                     </div>
                 @endif
@@ -47,24 +48,25 @@
             </div>
         </section>
 
-        <section class="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-[#1e1f2e] sm:p-6">
+        <section class="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-zinc-900 sm:p-6">
             <h2 class="font-semibold text-zinc-900 dark:text-white">{{ __('Order behavior') }}</h2>
             <div class="mt-5 space-y-5">
                 <div>
-                    <label class="flex items-start gap-3"><input type="checkbox" wire:model="requiresMeasurements" class="mt-1 rounded border-zinc-300"><span><strong class="block text-sm text-zinc-800 dark:text-zinc-100">{{ __('Requires measurements') }}</strong><span class="text-xs text-zinc-500">{{ __('Marks this item for measurement-aware order entry in the upcoming catalog integration.') }}</span></span></label>
+                    <label class="flex items-start gap-3"><input type="checkbox" wire:model.live="requiresMeasurements" class="mt-1 rounded border-zinc-300"><span><strong class="block text-sm text-zinc-800 dark:text-zinc-100">{{ __('Requires measurements') }}</strong><span class="text-xs text-zinc-500">{{ __('Enables measurement entry when this item is added to an order.') }}</span></span></label>
                 </div>
+                @if ($type === 'garment' && $requiresMeasurements && ! $garmentCategoryId)<flux:callout variant="warning" icon="exclamation-triangle">{{ __('Select a Garment Type so the system knows which measurement template should be used.') }}</flux:callout>@endif
                 <fieldset>
                     <legend class="text-sm font-medium text-zinc-700 dark:text-zinc-200">{{ __('Quantity behavior') }}</legend>
                     <div class="mt-2 grid gap-3 md:grid-cols-2">
-                        <label class="cursor-pointer rounded-xl border p-4 transition {{ $quantityBehavior === 'individual' ? 'border-lime-400 bg-lime-50 dark:bg-lime-400/10' : 'border-zinc-200 dark:border-white/10' }}"><input type="radio" wire:model.live="quantityBehavior" value="individual" class="sr-only"><strong class="text-sm">{{ __('Individual') }}</strong><p class="mt-1 text-xs text-zinc-500">{{ __('Each quantity becomes separately configurable when added to an order. Recommended for tailored garments.') }}</p></label>
-                        <label class="cursor-pointer rounded-xl border p-4 transition {{ $quantityBehavior === 'bulk' ? 'border-lime-400 bg-lime-50 dark:bg-lime-400/10' : 'border-zinc-200 dark:border-white/10' }}"><input type="radio" wire:model.live="quantityBehavior" value="bulk" class="sr-only"><strong class="text-sm">{{ __('Bulk') }}</strong><p class="mt-1 text-xs text-zinc-500">{{ __('Multiple units may remain on one order line. Recommended for services or identical items.') }}</p></label>
+                        <label class="cursor-pointer rounded-xl border p-4 transition {{ $quantityBehavior === 'individual' ? 'border-[var(--tm-accent)] bg-[color-mix(in_srgb,var(--tm-accent)_10%,transparent)]' : 'border-zinc-200 dark:border-white/10' }}"><input type="radio" wire:model.live="quantityBehavior" value="individual" class="sr-only"><strong class="text-sm">{{ __('Individual') }}</strong><p class="mt-1 text-xs text-zinc-500">{{ __('Each quantity becomes separately configurable when added to an order. Recommended for tailored garments.') }}</p></label>
+                        <label class="cursor-pointer rounded-xl border p-4 transition {{ $quantityBehavior === 'bulk' ? 'border-[var(--tm-accent)] bg-[color-mix(in_srgb,var(--tm-accent)_10%,transparent)]' : 'border-zinc-200 dark:border-white/10' }}"><input type="radio" wire:model.live="quantityBehavior" value="bulk" class="sr-only"><strong class="text-sm">{{ __('Bulk') }}</strong><p class="mt-1 text-xs text-zinc-500">{{ __('Multiple units may remain on one order line. Recommended for services or identical items.') }}</p></label>
                     </div>
                     @error('quantityBehavior')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
                 </fieldset>
             </div>
         </section>
 
-        <section class="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-[#1e1f2e] sm:p-6">
+        <section class="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-zinc-900 sm:p-6">
             <h2 class="font-semibold text-zinc-900 dark:text-white">{{ __('Availability') }}</h2>
             @if ($isGlobalAdmin)
                 <label class="mt-4 flex items-start gap-3"><input type="checkbox" wire:model.live="availableAllBranches" class="mt-1 rounded border-zinc-300"><span><strong class="block text-sm">{{ __('Available at all branches') }}</strong><span class="text-xs text-zinc-500">{{ __('New and existing branches may use this catalog item.') }}</span></span></label>
@@ -81,7 +83,7 @@
             @error('branchIds')<p class="mt-2 text-sm text-red-600">{{ $message }}</p>@enderror
         </section>
 
-        <section class="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#1e1f2e]" data-form-actions="catalog-item">
+        <section class="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-zinc-900" data-form-actions="catalog-item">
             <div class="grid gap-2 sm:grid-flow-col sm:auto-cols-max sm:justify-end">
                 <flux:button :href="route('order-catalog.index', ['tab' => 'items'])" wire:navigate variant="ghost" class="w-full sm:w-auto">{{ __('Cancel') }}</flux:button>
                 <flux:button type="submit" variant="primary" icon="check" class="w-full sm:w-auto" wire:loading.attr="disabled">

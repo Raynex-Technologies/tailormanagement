@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 
@@ -15,6 +16,7 @@ use Livewire\Component;
 #[Title('Measurement Definition')]
 class MeasurementForm extends Component
 {
+    #[Locked]
     public ?int $measurementId = null;
 
     public string $name = '';
@@ -48,7 +50,7 @@ class MeasurementForm extends Component
         }
 
         $selected = $measurementField?->garmentCategories?->keyBy('id') ?? collect();
-        foreach (GarmentCategory::query()->orderBy('sort_order')->orderBy('name')->get() as $category) {
+        foreach ($this->availableCategories()->get() as $category) {
             $existing = $selected->get($category->id);
             $this->categoryApplicability[$category->id] = [
                 'selected' => $existing !== null,
@@ -69,6 +71,14 @@ class MeasurementForm extends Component
     {
         $this->authorize('measurement_fields.manage');
         $wasEditing = $this->measurementId !== null;
+        $allowedIds = $this->availableCategories()->pluck('id');
+        foreach ($this->categoryApplicability as $id => $settings) {
+            if (($settings['selected'] ?? false) && (! ctype_digit((string) $id) || ! $allowedIds->containsStrict((int) $id))) {
+                $this->addError('categoryApplicability', __('Select an active garment type or retain an existing association.'));
+
+                return;
+            }
+        }
         $this->code = $this->normalizeCode($this->code);
 
         $validated = $this->validate([
@@ -131,7 +141,7 @@ class MeasurementForm extends Component
     public function render()
     {
         return view('livewire.order-catalog.measurement-form', [
-            'categories' => GarmentCategory::query()->orderBy('sort_order')->orderBy('name')->get(),
+            'categories' => $this->availableCategories()->get(),
         ]);
     }
 
@@ -141,5 +151,15 @@ class MeasurementForm extends Component
         $code = preg_replace('/[^A-Z0-9_]+/', '_', $code) ?? '';
 
         return trim(preg_replace('/_+/', '_', $code) ?? '', '_');
+    }
+
+    private function availableCategories()
+    {
+        return GarmentCategory::query()->where(function ($query): void {
+            $query->where('is_active', true);
+            if ($this->measurementId) {
+                $query->orWhereHas('measurementFields', fn ($fields) => $fields->whereKey($this->measurementId));
+            }
+        })->orderBy('sort_order')->orderBy('name');
     }
 }

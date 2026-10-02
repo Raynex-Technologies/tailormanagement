@@ -11,7 +11,6 @@ use App\Models\Branch;
 use App\Models\BusinessSetting;
 use App\Models\Customer;
 use App\Models\InventoryItem;
-use App\Models\InventoryTransaction;
 use App\Models\Invoice;
 use App\Models\MeasurementField;
 use App\Models\Order;
@@ -24,7 +23,6 @@ use App\Models\OrderPayment;
 use App\Models\PaymentMethod;
 use App\Models\User;
 use App\Services\Customers\CustomerCreator;
-use App\Services\Inventory\StockMovementService;
 use App\Services\Measurements\CustomerMeasurementProfileService;
 use App\Services\Orders\OrderCatalogCompositionService;
 use App\Services\Orders\OrderMeasurementSavebackService;
@@ -47,6 +45,7 @@ use Livewire\Component;
 #[Layout('layouts.app.sidebar')]
 class Form extends Component
 {
+    use \App\Livewire\Concerns\SelectsOrderInventory;
     use NormalizesMoneyInputs;
 
     private const ORDER_EXPENSE_DESCRIPTIONS = [
@@ -144,6 +143,11 @@ class Form extends Component
 
     /** @var array<int|string, int|float|string> */
     public array $packageQuantities = [];
+
+    public array $packageInventoryAllocations = [];
+
+    #[\Livewire\Attributes\Locked]
+    public string $packageConfiguratorSignature = '';
 
     /** @var array<string, array<string, mixed>> */
     public array $packages = [];
@@ -269,6 +273,9 @@ class Form extends Component
             $this->lines[] = [
                 'id' => $line->id,
                 'inventory_item_id' => $line->inventory_item_id,
+                'inventory_stock_unit_id' => $line->inventory_stock_unit_id,
+                'inventory_item_variant_id' => $line->inventory_item_variant_id,
+                'variation_description' => $line->variation_description,
                 'order_catalog_item_id' => $line->order_catalog_item_id,
                 'order_package_instance_id' => $line->order_package_instance_id,
                 'order_package_template_item_id' => $line->order_package_template_item_id,
@@ -332,44 +339,80 @@ class Form extends Component
         $this->showCatalogPicker = ! $this->showCatalogPicker;
     }
 
+    protected function authorizeInventorySelection(): void
+    {
+        $this->isEdit ? $this->authorize('update', $this->order) : $this->authorize('create', Order::class);
+    }
+
+    protected function inventorySelectionBranch(): int
+    {
+        return (int) $this->getEffectiveBranchIdForInventory();
+    }
+
     public function addInventoryLine(int $inventoryItemId): void
     {
-        $branchId = $this->getEffectiveBranchIdForInventory();
+        $this->beginInventorySelection($inventoryItemId);
+    }
 
-        if (! $branchId) {
-            $this->addError('branch_id', 'Select a branch before adding inventory items.');
-
-            return;
-        }
-
-        $item = InventoryItem::withoutBranchScope()
-            ->with('stock')
-            ->whereKey($inventoryItemId)
-            ->where('branch_id', $branchId)
-            ->where('is_active', true)
-            ->first();
-
-        if (! $item) {
-            $this->addError('inventorySearch', 'Selected inventory item is not available for this branch.');
+    public function resolveInventorySearch(string $identifier): void
+    {
+        $this->authorizeInventorySelection();
+        $resolver = app(\App\Services\Inventory\StockUnitResolver::class);
+        $unit = $resolver->byBarcode($identifier) ?? $resolver->bySku($identifier);
+        if (! $unit) {
+            $this->catalogSearch = $identifier;
+            $this->addError('catalogSearch', __('No available exact SKU or barcode. Choose a product from the results.'));
 
             return;
         }
+        $unit = app(\App\Services\Orders\OrderInventorySelectionService::class)->resolve($unit->inventory_item_id, $unit->id, $this->inventorySelectionBranch());
+        $this->acceptInventoryUnit($unit, 'direct');
+        $this->catalogSearch = '';
+        $this->resetErrorBag('catalogSearch');
+    }
 
+    public function replaceInventoryLine(int $index): void
+    {
+        abort_unless(isset($this->lines[$index]) && empty($this->lines[$index]['package_key']), 422);
+        $this->beginInventorySelection((int) $this->lines[$index]['inventory_item_id'], 'line:'.$index);
+    }
+
+    protected function acceptInventoryUnit(\App\Models\InventoryStockUnit $unit, string $target): void
+    {
+        $item = $unit->item;
+        if (str_starts_with($target, 'package:')) {
+            [, $componentId, $row] = explode(':', $target);
+            $key = 'component_'.$componentId;
+            $component = collect($this->packageConfigurator['components'])->firstWhere('template_item_id', (int) $componentId);
+            abort_unless($component && (int) $component['source_id'] === (int) $item->id && isset($this->packageInventoryAllocations[$key][$row]), 422);
+            $this->packageInventoryAllocations[$key][$row] = [...$this->packageInventoryAllocations[$key][$row],
+                ...app(\App\Services\Orders\OrderInventorySelectionService::class)->snapshot($unit)];
+
+            return;
+        }
+        if (str_starts_with($target, 'line:')) {
+            $index = (int) substr($target, 5);
+            abort_unless(isset($this->lines[$index]) && empty($this->lines[$index]['package_key']), 422);
+            $this->lines[$index] = [...$this->lines[$index], ...app(\App\Services\Orders\OrderInventorySelectionService::class)->snapshot($unit), 'unit_price' => (string) $unit->selling_price];
+            $this->calculateTotals();
+
+            return;
+        }
         $newLine = [
             'id' => null,
-            'inventory_item_id' => $item->id,
+            ...app(\App\Services\Orders\OrderInventorySelectionService::class)->snapshot($unit),
             'order_catalog_item_id' => null,
             'order_package_instance_id' => null,
             'order_package_template_item_id' => null,
             'package_key' => null,
             'package_unit_index' => null,
             'requires_measurements' => false,
-            'sku' => $item->sku,
+            'sku' => $unit->sku,
             'assigned_tailor_id' => null,
             'item_name' => $item->name,
             'qty' => 1,
-            'unit_price' => (float) ($item->default_sell_price ?? 0),
-            'line_total' => (float) ($item->default_sell_price ?? 0),
+            'unit_price' => (float) $unit->selling_price,
+            'line_total' => (float) $unit->selling_price,
             'notes' => '',
             ...app(OrderMeasurementSnapshot::class)->emptyEditorState(),
         ];
@@ -445,6 +488,8 @@ class Form extends Component
 
         $this->configuringPackageKey = null;
         $this->packageConfigurator = $snapshot;
+        $this->packageConfiguratorSignature = $this->signPackageSnapshot($snapshot);
+        $this->packageInventoryAllocations = [];
         $this->packageQuantities = collect($snapshot['components'])
             ->mapWithKeys(fn ($component) => [(int) $component['template_item_id'] => $component['default_quantity']])
             ->all();
@@ -457,19 +502,66 @@ class Form extends Component
         $package = $this->packages[$packageKey];
         $this->configuringPackageKey = $packageKey;
         $this->packageConfigurator = $package['original_snapshot'];
+        $this->packageConfiguratorSignature = $this->signPackageSnapshot($this->packageConfigurator);
+        $this->packageInventoryAllocations = collect($package['configured_snapshot']['components'])->mapWithKeys(fn ($c) => ['component_'.$c['template_item_id'] => $c['inventory_allocations'] ?? []])->all();
         $this->packageQuantities = collect($package['configured_snapshot']['components'] ?? [])
             ->mapWithKeys(fn ($component) => [(int) $component['template_item_id'] => $component['configured_quantity']])
             ->all();
         $this->showPackageConfigurator = true;
     }
 
+    public function choosePackageVariation(int $componentId, int $row = 0): void
+    {
+        $this->authorizeInventorySelection();
+        $component = collect($this->packageConfigurator['components'])->firstWhere('template_item_id', $componentId);
+        abort_unless($component && ($component['variation_selection'] ?? null) === 'deferred', 422);
+        $key = 'component_'.$componentId;
+        if (! isset($this->packageInventoryAllocations[$key][$row])) {
+            abort_unless($row === 0, 422);
+            $this->packageInventoryAllocations[$key] = [['quantity' => $this->packageQuantities[$componentId] ?? $component['configured_quantity']]];
+        }
+        $this->beginInventorySelection((int) $component['source_id'], 'package:'.$componentId.':'.$row);
+    }
+
+    public function splitPackageQuantity(int $componentId): void
+    {
+        $this->authorizeInventorySelection();
+        $component = collect($this->packageConfigurator['components'])->firstWhere('template_item_id', $componentId);
+        abort_unless($component && ($component['variation_selection'] ?? null) === 'deferred', 422);
+        $key = 'component_'.$componentId;
+        $total = (string) ($this->packageQuantities[$componentId] ?? $component['configured_quantity']);
+        $this->packageInventoryAllocations[$key] ??= [['quantity' => $total]];
+        $last = array_key_last($this->packageInventoryAllocations[$key]);
+        $quantity = BigDecimal::of((string) $this->packageInventoryAllocations[$key][$last]['quantity']);
+        $split = $quantity->dividedBy('2', 2, RoundingMode::DOWN);
+        if (! $split->isPositive()) {
+            $this->addError('packageQuantities', __('Increase this allocation quantity before splitting it.'));
+
+            return;
+        }
+        $this->packageInventoryAllocations[$key][$last]['quantity'] = (string) $quantity->minus($split);
+        $this->packageInventoryAllocations[$key][] = ['quantity' => (string) $split];
+    }
+
+    public function removePackageAllocation(int $componentId, int $row): void
+    {
+        $this->authorizeInventorySelection();
+        unset($this->packageInventoryAllocations['component_'.$componentId][$row]);
+        $this->packageInventoryAllocations['component_'.$componentId] = array_values($this->packageInventoryAllocations['component_'.$componentId]);
+    }
+
     public function confirmPackageConfiguration(): void
     {
+        $this->authorizeInventorySelection();
         try {
+            if (! hash_equals($this->packageConfiguratorSignature, $this->signPackageSnapshot($this->packageConfigurator))) {
+                throw new \DomainException('Package snapshot validation failed. Open the package again.');
+            }
             $configured = app(OrderPackagePricingService::class)->configureCapturedSnapshot(
                 $this->packageConfigurator,
                 $this->packageQuantities
             );
+            $configured = app(\App\Services\Orders\OrderPackageInventoryService::class)->allocate($configured, $this->packageInventoryAllocations, $this->inventorySelectionBranch());
             app(OrderCatalogCompositionService::class)->packageLines($configured, 'configuration-preview');
         } catch (\Throwable $exception) {
             $this->addError('packageQuantities', $exception->getMessage());
@@ -477,6 +569,7 @@ class Form extends Component
             return;
         }
 
+        $this->resetErrorBag('packageQuantities');
         $key = $this->configuringPackageKey ?: (string) Str::uuid();
         $existingInstanceId = $this->packages[$key]['instance_id'] ?? null;
         $this->packages[$key] = [
@@ -1292,6 +1385,18 @@ class Form extends Component
                     ->all();
                 $this->packages[$packageKey]['configured_snapshot'] = app(OrderPackagePricingService::class)
                     ->configureCapturedSnapshot($original, $quantities);
+                $stored = $this->isEdit && ! empty($package['instance_id'])
+                    ? $this->order->packageInstances()->findOrFail($package['instance_id'])->configured_component_snapshot : null;
+                $identityShape = fn ($components) => collect($components)->map(fn ($c) => [
+                    'component' => $c['template_item_id'], 'qty' => (string) $c['configured_quantity'],
+                    'allocations' => collect($c['inventory_allocations'] ?? [])->map(fn ($a) => [(int) $a['inventory_stock_unit_id'], (string) $a['quantity']])->all(),
+                ])->all();
+                if ($stored !== null && $identityShape($stored) === $identityShape($package['configured_snapshot']['components'] ?? [])) {
+                    $this->packages[$packageKey]['configured_snapshot']['components'] = $stored;
+                } else {
+                    $allocations = collect($package['configured_snapshot']['components'] ?? [])->mapWithKeys(fn ($c) => ['component_'.$c['template_item_id'] => $c['inventory_allocations'] ?? []])->all();
+                    $this->packages[$packageKey]['configured_snapshot'] = app(\App\Services\Orders\OrderPackageInventoryService::class)->allocate($this->packages[$packageKey]['configured_snapshot'], $allocations, $branchId);
+                }
                 $this->reconcilePackageLines($packageKey);
             }
 
@@ -1549,6 +1654,7 @@ class Form extends Component
 
     public function save(bool $skipCustomerMeasurementPrompt = false): void
     {
+        $this->authorizeInventorySelection();
         $this->normalizeMoneyInputs();
         $user = auth()->user();
         $this->normalizeLineTailorAssignments();
@@ -1724,6 +1830,13 @@ class Form extends Component
                 ];
 
                 if ($this->isEdit) {
+                    $this->order = Order::query()->whereKey($this->order->id)->lockForUpdate()->firstOrFail();
+                    if ($this->order->status === OrderStatus::Cancelled) {
+                        throw ValidationException::withMessages(['lines' => 'Cancelled orders cannot issue stock.']);
+                    }
+                    if ($this->order->statusHistory()->whereIn('status', ['inventory_reserved', 'inventory_committed'])->exists()) {
+                        throw ValidationException::withMessages(['lines' => 'This order uses storefront stock reservations. Inventory lines cannot be rewritten through the tailoring order form.']);
+                    }
                     $this->order->update($orderData);
                     $order = $this->order;
                 } else {
@@ -1732,6 +1845,19 @@ class Form extends Component
                     $orderData['payment_status'] = PaymentStatus::Unpaid;
                     $orderData['created_by'] = auth()->id();
                     $order = Order::create($orderData);
+                }
+
+                $this->lines = app(\App\Services\Orders\OrderInventoryPreflight::class)->validate($this->lines, $this->isEdit ? $order : null, $effectiveBranchId, true);
+                // Release reductions and replacements first so aggregate Order-owned availability can be reused.
+                foreach ($order->lines()->get() as $previous) {
+                    $desired = collect($this->lines)->firstWhere('id', $previous->id);
+                    $same = $desired && (int) ($desired['inventory_item_id'] ?? 0) === (int) $previous->inventory_item_id
+                        && (int) ($desired['inventory_stock_unit_id'] ?? 0) === (int) $previous->inventory_stock_unit_id;
+                    if (! $same) {
+                        $this->returnIssuedInventoryForLine($previous);
+                    } elseif ((float) $desired['qty'] < (float) $previous->qty) {
+                        $this->syncInventoryStockForLine($previous, (float) $desired['qty']);
+                    }
                 }
 
                 $packageInstanceIdsByKey = [];
@@ -1780,6 +1906,9 @@ class Form extends Component
                     $lineAttributes = [
                         'order_id' => $order->id,
                         'inventory_item_id' => ($lineData['inventory_item_id'] ?? null) ?: null,
+                        'inventory_stock_unit_id' => ($lineData['inventory_stock_unit_id'] ?? null) ?: null,
+                        'inventory_item_variant_id' => ($lineData['inventory_item_variant_id'] ?? null) ?: null,
+                        'variation_description' => $lineData['variation_description'] ?? null,
                         'order_catalog_item_id' => ($lineData['order_catalog_item_id'] ?? null) ?: null,
                         'order_package_instance_id' => filled($lineData['package_key'] ?? null)
                             ? ($packageInstanceIdsByKey[$lineData['package_key']] ?? null)
@@ -1811,7 +1940,11 @@ class Form extends Component
                     }
 
                     $existingLineIds[] = $line->id;
-                    $this->syncInventoryStockForLine($line, (float) $lineData['qty']);
+                    $legacyUnchanged = ! empty($lineData['id']) && ! $line->inventory_stock_unit_id
+                        && $line->inventory_item_id && $line->inventoryItem?->variant_mode === 'variants';
+                    if (! $legacyUnchanged) {
+                        $this->syncInventoryStockForLine($line, (float) $lineData['qty']);
+                    }
 
                     app(OrderMeasurementService::class)
                         ->persistPrepared($line, $preparedMeasurements[$lineIndex] ?? ['action' => 'delete']);
@@ -1934,125 +2067,26 @@ class Form extends Component
 
     protected function validateInventoryLines(int $branchId): bool
     {
-        $inventoryItemIds = collect($this->lines)
-            ->pluck('inventory_item_id')
-            ->filter()
-            ->map(fn ($id) => (int) $id)
-            ->unique()
-            ->values();
+        try {
+            $this->lines = app(\App\Services\Orders\OrderInventoryPreflight::class)->validate($this->lines, $this->isEdit ? $this->order : null, $branchId);
 
-        if ($inventoryItemIds->isEmpty()) {
             return true;
+        } catch (\Throwable $exception) {
+            $this->addError('lines', $exception->getMessage());
+
+            return false;
         }
-
-        $items = InventoryItem::withoutBranchScope()
-            ->with('stock')
-            ->whereIn('id', $inventoryItemIds->all())
-            ->where('branch_id', $branchId)
-            ->where('is_active', true)
-            ->get()
-            ->keyBy('id');
-
-        $isValid = true;
-        $requestedQtyByItem = [];
-        $existingIssuedQtyByItem = [];
-
-        foreach ($this->lines as $index => $line) {
-            $itemId = (int) ($line['inventory_item_id'] ?? 0);
-            if ($itemId <= 0) {
-                continue;
-            }
-
-            $item = $items->get($itemId);
-            if (! $item) {
-                $this->addError("lines.{$index}.inventory_item_id", 'Selected inventory item must belong to this order branch.');
-                $isValid = false;
-
-                continue;
-            }
-
-            $requestedQty = (float) ($line['qty'] ?? 0);
-            $requestedQtyByItem[$itemId] = ($requestedQtyByItem[$itemId] ?? 0) + $requestedQty;
-
-            $alreadyIssuedForLine = ! empty($line['id'])
-                ? max(0, -1 * (float) InventoryTransaction::query()
-                    ->where('reference_type', OrderLine::class)
-                    ->where('reference_id', $line['id'])
-                    ->where('inventory_item_id', $itemId)
-                    ->sum('qty'))
-                : 0.0;
-
-            $existingIssuedQtyByItem[$itemId] = ($existingIssuedQtyByItem[$itemId] ?? 0) + $alreadyIssuedForLine;
-        }
-
-        foreach ($requestedQtyByItem as $itemId => $requestedQty) {
-            $item = $items->get($itemId);
-            if (! $item) {
-                continue;
-            }
-
-            $available = (float) ($item->stock?->qty_on_hand ?? 0) + (float) ($existingIssuedQtyByItem[$itemId] ?? 0);
-
-            if ($available < $requestedQty) {
-                $this->addError('lines', "{$item->name} has only {$available} available.");
-                $isValid = false;
-            }
-        }
-
-        return $isValid;
     }
 
     protected function syncInventoryStockForLine(OrderLine $line, float $newQty): void
     {
-        $this->returnIssuedInventoryForLine($line, 'inventory updated');
-
-        if (! $line->inventory_item_id || $newQty <= 0) {
-            return;
-        }
-
-        $item = InventoryItem::withoutBranchScope()
-            ->whereKey($line->inventory_item_id)
-            ->where('branch_id', $line->order?->branch_id)
-            ->firstOrFail();
-
-        app(StockMovementService::class)->issue(
-            item: $item,
-            qty: $newQty,
-            note: "Order {$line->order?->order_no}",
-            actor: auth()->user(),
-            reference: $line
-        );
+        app(\App\Services\Orders\OrderInventorySynchronizationService::class)
+            ->synchronize($line, (string) $newQty, auth()->user());
     }
 
     protected function returnIssuedInventoryForLine(OrderLine $line, string $reason = 'line removed'): void
     {
-        $netIssuedByItem = InventoryTransaction::query()
-            ->where('reference_type', OrderLine::class)
-            ->where('reference_id', $line->id)
-            ->selectRaw('inventory_item_id, SUM(qty) as net_qty')
-            ->groupBy('inventory_item_id')
-            ->get();
-
-        foreach ($netIssuedByItem as $transaction) {
-            $qtyToReturn = max(0, -1 * (float) $transaction->net_qty);
-
-            if ($qtyToReturn <= 0) {
-                continue;
-            }
-
-            $item = InventoryItem::withoutBranchScope()->find($transaction->inventory_item_id);
-            if (! $item) {
-                continue;
-            }
-
-            app(StockMovementService::class)->return(
-                item: $item,
-                qty: $qtyToReturn,
-                note: "Order {$line->order?->order_no} {$reason}",
-                actor: auth()->user(),
-                reference: $line
-            );
-        }
+        app(\App\Services\Orders\OrderInventoryRestorationService::class)->restoreReference($line, auth()->user());
     }
 
     protected function allowsOrderDatesFlexibility(): bool
@@ -2099,19 +2133,23 @@ class Form extends Component
         $inventoryBranchId = $this->getEffectiveBranchIdForInventory();
         if ($this->showCatalogPicker && $inventoryBranchId && $this->catalogTab === 'inventory') {
             $inventoryItems = InventoryItem::withoutBranchScope()
-                ->with('stock')
+                ->withSum('physicalStocks', 'qty_on_hand')->withSum('physicalStocks', 'qty_reserved')
+                ->withCount(['variants' => fn ($q) => $q->where('is_active', true)->whereHas('stockUnit', fn ($u) => $u->where('is_active', true)->where('allocation_status', 'ready'))])
+                ->withMin(['stockUnits' => fn ($q) => $q->where('is_active', true)->where('allocation_status', 'ready')], 'selling_price')
+                ->withMax(['stockUnits' => fn ($q) => $q->where('is_active', true)->where('allocation_status', 'ready')], 'selling_price')
                 ->where('branch_id', $inventoryBranchId)
                 ->where('is_active', true)
                 ->when(trim($this->catalogSearch) !== '', function ($query) {
                     $search = trim($this->catalogSearch);
                     $query->where(function ($q) use ($search) {
                         $q->where('name', 'like', "%{$search}%")
-                            ->orWhere('sku', 'like', "%{$search}%");
+                            ->orWhere('sku', 'like', "%{$search}%")
+                            ->orWhereHas('variants', fn ($v) => $v->where('sku', 'like', "%{$search}%")->orWhereHas('selectedValues', fn ($o) => $o->where('name', 'like', "%{$search}%")));
                     });
                 })
                 ->orderBy('name')
                 ->limit(12)
-                ->get(['id', 'branch_id', 'sku', 'name', 'default_sell_price', 'unit', 'featured_image_path']);
+                ->get();
         }
 
         if ($this->showCatalogPicker && $inventoryBranchId && $this->catalogTab === 'catalog') {

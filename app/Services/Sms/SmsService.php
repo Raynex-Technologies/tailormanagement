@@ -53,7 +53,7 @@ class SmsService
         if ($whatsappConfig->enabled) {
             $whatsappLog = $whatsappReason === null
                 ? $this->sendWhatsappTemplateIfPhonePresent($templateCode, $to, $whatsappTemplateBody, $whatsappMessage, $data, $reference, $actor)
-                : $this->createSkippedLog($templateCode, $to, $whatsappMessage, $whatsappReason, $reference, $actor, 'meta_whatsapp');
+                : $this->createSkippedLog($templateCode, $to, $whatsappMessage, $whatsappReason, $reference, $actor, (config('twilio.active') ? 'twilio_whatsapp' : 'meta_whatsapp'));
         }
 
         return $smsReason === null ? $smsLog : ($whatsappLog ?? $smsLog);
@@ -237,7 +237,7 @@ class SmsService
 
             return SmsLog::create([
                 'branch_id' => $branchId,
-                'provider' => 'meta_whatsapp',
+                'provider' => (config('twilio.active') ? 'twilio_whatsapp' : 'meta_whatsapp'),
                 'template_code' => $templateCode,
                 'to' => 'missing',
                 'message' => $message,
@@ -261,7 +261,7 @@ class SmsService
 
             return SmsLog::create([
                 'branch_id' => $branchId,
-                'provider' => 'meta_whatsapp',
+                'provider' => (config('twilio.active') ? 'twilio_whatsapp' : 'meta_whatsapp'),
                 'template_code' => $templateCode,
                 'to' => 'missing',
                 'message' => $renderedMessage,
@@ -290,7 +290,7 @@ class SmsService
             ->whereHas('integration', fn ($query) => $query->where('enabled', true))
             ->where('name', $templateName)
             ->when($templateLanguage, fn ($query, $language) => $query->where('language', $language))
-            ->whereRaw('UPPER(meta_status) = ?', ['APPROVED'])
+            ->whereRaw(config('twilio.active') ? 'UPPER(twilio_status) = ?' : 'UPPER(meta_status) = ?', ['APPROVED'])
             ->whereNull('deleted_at_meta')
             ->orderByDesc('last_synced_at')
             ->first();
@@ -305,11 +305,11 @@ class SmsService
             $reason = 'whatsapp_marketing_opt_in_required';
         }
         if (! $normalizedPhone || $reason) {
-            return $this->createSkippedLog($templateCode, $to, $renderedMessage, $reason ?: 'invalid_phone', $reference, $actor, 'meta_whatsapp');
+            return $this->createSkippedLog($templateCode, $to, $renderedMessage, $reason ?: 'invalid_phone', $reference, $actor, (config('twilio.active') ? 'twilio_whatsapp' : 'meta_whatsapp'));
         }
 
         $smsLog = SmsLog::create([
-            'branch_id' => $branchId, 'provider' => 'meta_whatsapp', 'template_code' => $templateCode,
+            'branch_id' => $branchId, 'provider' => (config('twilio.active') ? 'twilio_whatsapp' : 'meta_whatsapp'), 'template_code' => $templateCode,
             'to' => $normalizedPhone, 'message' => $renderedMessage, 'status' => SmsStatus::Queued,
             'skip_reason' => null, 'provider_message_id' => null, 'provider_response' => null,
             'reference_type' => $reference?->getMorphClass(), 'reference_id' => $reference?->getKey(), 'created_by' => $actor?->id,
@@ -332,13 +332,16 @@ class SmsService
     {
         $normalizedPhone = Phone::toE164Tz($to);
         $branchId = $reference?->getAttribute('branch_id') ?? BranchContext::requireId();
-        $smsLog = SmsLog::create(['branch_id' => $branchId, 'provider' => 'meta_whatsapp', 'template_code' => $templateCode, 'to' => $normalizedPhone ?? $to, 'message' => $message, 'status' => SmsStatus::Queued, 'skip_reason' => null, 'provider_message_id' => null, 'provider_response' => null, 'reference_type' => $reference?->getMorphClass(), 'reference_id' => $reference?->id, 'created_by' => $actor?->id]);
+        $smsLog = SmsLog::create(['branch_id' => $branchId, 'provider' => (config('twilio.active') ? 'twilio_whatsapp' : 'meta_whatsapp'), 'template_code' => $templateCode, 'to' => $normalizedPhone ?? $to, 'message' => $message, 'status' => SmsStatus::Queued, 'skip_reason' => null, 'provider_message_id' => null, 'provider_response' => null, 'reference_type' => $reference?->getMorphClass(), 'reference_id' => $reference?->id, 'created_by' => $actor?->id]);
         if (empty($normalizedPhone)) {
             $smsLog->update(['status' => SmsStatus::Failed, 'provider_response' => json_encode(['error' => 'Invalid phone number format'])]);
 
             return $smsLog;
         }
         $result = $this->whatsappClient->sendText($branchId, $normalizedPhone, $message);
+        if ($result['success'] && isset($result['message_id'])) {
+            $smsLog->update(['whatsapp_message_id' => $result['message_id']]);
+        }
         $smsLog->update(['status' => $result['success'] ? SmsStatus::Queued : SmsStatus::Failed, 'provider_message_id' => null, 'provider_response' => json_encode($result)]);
 
         return $smsLog->fresh();
@@ -349,7 +352,57 @@ class SmsService
         $reference = $log->reference;
         $provider = strtolower((string) $log->provider);
 
-        if ($provider === 'meta_whatsapp') {
+        if ($provider === 'meta_whatsapp' && config('twilio.active')) {
+            throw \Illuminate\Validation\ValidationException::withMessages(['retry' => 'Historical Meta messages cannot be retried through Twilio. Use a new approved Twilio notification.']);
+        }
+
+        if ($provider === 'twilio_whatsapp') {
+            $original = $log->whatsappMessage;
+            if (! $original || (int) $original->branch_id !== (int) $log->branch_id || $original->status !== 'failed'
+                || in_array($original->failure_code, ['delivery_unknown', 'request_outcome_unknown'], true)) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['retry' => 'Reconcile the original WhatsApp delivery before retrying.']);
+            }
+            if ($original->message_type === 'template') {
+                $snapshot = $original->safe_metadata ?: [];
+                $template = WhatsappTemplate::withoutGlobalScopes()->where('branch_id', $log->branch_id)->find($snapshot['template_id'] ?? 0);
+                $customer = Customer::withoutGlobalScopes()->where('branch_id', $log->branch_id)->find($original->customer_id);
+                if (! $template || ! $template->isSendable() || $template->twilio_content_sid !== ($snapshot['twilio_content_sid'] ?? null)
+                    || ! $customer?->whatsapp_opted_in_at || ($template->category === 'MARKETING' && ! $customer->whatsapp_marketing_opted_in_at)) {
+                    throw \Illuminate\Validation\ValidationException::withMessages(['retry' => 'An unchanged approved template and current customer consent are required.']);
+                }
+                $values = [];
+                foreach ($snapshot['components'] ?? [] as $position => $value) {
+                    $key = $template->variable_mappings[$position] ?? null;
+                    if (is_string($key)) {
+                        $values[$key] = $value;
+                    }
+                }
+
+                return \Illuminate\Support\Facades\DB::transaction(function () use ($original, $log, $actor, $template, $values, $customer, $reference) {
+                    $locked = \App\Models\WhatsappMessage::withoutGlobalScopes()->lockForUpdate()->findOrFail($original->id);
+                    $existingId = $locked->safe_metadata['retry_sms_log_id'] ?? null;
+                    if ($existingId) {
+                        $existing = SmsLog::withoutGlobalScopes()->where('branch_id', $log->branch_id)->find($existingId);
+                        if ($existing) {
+                            return $existing;
+                        }
+                    }
+                    $retry = $log->replicate(['provider_message_id', 'provider_response', 'whatsapp_message_id']);
+                    $retry->fill(['status' => SmsStatus::Queued, 'created_by' => $actor?->id]);
+                    $retry->save();
+                    $result = $this->whatsappClient->queueTemplate((int) $log->branch_id, $log->to, $template, $values, $customer->id, $reference,
+                        ['sms_log_id' => $retry->id, 'notification_code' => $log->template_code, 'rendered_message' => $log->message, 'actor_id' => $actor?->id]);
+                    if (! $result['success']) {
+                        $retry->update(['status' => SmsStatus::Failed, 'provider_response' => json_encode($result)]);
+                    }
+                    $locked->update(['safe_metadata' => array_merge($locked->safe_metadata ?: [], ['retry_sms_log_id' => $retry->id])]);
+
+                    return $retry->fresh();
+                });
+            }
+        }
+
+        if (in_array($provider, ['twilio_whatsapp', 'meta_whatsapp'], true)) {
             return $this->sendWhatsapp(
                 to: $log->to,
                 message: $log->message,

@@ -87,7 +87,7 @@
                                         {{ str_pad((string) $loop->iteration, 2, '0', STR_PAD_LEFT) }}
                                     </td>
                                     <td style="padding: 8px; font-size: 13px; {{ $striped ? 'background:#dfe1de;' : '' }}">
-                                        {{ $line->item_name }}
+                                        {{ $line->item_name }}@if($line->orderLine?->variation_description)<br><small>{{ $line->orderLine->variation_description }} / {{ $line->orderLine->sku }}</small>@endif
                                         @if ($line->notes)
                                             <div style="margin-top: 2px; font-size: 11px; color: #4b5b4f;">{{ $line->notes }}</div>
                                         @endif
@@ -276,7 +276,7 @@
                                     {{ str_pad((string) $loop->iteration, 2, '0', STR_PAD_LEFT) }}
                                 </td>
                                 <td style="padding: 10px; font-size: 18px; {{ $striped ? 'background: #dfe1de;' : '' }}">
-                                    {{ $line->item_name }}
+                                    {{ $line->item_name }}@if($line->orderLine?->variation_description)<br><small>{{ $line->orderLine->variation_description }} / {{ $line->orderLine->sku }}</small>@endif
                                     @if ($line->notes)
                                         <div style="margin-top: 3px; font-size: 12px; color: #4b5b4f;">{{ $line->notes }}</div>
                                     @endif

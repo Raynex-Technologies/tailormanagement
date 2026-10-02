@@ -16,7 +16,7 @@
     </section>
 
     <form wire:submit="save" class="space-y-5">
-        <section class="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-[#1e1f2e] sm:p-6">
+        <section class="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-zinc-900 sm:p-6">
             <div class="flex items-center gap-3"><span class="flex size-8 items-center justify-center rounded-lg bg-lime-100 font-bold text-lime-700 dark:bg-lime-400/10">A</span><h2 class="font-semibold text-zinc-900 dark:text-white">{{ __('Package Details') }}</h2></div>
             <div class="mt-5 grid gap-5 md:grid-cols-2">
                 <div class="md:col-span-2"><flux:input wire:model="name" label="{{ __('Name') }}" required />@error('name')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror</div>
@@ -27,13 +27,13 @@
                 </div>
                 <div class="md:col-span-2 rounded-xl bg-zinc-50 p-4 dark:bg-white/5">
                     @if ($isGlobalAdmin)<label class="flex items-start gap-3"><input type="checkbox" wire:model.live="availableAllBranches" class="mt-1 rounded border-zinc-300"><span><strong class="block text-sm">{{ __('Available at all branches') }}</strong><span class="text-xs text-zinc-500">{{ __('Inventory products cannot be added while this is enabled because inventory is branch-owned.') }}</span></span></label>@else<p class="text-sm text-zinc-500">{{ __('This package is limited to your assigned branch.') }}</p>@endif
-                    @if (! $availableAllBranches)<div class="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">@foreach ($branches as $branch)<label class="flex items-center gap-2 rounded-xl border border-zinc-200 bg-white p-3 text-sm dark:border-white/10 dark:bg-[#1e1f2e]"><input type="checkbox" wire:model.live="branchIds" value="{{ $branch->id }}" class="rounded border-zinc-300" @disabled(! $isGlobalAdmin)>{{ $branch->name }}</label>@endforeach</div>@endif
+                    @if (! $availableAllBranches)<div class="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">@foreach ($branches as $branch)<label class="flex items-center gap-2 rounded-xl border border-zinc-200 bg-white p-3 text-sm dark:border-white/10 dark:bg-zinc-900"><input type="checkbox" wire:model.live="branchIds" value="{{ $branch->id }}" class="rounded border-zinc-300" @disabled(! $isGlobalAdmin)>{{ $branch->name }}</label>@endforeach</div>@endif
                     @error('branchIds')<p class="mt-2 text-sm text-red-600">{{ $message }}</p>@enderror
                 </div>
             </div>
         </section>
 
-        <section class="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-[#1e1f2e] sm:p-6">
+        <section class="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-zinc-900 sm:p-6">
             <div class="flex items-center gap-3"><span class="flex size-8 items-center justify-center rounded-lg bg-lime-100 font-bold text-lime-700 dark:bg-lime-400/10">B</span><div><h2 class="font-semibold text-zinc-900 dark:text-white">{{ __('Package Contents') }}</h2><p class="text-xs text-zinc-500">{{ __('Add components, set commercial quantities and arrange their display order.') }}</p></div></div>
 
             <div class="mt-5 grid gap-4 lg:grid-cols-2">
@@ -58,6 +58,15 @@
                             <div class="flex items-center gap-1 self-end xl:self-start"><button type="button" wire:click="moveComponent({{ $index }}, 'up')" @disabled($loop->first) class="rounded-lg p-2 text-zinc-500 hover:bg-zinc-100 disabled:opacity-30 dark:hover:bg-white/5" aria-label="{{ __('Move up') }}"><i class="fa-solid fa-arrow-up"></i></button><button type="button" wire:click="moveComponent({{ $index }}, 'down')" @disabled($loop->last) class="rounded-lg p-2 text-zinc-500 hover:bg-zinc-100 disabled:opacity-30 dark:hover:bg-white/5" aria-label="{{ __('Move down') }}"><i class="fa-solid fa-arrow-down"></i></button><button type="button" wire:click="removeComponent({{ $index }})" class="rounded-lg p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/10" aria-label="{{ __('Remove component') }}"><i class="fa-solid fa-trash-can"></i></button></div>
                         </div>
                         @if($packageComponent['source_archived'])<p class="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:bg-amber-500/10 dark:text-amber-200">{{ __('This historical source is archived or inactive. It remains visible and will not be offered for new additions.') }}</p>@endif
+                        @if($packageComponent['has_variations'] ?? false)
+                            <div class="mt-4 space-y-3 rounded-xl border border-zinc-200 p-4 dark:border-white/10">
+                                <flux:select wire:model.live="components.{{ $index }}.variation_selection" label="{{ __('Variation selection') }}">
+                                    <option value="">{{ __('Choose selection mode') }}</option><option value="deferred">{{ __('Choose when added to Order') }}</option><option value="fixed">{{ __('Fixed variation ? always use one exact variation') }}</option>
+                                </flux:select>
+                                @if(($packageComponent['variation_selection'] ?? '') === 'fixed')<p class="text-sm">{{ $packageComponent['variation_description'] ?? __('Choose an exact variation.') }}</p><flux:button type="button" wire:click="chooseFixedVariation({{ $index }})">{{ __('Choose variation') }}</flux:button>@endif
+                                @if($packageComponent['variation_warning'] ?? null)<p class="text-sm text-amber-700 dark:text-amber-300">{{ __('Requires attention') }}: {{ __($packageComponent['variation_warning']) }}</p>@endif
+                            </div>
+                        @endif
                         <div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5"><flux:input wire:model.live.debounce.200ms="components.{{ $index }}.minimum_quantity" type="number" min="0" step="0.01" label="{{ __('Minimum') }}" /><flux:input wire:model.live.debounce.200ms="components.{{ $index }}.default_quantity" type="number" min="0" step="0.01" label="{{ __('Default') }}" /><flux:input wire:model.live.debounce.200ms="components.{{ $index }}.maximum_quantity" type="number" min="0" step="0.01" label="{{ __('Maximum') }}" placeholder="{{ __('No limit') }}" /><x-money-input wire:model.blur="components.{{ $index }}.package_unit_price" min="0" step="0.01" label="{{ __('Package unit price') }}" /><div class="rounded-xl bg-zinc-50 px-3 py-2 dark:bg-white/5"><span class="block text-xs text-zinc-500">{{ __('Component total') }}</span><strong class="mt-1 block text-sm">{{ money_currency(app(\App\Services\Orders\OrderPackagePricingService::class)->componentPackageTotal((string) $packageComponent['default_quantity'], (string) $packageComponent['package_unit_price'])) }}</strong><span class="text-xs {{ (float) $packageComponent['minimum_quantity'] > 0 ? 'text-indigo-600' : 'text-zinc-500' }}">{{ (float) $packageComponent['minimum_quantity'] > 0 ? __('Required') : __('Optional') }}</span></div></div>
                         @error("components.$index.minimum_quantity")<p class="mt-2 text-sm text-red-600">{{ $message }}</p>@enderror @error("components.$index.default_quantity")<p class="mt-2 text-sm text-red-600">{{ $message }}</p>@enderror @error("components.$index.maximum_quantity")<p class="mt-2 text-sm text-red-600">{{ $message }}</p>@enderror @error("components.$index.package_unit_price")<p class="mt-2 text-sm text-red-600">{{ $message }}</p>@enderror
                     </article>
@@ -68,7 +77,7 @@
             </div>
         </section>
 
-        <section class="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#1e1f2e]" data-form-actions="package-template">
+        <section class="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-zinc-900" data-form-actions="package-template">
             <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div class="flex items-center gap-3"><span class="flex size-8 items-center justify-center rounded-lg bg-lime-100 font-bold text-lime-700 dark:bg-lime-400/10">C</span><div><h2 class="text-sm font-semibold">{{ __('Package Pricing') }}</h2><p class="text-xs text-zinc-500">{{ __('Calculated exactly from default quantities and component prices.') }}</p></div></div>
                 <div class="grid gap-3 text-left sm:grid-cols-3 sm:gap-4 sm:text-right"><div><span class="block text-xs text-zinc-500">{{ __('Standard Value') }}</span><strong>{{ money_currency($pricingSummary['standard_value']) }}</strong></div><div><span class="block text-xs text-zinc-500">{{ __('Package Price') }}</span><strong>{{ money_currency($pricingSummary['package_price']) }}</strong></div><div><span class="block text-xs text-zinc-500">{{ (float) $pricingSummary['difference'] >= 0 ? __('Customer Saves') : __('Price Difference') }}</span><strong class="{{ (float) $pricingSummary['difference'] >= 0 ? 'text-emerald-600' : 'text-amber-600' }}">{{ money_currency(abs((float) $pricingSummary['difference'])) }}</strong></div></div>
@@ -76,4 +85,5 @@
             </div>
         </section>
     </form>
+    @include('livewire.partials.order-inventory-selector')
 </div>

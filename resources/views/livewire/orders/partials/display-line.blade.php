@@ -4,6 +4,7 @@
     <div class="flex items-start justify-between gap-4">
         <div class="min-w-0">
             <span class="font-medium text-zinc-900 dark:text-white">{{ $displayLine['display_name'] }}</span>
+            @if($displayLine['record']->variation_description)<div class="mt-1 text-sm">{{ $displayLine['record']->variation_description }}</div><div class="text-xs text-zinc-500">{{ $displayLine['record']->sku }}</div>@endif
             @if ($line->notes)
                 <p class="mt-1 text-sm text-zinc-500 dark:text-zinc-400">{{ $line->notes }}</p>
             @endif

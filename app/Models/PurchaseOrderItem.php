@@ -13,6 +13,10 @@ class PurchaseOrderItem extends Model
     protected $fillable = [
         'purchase_order_id',
         'inventory_item_id',
+        'inventory_stock_unit_id',
+        'inventory_item_variant_id',
+        'variation_description',
+        'sku',
         'item_name',
         'qty_ordered',
         'qty_received',
@@ -33,6 +37,20 @@ class PurchaseOrderItem extends Model
     public function purchaseOrder(): BelongsTo
     {
         return $this->belongsTo(PurchaseOrder::class);
+    }
+
+    public function getSelectionWarningAttribute(): ?string
+    {
+        if ($this->inventory_stock_unit_id) {
+            return $this->stockUnit && app(\App\Services\Inventory\StockUnitResolver::class)->isSellable($this->stockUnit) ? null : 'Requires attention';
+        }
+
+        return $this->inventoryItem?->variant_mode === 'variants' ? 'Requires attention: historical selection needs review' : null;
+    }
+
+    public function stockUnit(): BelongsTo
+    {
+        return $this->belongsTo(InventoryStockUnit::class, 'inventory_stock_unit_id');
     }
 
     public function inventoryItem(): BelongsTo

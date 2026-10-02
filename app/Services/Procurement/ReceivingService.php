@@ -7,7 +7,6 @@ use App\Models\GoodsReceipt;
 use App\Models\GoodsReceiptItem;
 use App\Models\InventoryItem;
 use App\Models\PurchaseOrder;
-use App\Models\PurchaseOrderItem;
 use App\Models\User;
 use App\Notifications\GoodsReceivedNotification;
 use App\Services\Inventory\StockMovementService;
@@ -29,97 +28,92 @@ class ReceivingService
      * @param  User  $actor  User performing the operation
      * @param  string|null  $note  Optional note
      */
-    public function receive(PurchaseOrder $po, array $receivedItems, User $actor, ?string $note = null): GoodsReceipt
+    public function receive(PurchaseOrder $po, array $receivedItems, User $actor, ?string $note = null, ?string $operationKey = null): GoodsReceipt
     {
-        // Validate PO status
-        if (! in_array($po->status, [PurchaseOrderStatus::Sent, PurchaseOrderStatus::PartiallyReceived])) {
-            throw ValidationException::withMessages([
-                'status' => 'Can only receive goods for sent or partially received POs.',
-            ]);
+        abort_unless($actor->can('procurement.receive') && ($actor->isGlobalAdmin() || $actor->canAccessBranch($po->branch_id)), 403);
+        $normalized = [];
+        foreach ($receivedItems as $input) {
+            $id = (int) ($input['purchase_order_item_id'] ?? 0);
+            if (! $id || isset($normalized[$id])) {
+                throw ValidationException::withMessages(['items' => 'Choose each purchase order line once.']);
+            }
+            try {
+                $qty = \Brick\Math\BigDecimal::of((string) ($input['qty_received'] ?? 0))->toScale(2);
+                $cost = isset($input['unit_cost']) ? \Brick\Math\BigDecimal::of((string) $input['unit_cost'])->toScale(2) : null;
+            } catch (\Throwable) {
+                throw ValidationException::withMessages(['items' => 'Enter valid decimal quantities and costs with at most two decimal places.']);
+            }
+            if ($qty->isLessThanOrEqualTo(0) || $cost?->isNegative()) {
+                throw ValidationException::withMessages(['items' => 'Receipt quantities must be positive and costs cannot be negative.']);
+            }
+            $normalized[$id] = ['qty' => (string) $qty, 'cost' => $cost === null ? null : (string) $cost];
         }
-
-        if (empty($receivedItems)) {
-            throw ValidationException::withMessages([
-                'items' => 'At least one item must be received.',
-            ]);
+        if ($normalized === []) {
+            throw ValidationException::withMessages(['items' => 'At least one item must be received.']);
         }
+        ksort($normalized);
+        $payloadHash = hash('sha256', json_encode([$normalized, $note], JSON_THROW_ON_ERROR));
+        if ($operationKey === null || trim($operationKey) === '' || strlen($operationKey) > 200) {
+            throw ValidationException::withMessages(['receipt' => 'A durable receipt operation key is required. Reuse it only when retrying the same delivery.']);
+        }
+        $key = hash('sha256', $po->id.':'.$operationKey);
 
-        return DB::transaction(function () use ($po, $receivedItems, $actor, $note) {
-            // Create GRN
+        return DB::transaction(function () use ($po, $normalized, $actor, $note, $payloadHash, $key) {
+            $po = PurchaseOrder::query()->whereKey($po->id)->lockForUpdate()->firstOrFail();
+            abort_unless($actor->isGlobalAdmin() || $actor->canAccessBranch($po->branch_id), 403);
+            if ($key && $existing = GoodsReceipt::where('operation_key', $key)->first()) {
+                if (! hash_equals($existing->payload_hash, $payloadHash)) {
+                    throw ValidationException::withMessages(['items' => 'This receipt submission was already used with different quantities or costs. Reload before a new receipt.']);
+                }
+
+                return $existing->load(['items.inventoryItem', 'purchaseOrder', 'receiver']);
+            }
+            if (! in_array($po->status, [PurchaseOrderStatus::Sent, PurchaseOrderStatus::PartiallyReceived])) {
+                throw ValidationException::withMessages(['status' => 'Can only receive goods for sent or partially received POs.']);
+            }
+            $lines = $po->items()->orderBy('id')->lockForUpdate()->get()->keyBy('id');
+            if (array_diff(array_keys($normalized), $lines->keys()->all())) {
+                throw ValidationException::withMessages(['items' => 'A receipt line does not belong to this purchase order.']);
+            }
+            InventoryItem::withoutBranchScope()->whereIn('id', $lines->whereIn('id', array_keys($normalized))->pluck('inventory_item_id')->filter()->unique())->orderBy('id')->lockForUpdate()->get();
             $grn = GoodsReceipt::create([
-                'branch_id' => $po->branch_id,
-                'purchase_order_id' => $po->id,
-                'received_at' => now(),
-                'received_by' => $actor->id,
-                'note' => $note,
+                'branch_id' => $po->branch_id, 'purchase_order_id' => $po->id,
+                'received_at' => now(), 'received_by' => $actor->id, 'note' => $note,
+                'operation_key' => $key, 'payload_hash' => $payloadHash,
             ]);
-
-            $hasReceivedSomething = false;
-
-            foreach ($receivedItems as $receivedItem) {
-                $qtyReceived = (float) ($receivedItem['qty_received'] ?? 0);
-                if ($qtyReceived <= 0) {
-                    continue;
+            foreach ($normalized as $id => $input) {
+                $line = $lines[$id];
+                $qty = \Brick\Math\BigDecimal::of($input['qty']);
+                $pending = \Brick\Math\BigDecimal::of($line->qty_ordered)->minus($line->qty_received);
+                if ($qty->isGreaterThan($pending)) {
+                    throw ValidationException::withMessages(['qty' => "Cannot receive {$qty} for '{$line->item_name}'. Only {$pending} pending."]);
                 }
-
-                // Find PO item
-                $poItem = PurchaseOrderItem::find($receivedItem['purchase_order_item_id']);
-                if (! $poItem || $poItem->purchase_order_id !== $po->id) {
-                    continue;
+                $cost = \Brick\Math\BigDecimal::of($input['cost'] ?? $line->unit_cost ?? 0)->toScale(2);
+                if ($cost->isNegative()) {
+                    throw ValidationException::withMessages(['cost' => 'Receipt cost cannot be negative.']);
                 }
-
-                // Validate qty doesn't exceed pending
-                $pendingQty = $poItem->qty_ordered - $poItem->qty_received;
-                if ($qtyReceived > $pendingQty) {
-                    throw ValidationException::withMessages([
-                        'qty' => "Cannot receive {$qtyReceived} for item '{$poItem->item_name}'. Only {$pendingQty} pending.",
-                    ]);
+                $unit = $line->inventory_item_id ? app(\App\Services\Inventory\InventorySelectionService::class)->resolve($line->inventory_item_id, $line->inventory_stock_unit_id, $po->branch_id) : null;
+                if (($line->inventory_item_variant_id !== null && (int) $line->inventory_item_variant_id !== (int) $unit?->inventory_item_variant_id) || (! $unit && $line->inventory_stock_unit_id)) {
+                    throw ValidationException::withMessages(['inventory' => 'Purchase identity requires reconciliation.']);
                 }
-
-                // Unit cost (use from input or from PO item)
-                $unitCost = (float) ($receivedItem['unit_cost'] ?? $poItem->unit_cost ?? 0);
-
-                // Create GRN item
                 GoodsReceiptItem::create([
-                    'goods_receipt_id' => $grn->id,
-                    'inventory_item_id' => $poItem->inventory_item_id,
-                    'qty_received' => $qtyReceived,
-                    'unit_cost' => $unitCost,
-                    'line_total' => $qtyReceived * $unitCost,
+                    'goods_receipt_id' => $grn->id, 'purchase_order_item_id' => $line->id,
+                    'inventory_item_id' => $line->inventory_item_id,
+                    'inventory_stock_unit_id' => $unit?->id,
+                    'inventory_item_variant_id' => $unit?->inventory_item_variant_id,
+                    'item_name' => $line->item_name,
+                    'variation_description' => $line->variation_description,
+                    'sku' => $line->sku ?? $unit?->sku,
+                    'qty_received' => (string) $qty, 'unit_cost' => (string) $cost,
+                    'line_total' => (string) $qty->multipliedBy($cost)->toScale(2, \Brick\Math\RoundingMode::HALF_UP),
                 ]);
-
-                // Update PO item qty_received
-                $poItem->increment('qty_received', $qtyReceived);
-
-                // Update inventory if linked to an inventory item
-                if ($poItem->inventory_item_id) {
-                    $inventoryItem = InventoryItem::find($poItem->inventory_item_id);
-                    if ($inventoryItem) {
-                        $this->stockService->receive(
-                            $inventoryItem,
-                            $qtyReceived,
-                            $unitCost,
-                            "Received via GRN: {$grn->grn_no}",
-                            $actor,
-                            $grn
-                        );
-                    }
+                $line->update(['qty_received' => (string) \Brick\Math\BigDecimal::of($line->qty_received)->plus($qty)]);
+                if ($unit) {
+                    $this->stockService->receive($unit, (string) $qty, (string) $cost, "Received via GRN: {$grn->grn_no}", $actor, $grn);
                 }
-
-                $hasReceivedSomething = true;
             }
-
-            if (! $hasReceivedSomething) {
-                throw ValidationException::withMessages([
-                    'items' => 'No items were received. Please enter quantities to receive.',
-                ]);
-            }
-
-            // Update PO status based on received quantities
             $this->updatePurchaseOrderStatus($po);
-
-            // Send notifications
-            $this->notifyOfGoodsReceived($grn, $po);
+            DB::afterCommit(fn () => $this->notifyOfGoodsReceived($grn, $po));
 
             return $grn->load(['items.inventoryItem', 'purchaseOrder', 'receiver']);
         });
@@ -132,10 +126,7 @@ class ReceivingService
     {
         $po->refresh();
 
-        $totalOrdered = $po->items->sum('qty_ordered');
-        $totalReceived = $po->items->sum('qty_received');
-
-        if ($totalReceived >= $totalOrdered) {
+        if (! $po->items()->whereColumn('qty_received', '<', 'qty_ordered')->exists()) {
             $po->update(['status' => PurchaseOrderStatus::Received]);
         } else {
             $po->update(['status' => PurchaseOrderStatus::PartiallyReceived]);

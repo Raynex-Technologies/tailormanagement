@@ -253,6 +253,13 @@ class CartService
             }
 
             $meta = (array) ($line->meta ?? []);
+            if ($line->inventory_item_variant_id && (! $line->variant || ! $line->variant->is_active)) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['cart' => 'A selected variant is no longer available. Remove it from the cart.']);
+            }
+
+            if ($line->item->variant_mode !== 'simple') {
+                throw \Illuminate\Validation\ValidationException::withMessages(['cart' => 'This product requires exact variant allocation before it can be sold.']);
+            }
             $comboPriceLocked = (bool) data_get($meta, 'combo.lock_price', false);
 
             if ($comboPriceLocked) {

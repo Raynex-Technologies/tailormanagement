@@ -85,7 +85,7 @@
                                     <thead>
                                     <tr class="text-left text-zinc-600 dark:text-zinc-400">
                                         <th class="pb-2">Item</th>
-                                        <th class="pb-2 text-center">On Hand</th>
+                                        <th class="pb-2 text-center">Available</th>
                                         <th class="pb-2 text-center">Requested</th>
                                         <th class="pb-2 text-center">Approved</th>
                                         <th class="pb-2 text-center">Issued</th>
@@ -96,23 +96,23 @@
                                         <tr>
                                             <td class="py-2">
                                                 <span class="font-medium text-zinc-900 dark:text-white">
-                                                    {{ $item->inventoryItem?->name ?? 'Unknown' }}
+                                                    {{ $item->item_name ?? $item->inventoryItem?->name ?? 'Unknown' }} @if($item->variation_description)<span class="block text-sm">{{ $item->variation_description }} / {{ $item->sku }}</span>@endif @if($item->selection_warning)<span class="block text-sm text-amber-700 dark:text-amber-300">{{ $item->selection_warning }}</span>@endif
                                                 </span>
                                                 @if ($item->note)
                                                     <span class="ml-2 text-xs text-zinc-500">({{ $item->note }})</span>
                                                 @endif
                                             </td>
                                             <td class="py-2 text-center">
-                                                {{ number_format($item->inventoryItem?->stock?->qty_on_hand ?? 0, 0) }}
+                                                {{ number_format($item->available_stock, 2) }}
                                             </td>
-                                            <td class="py-2 text-center">{{ number_format($item->qty_requested, 0) }}</td>
+                                            <td class="py-2 text-center">{{ number_format($item->qty_requested, 2) }}</td>
                                             <td class="py-2 text-center">
                                                 {{ $item->qty_approved !== null ? number_format($item->qty_approved, 0) : 'N/A' }}
                                             </td>
                                             <td class="py-2 text-center">
                                                 @if ($item->qty_issued > 0)
                                                     <span class="text-green-600 dark:text-green-400">
-                                                        {{ number_format($item->qty_issued, 0) }}
+                                                        {{ number_format($item->qty_issued, 2) }}
                                                     </span>
                                                 @else
                                                     N/A
@@ -219,7 +219,7 @@
                                                                 @endif
                                                             </div>
                                                             <span class="ml-3 shrink-0 text-xs text-zinc-500">
-                                                                Stock: {{ number_format($invItem->stock?->qty_on_hand ?? 0, 0) }}
+                                                                Stock: {{ number_format($invItem->aggregate_stock ?? 0, 2) }}
                                                             </span>
                                                         </button>
                                                     @endforeach
@@ -233,6 +233,7 @@
                                     @else
                                         <div class="flex items-center gap-2 min-h-[38px]">
                                             <flux:badge color="blue" size="sm">{{ $item['inventory_item_name'] }}</flux:badge>
+                                            @if($item['variation_description'] ?? null)<p class="text-sm">{{ $item['variation_description'] }} / {{ $item['sku'] }}</p>@endif
                                             <button
                                                 type="button"
                                                 wire:click="clearItem({{ $index }})"
@@ -251,7 +252,7 @@
                                         wire:model="requestItems.{{ $index }}.qty_requested"
                                         type="number"
                                         min="1"
-                                        step="1"
+                                        step="0.01"
                                         placeholder="Qty"
                                     />
                                 </div>
@@ -299,4 +300,5 @@
             </div>
         </flux:modal>
     </flux:main>
+    @include('livewire.partials.order-inventory-selector')
 </div>

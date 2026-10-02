@@ -20,11 +20,13 @@ use Livewire\WithFileUploads;
 
     public ?int $templateId = null;
 
+    public string $recovery_content_sid = '';
+
     public string $name = '';
 
     public string $category = 'UTILITY';
 
-    public string $language = 'en_US';
+    public string $language = 'en';
 
     public string $header_format = 'NONE';
 
@@ -50,7 +52,7 @@ use Livewire\WithFileUploads;
     {
         $this->authorize('sms-templates.view');
         if ($template) {
-            $t = WhatsappTemplate::findOrFail($template);
+            $t = WhatsappTemplate::where('branch_id', BranchContext::requireId())->findOrFail($template);
             $this->templateId = $t->id;
             $this->name = $t->name;
             $this->category = $t->category;
@@ -68,7 +70,7 @@ use Livewire\WithFileUploads;
         $t = $service->saveDraft($this->integration(), $this->definition(), $this->template());
         $this->templateId = $t->id;
         Log::info('WhatsApp template draft saved', ['branch_id' => $t->branch_id, 'template_id' => $t->id, 'actor_id' => auth()->id()]);
-        session()->flash('success', __('Draft saved locally. Nothing was submitted to Meta.'));
+        session()->flash('success', __('Draft saved locally. Nothing was submitted to Twilio.'));
     }
 
     public function validateTemplate(WhatsappTemplateService $service): void
@@ -86,9 +88,15 @@ use Livewire\WithFileUploads;
             session()->flash('error', __('Save and validate the draft first.'));
 
             return;
-        }$result = $service->submit($this->template());
+        }$persisted = $this->template();
+        if (\App\Data\WhatsApp\TemplateDefinition::fromArray($this->definition())->fingerprint() !== $persisted->definitionFingerprint()) {
+            session()->flash('error', __('Save and validate your latest changes before submitting.'));
+
+            return;
+        }
+        $result = $service->submit($persisted);
         Log::info('WhatsApp template submitted', ['branch_id' => $this->integration()->branch_id, 'template_id' => $this->templateId, 'success' => $result['success'], 'actor_id' => auth()->id()]);
-        session()->flash($result['success'] ? 'success' : 'error', $result['success'] ? __('Template submitted. Meta status: :status', ['status' => $result['template']->meta_status]) : __($result['error_message']));
+        session()->flash($result['success'] ? 'success' : 'error', $result['success'] ? __('Template submitted through Twilio. Approval status: :status', ['status' => $result['template']->twilio_status]) : __($result['error_message']));
     }
 
     public function uploadExample(WhatsAppProvider $provider): void
@@ -108,6 +116,26 @@ use Livewire\WithFileUploads;
         } else {
             session()->flash('error', __($result['error_message']));
         }
+    }
+
+    public function recoverContent(\App\Services\WhatsApp\Templates\TwilioTemplateManager $manager): void
+    {
+        $this->authorize('sms-templates.update');
+        $this->validate(['recovery_content_sid' => ['required', 'regex:/^HX[0-9a-fA-F]{32}$/']]);
+        $template = $this->template();
+        abort_unless($template, 404);
+        $result = $manager->reconcile($template, $this->recovery_content_sid);
+        session()->flash($result['success'] ? 'success' : 'error', $result['success'] ? __('Content recovered. Validate and submit to continue the approval request.') : __($result['error_message']));
+    }
+
+    public function useTextOnly(): void
+    {
+        $this->authorize('sms-templates.update');
+        $this->header_format = 'NONE';
+        $this->header_text = '';
+        $this->footer = '';
+        $this->buttons = [];
+        $this->example_handle = null;
     }
 
     public function addVariable(): void
@@ -144,12 +172,12 @@ use Livewire\WithFileUploads;
 
     protected function template(): ?WhatsappTemplate
     {
-        return $this->templateId ? WhatsappTemplate::findOrFail($this->templateId) : null;
+        return $this->templateId ? WhatsappTemplate::where('branch_id', BranchContext::requireId())->findOrFail($this->templateId) : null;
     }
 
     protected function integration(): WhatsappIntegration
     {
-        return WhatsappIntegration::forBranch(BranchContext::getEffectiveBranchId());
+        return WhatsappIntegration::forBranch(BranchContext::requireId());
     }
 
     protected function hydrateComponents(array $components): void

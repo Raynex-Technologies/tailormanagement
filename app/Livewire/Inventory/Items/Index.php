@@ -238,13 +238,7 @@ class Index extends Component
             $item = InventoryItem::create($data);
 
             // Ensure stock record exists
-            $item->stock()->firstOrCreate([
-                'inventory_item_id' => $item->id,
-            ], [
-                'branch_id' => $item->branch_id,
-                'qty_on_hand' => 0,
-                'qty_reserved' => 0,
-            ]);
+            app(StockMovementService::class)->initialize($item);
 
             session()->flash('success', 'Item created successfully.');
         }
@@ -367,6 +361,11 @@ class Index extends Component
         $this->authorize('inventory.stock.receive');
 
         $item = InventoryItem::findOrFail($id);
+        if ($item->variant_mode === 'variants') {
+            $this->redirectRoute('inventory.items.variations', ['item' => $item->id], navigate: true);
+
+            return;
+        }
 
         $this->receiveItemId = $item->id;
         $this->receiveItemName = $item->name;
@@ -417,6 +416,11 @@ class Index extends Component
         $this->authorize('inventory.stock.adjust');
 
         $item = InventoryItem::with('stock')->findOrFail($id);
+        if ($item->variant_mode === 'variants') {
+            $this->redirectRoute('inventory.items.variations', ['item' => $item->id], navigate: true);
+
+            return;
+        }
 
         $this->adjustItemId = $item->id;
         $this->adjustItemName = $item->name;
@@ -462,7 +466,7 @@ class Index extends Component
     public function render()
     {
         $items = InventoryItem::query()
-            ->with(['category', 'stock', 'inventoryUnit'])
+            ->with(['category', 'stock', 'physicalStocks', 'variants.stockUnit', 'inventoryUnit', 'simpleStockUnit.primaryBarcode'])->withCount('variants')
             ->when($this->search, fn ($q) => $q->where(function ($q) {
                 $q->where('name', 'like', "%{$this->search}%")
                     ->orWhere('sku', 'like', "%{$this->search}%");
@@ -470,7 +474,7 @@ class Index extends Component
             ->when($this->categoryFilter, fn ($q) => $q->where('inventory_category_id', $this->categoryFilter))
             ->when($this->statusFilter === 'active', fn ($q) => $q->where('is_active', true))
             ->when($this->statusFilter === 'inactive', fn ($q) => $q->where('is_active', false))
-            ->when($this->statusFilter === 'low', fn ($q) => $q->whereHas('stock', function ($sq) {
+            ->when($this->statusFilter === 'low', fn ($q) => $q->whereHas('physicalStocks', 'variants.stockUnit', function ($sq) {
                 $sq->whereRaw('qty_on_hand <= inventory_items.reorder_level');
             }))
             ->orderBy('name')

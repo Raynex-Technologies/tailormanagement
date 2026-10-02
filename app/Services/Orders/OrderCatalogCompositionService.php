@@ -107,6 +107,22 @@ class OrderCatalogCompositionService
                 'measurements' => [['key' => '', 'value' => '']],
             ];
 
+            if ($component['source_type'] === 'inventory_item' && array_key_exists('inventory_allocations', $component)) {
+                foreach ($component['inventory_allocations'] as $position => $allocation) {
+                    $lines[] = [...$base, ...$allocation,
+                        'item_name' => $component['name'],
+                        'qty' => $allocation['quantity'],
+                        'unit_price' => (string) $component['package_unit_price'],
+                        'line_total' => app(OrderPackagePricingService::class)->componentPackageTotal($allocation['quantity'], (string) $component['package_unit_price']),
+                        'package_unit_index' => $position + 1];
+                }
+
+                continue;
+            }
+            if ($component['source_type'] === 'inventory_item' && ($component['variation_selection'] ?? null) === 'deferred') {
+                throw new DomainException('Configure exact variations before adding this package.');
+            }
+
             if (($component['quantity_behavior'] ?? 'bulk') === OrderCatalogQuantityBehavior::Individual->value) {
                 if ($quantity->stripTrailingZeros()->getScale() > 0) {
                     throw new DomainException("{$component['name']} requires a whole-number quantity.");

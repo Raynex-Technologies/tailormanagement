@@ -35,6 +35,7 @@ class PosSaleService
         ?string $paymentReference = null,
         ?string $notes = null
     ): PosSale {
+        \Illuminate\Support\Facades\Gate::forUser($cashier)->authorize('pos.sell');
         if ($cart === []) {
             throw ValidationException::withMessages([
                 'cart' => ['Add at least one item before completing the sale.'],
@@ -65,6 +66,9 @@ class PosSaleService
             $notes,
             $branchId
         ) {
+            // Stable parent lock order serializes stock and metadata changes before price reads.
+            $itemIds = collect($cart)->pluck('inventory_item_id')->map(fn ($id) => (int) $id)->unique()->sort()->values();
+            InventoryItem::withoutBranchScope()->whereIn('id', $itemIds)->orderBy('id')->lockForUpdate()->get();
             $normalizedItems = [];
             $subtotal = 0.0;
 
@@ -80,12 +84,24 @@ class PosSaleService
                 }
 
                 $item = InventoryItem::query()
-                    ->with('stock')
+                    ->where('branch_id', $branchId)
                     ->whereKey($itemId)
                     ->where('is_active', true)
                     ->firstOrFail();
 
-                $available = (float) (($item->stock?->qty_on_hand ?? 0) - ($item->stock?->qty_reserved ?? 0));
+                $resolver = app(\App\Services\Inventory\StockUnitResolver::class);
+                $stockUnit = ! empty($line['inventory_stock_unit_id'])
+                    ? \App\Models\InventoryStockUnit::whereKey($line['inventory_stock_unit_id'])->where('inventory_item_id', $item->id)->lockForUpdate()->firstOrFail()
+                    : $resolver->forItem($item);
+                if (! $resolver->isSellable($stockUnit)) {
+                    throw ValidationException::withMessages(['cart' => 'This product or variation is unavailable. Reload the cart.']);
+                }
+                $stock = $stockUnit->stock()->lockForUpdate()->first();
+                $available = (float) (($stock?->qty_on_hand ?? 0) - ($stock?->qty_reserved ?? 0));
+                $stockUnit->load('variant.selectedValues.option');
+                if (isset($line['expected_price']) && ! \Brick\Math\BigDecimal::of((string) $line['expected_price'])->isEqualTo($stockUnit->selling_price ?? '0')) {
+                    throw ValidationException::withMessages(['cart' => 'A selling price changed. Remove and add the affected item to review its current price.']);
+                }
 
                 if ($available < $quantity) {
                     throw ValidationException::withMessages([
@@ -93,8 +109,8 @@ class PosSaleService
                     ]);
                 }
 
-                $unitPrice = (float) ($item->default_sell_price ?? 0);
-                if ($unitPrice < 0) {
+                $unitPrice = (float) ($stockUnit->selling_price ?? 0);
+                if ($stockUnit->selling_price === null || $unitPrice < 0) {
                     throw ValidationException::withMessages([
                         'cart' => ["{$item->name} has an invalid selling price."],
                     ]);
@@ -105,6 +121,7 @@ class PosSaleService
 
                 $normalizedItems[] = [
                     'item' => $item,
+                    'stock_unit' => $stockUnit,
                     'quantity' => $quantity,
                     'unit_price' => $unitPrice,
                     'discount_amount' => $lineDiscount,
@@ -147,8 +164,11 @@ class PosSaleService
 
                 $sale->items()->create([
                     'inventory_item_id' => $item->id,
+                    'inventory_stock_unit_id' => $line['stock_unit']->id,
+                    'inventory_item_variant_id' => $line['stock_unit']->inventory_item_variant_id,
+                    'variation_description' => $line['stock_unit']->variant?->display_name,
                     'item_name' => $item->name,
-                    'sku' => $item->sku,
+                    'sku' => $line['stock_unit']->sku,
                     'unit_price' => $line['unit_price'],
                     'quantity' => $line['quantity'],
                     'discount_amount' => $line['discount_amount'],
@@ -156,7 +176,7 @@ class PosSaleService
                 ]);
 
                 $this->stockMovementService->issue(
-                    item: $item,
+                    item: $line['stock_unit'],
                     qty: $line['quantity'],
                     note: "POS sale {$sale->sale_number}",
                     actor: $cashier,

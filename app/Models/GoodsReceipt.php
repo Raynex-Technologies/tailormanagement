@@ -29,6 +29,8 @@ class GoodsReceipt extends Model
         'received_at',
         'received_by',
         'note',
+        'operation_key',
+        'payload_hash',
     ];
 
     protected function casts(): array

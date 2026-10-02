@@ -31,17 +31,7 @@
         <flux:callout variant="success" icon="check-circle">{{ session('success') }}</flux:callout>
     @endif
 
-    <div class="flex rounded-xl border border-zinc-200 bg-white p-1 shadow-sm dark:border-white/10 dark:bg-[#1e1f2e]" role="tablist" aria-label="{{ __('Order Catalog sections') }}">
-        <button wire:click="setTab('items')" class="flex-1 rounded-lg px-4 py-2.5 text-sm font-semibold transition {{ $tab === 'items' ? 'tm-active' : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-white/5' }}" role="tab" aria-selected="{{ $tab === 'items' ? 'true' : 'false' }}">
-            <i class="fa-duotone fa-shirt mr-2"></i>{{ __('Catalog Items') }}
-        </button>
-        <button wire:click="setTab('packages')" class="flex-1 rounded-lg px-4 py-2.5 text-sm font-semibold transition {{ $tab === 'packages' ? 'tm-active' : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-white/5' }}" role="tab" aria-selected="{{ $tab === 'packages' ? 'true' : 'false' }}">
-            <i class="fa-duotone fa-box-open-full mr-2"></i>{{ __('Packages') }}
-        </button>
-        <button wire:click="setTab('measurements')" class="flex-1 rounded-lg px-4 py-2.5 text-sm font-semibold transition {{ $tab === 'measurements' ? 'tm-active' : 'text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-white/5' }}" role="tab" aria-selected="{{ $tab === 'measurements' ? 'true' : 'false' }}">
-            <i class="fa-duotone fa-ruler-combined mr-2"></i>{{ __('Measurements') }}
-        </button>
-    </div>
+    <x-orders.catalog-navigation :active="$tab" />
 
     <section class="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#1e1f2e]">
         <div class="grid gap-3 md:grid-cols-4">
@@ -63,8 +53,8 @@
                     <flux:select.option value="">{{ __('All units') }}</flux:select.option>
                     @foreach ($measurementUnits as $unit)<flux:select.option value="{{ $unit }}">{{ strtoupper($unit) }}</flux:select.option>@endforeach
                 </flux:select>
-                <flux:select wire:model.live="categoryFilter" aria-label="{{ __('Filter by garment category') }}">
-                    <flux:select.option value="">{{ __('All categories') }}</flux:select.option>
+                <flux:select wire:model.live="categoryFilter" aria-label="{{ __('Filter by garment type') }}">
+                    <flux:select.option value="">{{ __('All garment types') }}</flux:select.option>
                     @foreach ($garmentCategories as $category)<flux:select.option value="{{ $category->id }}">{{ $category->name }}</flux:select.option>@endforeach
                 </flux:select>
             @elseif ($branches->count() > 1)
@@ -179,14 +169,14 @@
                     </div>
                     <div class="mt-4 grid grid-cols-2 gap-3 rounded-xl bg-zinc-50 p-3 text-xs dark:bg-white/5">
                         <div><span class="block text-zinc-400">{{ __('Default unit') }}</span><strong>{{ strtoupper($measurement->default_unit) }}</strong></div>
-                        <div><span class="block text-zinc-400">{{ __('Availability') }}</span><strong>{{ $measurement->is_global ? __('Global') : trans_choice(':count category|:count categories', $measurement->garmentCategories->count(), ['count' => $measurement->garmentCategories->count()]) }}</strong></div>
+                        <div><span class="block text-zinc-400">{{ __('Availability') }}</span><strong>{{ $measurement->is_global ? __('Global') : trans_choice(':count garment type|:count garment types', $measurement->garmentCategories->count(), ['count' => $measurement->garmentCategories->count()]) }}</strong></div>
                     </div>
                     <div class="mt-3 flex flex-wrap gap-1.5">
                         @if ($measurement->is_global)<flux:badge size="sm" color="sky">{{ __('All garments') }}</flux:badge>@endif
                         @foreach ($measurement->garmentCategories as $category)
                             <flux:badge size="sm" color="zinc">{{ $category->name }}{{ $category->pivot->is_required ? ' · '.__('Required') : '' }}</flux:badge>
                         @endforeach
-                        @if (! $measurement->is_global && $measurement->garmentCategories->isEmpty())<span class="text-xs text-amber-600">{{ __('Not assigned to a garment category') }}</span>@endif
+                        @if (! $measurement->is_global && $measurement->garmentCategories->isEmpty())<span class="text-xs text-amber-600">{{ __('Not assigned to a garment type') }}</span>@endif
                     </div>
                     @if ($measurement->instructions)<p class="mt-3 line-clamp-2 text-sm text-zinc-500">{{ $measurement->instructions }}</p>@endif
                     @if ($canManageMeasurements)

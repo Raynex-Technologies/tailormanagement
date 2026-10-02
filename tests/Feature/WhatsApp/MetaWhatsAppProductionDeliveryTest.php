@@ -23,6 +23,13 @@ use Tests\TestCase;
 
 class MetaWhatsAppProductionDeliveryTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+        config(['twilio.active' => false]);
+        $this->app->bind(\App\Contracts\WhatsAppProvider::class, \App\Services\WhatsApp\MetaWhatsAppProvider::class);
+    }
+
     public function test_enabled_automation_queues_real_template_with_context_linkage_and_wamid(): void
     {
         Queue::fake();

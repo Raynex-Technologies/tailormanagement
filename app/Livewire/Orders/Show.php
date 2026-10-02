@@ -248,7 +248,11 @@ class Show extends Component
             return;
         }
 
-        $this->order->update(['status' => $newStatusEnum]);
+        if ($newStatusEnum === OrderStatus::Cancelled) {
+            app(\App\Services\Orders\OrderInventoryRestorationService::class)->cancel($this->order, auth()->user());
+        } else {
+            $this->order->update(['status' => $newStatusEnum]);
+        }
         $this->order->refresh();
         $this->showStatusModal = false;
 
@@ -289,7 +293,7 @@ class Show extends Component
         }
 
         $oldStatus = $this->order->status;
-        $this->order->update(['status' => OrderStatus::Cancelled]);
+        app(\App\Services\Orders\OrderInventoryRestorationService::class)->cancel($this->order, auth()->user());
         $this->order->refresh();
 
         // Fire status changed event (cancelled doesn't trigger SMS per requirements)

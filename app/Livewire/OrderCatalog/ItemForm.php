@@ -13,6 +13,7 @@ use DomainException;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Rules\Enum;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
 use Livewire\Attributes\Title;
 use Livewire\Component;
 use Livewire\WithFileUploads;
@@ -24,6 +25,7 @@ class ItemForm extends Component
     use NormalizesMoneyInputs;
     use WithFileUploads;
 
+    #[Locked]
     public ?int $itemId = null;
 
     public string $name = '';
@@ -77,6 +79,10 @@ class ItemForm extends Component
             $this->availableAllBranches = false;
             $this->branchIds = [(int) $user->branch_id];
         }
+        if (! $catalogItem?->exists && request()->filled('garment_type')) {
+            $this->garmentCategoryId = GarmentCategory::query()->where('is_active', true)
+                ->findOrFail(request()->integer('garment_type'))->id;
+        }
     }
 
     public function updatedType(string $type): void
@@ -110,7 +116,8 @@ class ItemForm extends Component
                 Rule::excludeIf($this->type === OrderCatalogItemType::Service->value),
                 'nullable',
                 'integer',
-                Rule::exists('garment_categories', 'id')->where('is_active', true),
+                Rule::exists('garment_categories', 'id')->where(fn ($query) => $query->where('is_active', true)
+                    ->orWhere('id', $this->existingCategoryId())),
             ],
             'defaultSellingPrice' => ['required', 'numeric', 'min:0', 'max:999999999999.99'],
             'requiresMeasurements' => ['boolean'],
@@ -173,7 +180,8 @@ class ItemForm extends Component
         return view('livewire.order-catalog.item-form', [
             'branches' => app(OrderCatalogAdministrationService::class)->permittedBranches(auth()->user()),
             'isGlobalAdmin' => auth()->user()->isGlobalAdmin(),
-            'garmentCategories' => GarmentCategory::query()->where('is_active', true)->orderBy('sort_order')->orderBy('name')->get(['id', 'name']),
+            'garmentCategories' => GarmentCategory::query()->where(fn ($query) => $query->where('is_active', true)
+                ->orWhere('id', $this->existingCategoryId()))->orderBy('sort_order')->orderBy('name')->get(['id', 'name', 'is_active']),
         ]);
     }
 
@@ -184,5 +192,10 @@ class ItemForm extends Component
         } catch (DomainException $exception) {
             abort(403, $exception->getMessage());
         }
+    }
+
+    private function existingCategoryId(): ?int
+    {
+        return $this->itemId ? OrderCatalogItem::query()->whereKey($this->itemId)->value('garment_category_id') : null;
     }
 }

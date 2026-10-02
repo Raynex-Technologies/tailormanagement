@@ -73,26 +73,6 @@ class OrderDeletionService
 
     protected function reinstateIssuedInventory(Order $order, User $actor): void
     {
-        foreach ($order->stockRequests as $stockRequest) {
-            foreach ($stockRequest->items as $item) {
-                $issuedQty = (float) $item->qty_issued;
-                if ($issuedQty <= 0) {
-                    continue;
-                }
-
-                $inventoryItem = $item->inventoryItem;
-                if (! $inventoryItem) {
-                    continue;
-                }
-
-                $this->stockMovementService->return(
-                    item: $inventoryItem,
-                    qty: $issuedQty,
-                    note: "Inventory reinstated from deleted Order #{$order->order_no}",
-                    actor: $actor,
-                    reference: $order
-                );
-            }
-        }
+        app(OrderInventoryRestorationService::class)->restore($order, $actor);
     }
 }

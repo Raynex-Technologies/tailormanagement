@@ -37,7 +37,7 @@
                         @include('invoices.partials.line-group-heading', ['line' => $line, 'columns' => 4])
                         <tr style="background: {{ $loop->odd ? 'rgba(255,255,255,.04)' : 'rgba(255,255,255,.08)' }};">
                             <td style="border-color: rgba(255,255,255,.14); color: #e8fffb;">
-                                <strong>{{ $line->item_name }}</strong>
+                                <strong>{{ $line->item_name }}@if($line->orderLine?->variation_description)<br><small>{{ $line->orderLine->variation_description }} / {{ $line->orderLine->sku }}</small>@endif</strong>
                                 @if ($line->notes)
                                     <div style="margin-top: 2px; font-size: 10px; color: #b8ebe2;">{{ $line->notes }}</div>
                                 @endif

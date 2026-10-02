@@ -13,7 +13,6 @@ use App\Models\InventoryItem;
 use App\Models\PurchaseOrder;
 use App\Models\PurchaseOrderItem;
 use App\Models\PurchaseRequest;
-use App\Models\PurchaseRequestItem;
 use App\Models\Supplier;
 use App\Services\Procurement\PurchaseRequestService;
 use App\Services\Procurement\ReceivingService;
@@ -255,7 +254,7 @@ class ProcurementFlowTest extends TestCase
                 'qty_received' => 15,
                 'unit_cost' => 5000,
             ],
-        ], $user);
+        ], $user, operationKey: 'test-delivery-1');
 
         $item->stock->refresh();
         $po->refresh();
@@ -302,7 +301,7 @@ class ProcurementFlowTest extends TestCase
                 'qty_received' => 10,
                 'unit_cost' => 5000,
             ],
-        ], $user);
+        ], $user, operationKey: 'test-delivery-2');
 
         $po->refresh();
         $this->assertEquals(PurchaseOrderStatus::PartiallyReceived, $po->status);
@@ -314,7 +313,7 @@ class ProcurementFlowTest extends TestCase
                 'qty_received' => 10,
                 'unit_cost' => 5000,
             ],
-        ], $user);
+        ], $user, operationKey: 'test-delivery-3');
 
         $po->refresh();
         $this->assertEquals(PurchaseOrderStatus::Received, $po->status);

@@ -14,8 +14,12 @@ use App\Models\User;
 use App\Notifications\PurchaseRequestReviewed;
 use App\Notifications\PurchaseRequestSubmitted;
 use App\Services\Capital\CapitalAllocationService;
+use App\Services\Inventory\InventorySelectionService;
 use App\Support\BranchContext;
+use Brick\Math\BigDecimal;
+use Brick\Math\RoundingMode;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\Notification;
 use Illuminate\Validation\ValidationException;
 
@@ -39,11 +43,13 @@ class PurchaseRequestService
             ]);
         }
 
+        Gate::forUser($actor)->authorize('create', PurchaseRequest::class);
         $explicitBranchId = $data['branch_id'] ?? null;
         $branchId = BranchContext::getEffectiveBranchId($explicitBranchId);
-        $validatedItems = $this->validateDraftItems($data['items'], $branchId);
+        abort_unless($actor->isGlobalAdmin() || $actor->canAccessBranch($branchId), 403);
 
-        return DB::transaction(function () use ($actor, $data, $branchId, $validatedItems) {
+        return DB::transaction(function () use ($actor, $data, $branchId) {
+            $validatedItems = $this->validateDraftItems($data['items'], $branchId);
             // Create the PR
             $pr = PurchaseRequest::create([
                 'branch_id' => $branchId,
@@ -54,26 +60,26 @@ class PurchaseRequestService
             ]);
 
             // Add items
-            $estimatedTotal = 0;
+            $estimatedTotal = BigDecimal::zero();
             foreach ($validatedItems as $item) {
                 $qty = $item['qty'];
                 $unitPriceEst = $item['unit_price_est'];
-                $lineTotalEst = $qty * $unitPriceEst;
+                $lineTotalEst = BigDecimal::of($qty)->multipliedBy($unitPriceEst)->toScale(2, RoundingMode::HALF_UP);
 
                 PurchaseRequestItem::create([
                     'purchase_request_id' => $pr->id,
-                    'inventory_item_id' => $item['inventory_item_id'] ?? null,
+                    ...array_intersect_key($item, array_flip(['inventory_item_id', 'inventory_stock_unit_id', 'inventory_item_variant_id', 'variation_description', 'sku'])),
                     'item_name' => $item['item_name'],
                     'qty' => $qty,
                     'unit_price_est' => $unitPriceEst,
-                    'line_total_est' => $lineTotalEst,
+                    'line_total_est' => (string) $lineTotalEst,
                 ]);
 
-                $estimatedTotal += $lineTotalEst;
+                $estimatedTotal = $estimatedTotal->plus($lineTotalEst);
             }
 
             // Update estimated total
-            $pr->update(['estimated_total' => $estimatedTotal]);
+            $pr->update(['estimated_total' => (string) $estimatedTotal]);
 
             return $pr->load('items', 'requester');
         });
@@ -90,11 +96,12 @@ class PurchaseRequestService
             ]);
         }
 
-        $validatedItems = isset($data['items']) && is_array($data['items'])
-            ? $this->validateDraftItems($data['items'], $pr->branch_id)
-            : null;
-
-        return DB::transaction(function () use ($pr, $data, $validatedItems) {
+        return DB::transaction(function () use ($pr, $actor, $data) {
+            $pr = PurchaseRequest::whereKey($pr->id)->lockForUpdate()->firstOrFail();
+            Gate::forUser($actor)->authorize('update', $pr);
+            $validatedItems = isset($data['items']) && is_array($data['items'])
+                ? $this->validateDraftItems($data['items'], $pr->branch_id, $pr)
+                : null;
             // Update note if provided
             if (isset($data['note'])) {
                 $pr->update(['note' => $data['note']]);
@@ -106,25 +113,25 @@ class PurchaseRequestService
                 $pr->items()->delete();
 
                 // Add new items
-                $estimatedTotal = 0;
+                $estimatedTotal = BigDecimal::zero();
                 foreach ($validatedItems as $item) {
                     $qty = $item['qty'];
                     $unitPriceEst = $item['unit_price_est'];
-                    $lineTotalEst = $qty * $unitPriceEst;
+                    $lineTotalEst = BigDecimal::of($qty)->multipliedBy($unitPriceEst)->toScale(2, RoundingMode::HALF_UP);
 
                     PurchaseRequestItem::create([
                         'purchase_request_id' => $pr->id,
-                        'inventory_item_id' => $item['inventory_item_id'] ?? null,
+                        ...array_intersect_key($item, array_flip(['inventory_item_id', 'inventory_stock_unit_id', 'inventory_item_variant_id', 'variation_description', 'sku'])),
                         'item_name' => $item['item_name'],
                         'qty' => $qty,
                         'unit_price_est' => $unitPriceEst,
-                        'line_total_est' => $lineTotalEst,
+                        'line_total_est' => (string) $lineTotalEst,
                     ]);
 
-                    $estimatedTotal += $lineTotalEst;
+                    $estimatedTotal = $estimatedTotal->plus($lineTotalEst);
                 }
 
-                $pr->update(['estimated_total' => $estimatedTotal]);
+                $pr->update(['estimated_total' => (string) $estimatedTotal]);
             }
 
             return $pr->fresh(['items', 'requester']);
@@ -136,6 +143,7 @@ class PurchaseRequestService
      */
     public function submit(PurchaseRequest $pr, User $actor): PurchaseRequest
     {
+        Gate::forUser($actor)->authorize('submit', $pr);
         if ($pr->status !== PurchaseRequestStatus::Draft) {
             throw ValidationException::withMessages([
                 'status' => 'Only draft requests can be submitted.',
@@ -169,6 +177,7 @@ class PurchaseRequestService
      */
     public function approve(PurchaseRequest $pr, User $actor, array $reviewedItems, ?string $note = null): PurchaseRequest
     {
+        Gate::forUser($actor)->authorize('approve', $pr);
         if ($pr->status !== PurchaseRequestStatus::Submitted) {
             throw ValidationException::withMessages([
                 'status' => 'Only submitted requests can be approved.',
@@ -183,28 +192,29 @@ class PurchaseRequestService
             $pr->branch_id
         );
 
-        return DB::transaction(function () use ($pr, $actor, $validatedReviewedItems, $note, $allocation) {
+        return DB::transaction(function () use ($pr, $actor, $validatedReviewedItems, $allocation) {
             // Update items with reviewed quantities/prices
-            $approvedTotal = 0;
+            $approvedTotal = BigDecimal::zero();
             foreach ($pr->items as $item) {
                 $reviewedItem = $validatedReviewedItems[$item->id] ?? null;
                 if ($reviewedItem) {
                     $qty = $reviewedItem['qty'];
                     $unitPrice = $reviewedItem['unit_price_est'];
-                    $lineTotal = $qty * $unitPrice;
+                    $lineTotal = BigDecimal::of($qty)->multipliedBy($unitPrice)->toScale(2, RoundingMode::HALF_UP);
 
                     $item->update([
                         'qty' => $qty,
                         'unit_price_est' => $unitPrice,
-                        'line_total_est' => $lineTotal,
+                        'line_total_est' => (string) $lineTotal,
                     ]);
 
-                    $approvedTotal += $lineTotal;
+                    $approvedTotal = $approvedTotal->plus($lineTotal);
                 } else {
-                    $approvedTotal += (float) $item->line_total_est;
+                    $approvedTotal = $approvedTotal->plus($item->line_total_est);
                 }
             }
 
+            $approvedTotal = (string) $approvedTotal;
             // Capital allocation linkage is optional when approving a PR.
             // If active allocation has enough balance, we post the debit and link it.
             $linkedAllocationId = null;
@@ -243,6 +253,7 @@ class PurchaseRequestService
      */
     public function decline(PurchaseRequest $pr, User $actor, ?string $note = null): PurchaseRequest
     {
+        Gate::forUser($actor)->authorize('decline', $pr);
         if ($pr->status !== PurchaseRequestStatus::Submitted) {
             throw ValidationException::withMessages([
                 'status' => 'Only submitted requests can be declined.',
@@ -268,6 +279,7 @@ class PurchaseRequestService
      */
     public function convertToPo(PurchaseRequest $pr, User $actor, array $poData): PurchaseOrder
     {
+        Gate::forUser($actor)->authorize('convertToPo', $pr);
         if ($pr->status !== PurchaseRequestStatus::Approved) {
             throw ValidationException::withMessages([
                 'status' => 'Only approved requests can be converted to PO.',
@@ -281,6 +293,11 @@ class PurchaseRequestService
         }
 
         return DB::transaction(function () use ($pr, $actor, $poData) {
+            $pr = PurchaseRequest::whereKey($pr->id)->lockForUpdate()->firstOrFail();
+            Gate::forUser($actor)->authorize('convertToPo', $pr);
+            if (! \App\Models\Supplier::withoutBranchScope()->where('branch_id', $pr->branch_id)->whereKey($poData['supplier_id'])->exists()) {
+                throw ValidationException::withMessages(['supplier_id' => 'Choose a supplier in this branch.']);
+            }
             // Create PO - auto-set to 'Sent' so storekeeper can receive immediately
             // The accountant approved the PR and converted to PO, so it's ready for fulfillment
             $po = PurchaseOrder::create([
@@ -301,6 +318,10 @@ class PurchaseRequestService
                     'purchase_order_id' => $po->id,
                     'inventory_item_id' => $prItem->inventory_item_id,
                     'item_name' => $prItem->item_name,
+                    'inventory_stock_unit_id' => $prItem->inventory_stock_unit_id,
+                    'inventory_item_variant_id' => $prItem->inventory_item_variant_id,
+                    'variation_description' => $prItem->variation_description,
+                    'sku' => $prItem->sku,
                     'qty_ordered' => $prItem->qty,
                     'qty_received' => 0,
                     'unit_cost' => $prItem->unit_price_est,
@@ -344,16 +365,23 @@ class PurchaseRequestService
      *
      * @return array<int, array<string, int|float|string|null>>
      */
-    protected function validateDraftItems(array $items, int $branchId): array
+    protected function validateDraftItems(array $items, int $branchId, ?PurchaseRequest $existing = null): array
     {
         $messages = [];
         $validatedItems = [];
+        $owned = $existing?->items()->get()->keyBy('id') ?? collect();
+        $seen = [];
+        InventoryItem::withoutBranchScope()->whereIn('id', collect($items)->pluck('inventory_item_id')->filter()->unique())->orderBy('id')->lockForUpdate()->get();
 
         foreach ($items as $index => $item) {
             $inventoryItemId = isset($item['inventory_item_id']) ? (int) $item['inventory_item_id'] : null;
             $itemName = trim((string) ($item['item_name'] ?? ''));
-            $qty = (float) ($item['qty'] ?? 0);
-            $unitPriceEst = (float) ($item['unit_price_est'] ?? 0);
+            try {
+                $qty = (string) BigDecimal::of((string) ($item['qty'] ?? 0))->toScale(2);
+                $unitPriceEst = (string) BigDecimal::of((string) ($item['unit_price_est'] ?? 0))->toScale(2);
+            } catch (\Throwable) {
+                throw ValidationException::withMessages(['items' => 'Enter valid decimal quantities and costs.']);
+            }
 
             if ($qty <= 0) {
                 $messages["items.{$index}.qty"] = 'Quantity must be greater than zero.';
@@ -363,6 +391,15 @@ class PurchaseRequestService
                 $messages["items.{$index}.unit_price_est"] = 'Estimated unit price cannot be negative.';
             }
 
+            $identity = [];
+            $old = null;
+            if (! empty($item['id'])) {
+                $old = $owned->get((int) $item['id']);
+                if (! $old || isset($seen[$old->id])) {
+                    throw ValidationException::withMessages(['items' => 'Invalid or repeated existing purchase request line.']);
+                }
+                $seen[$old->id] = true;
+            }
             if ($inventoryItemId !== null) {
                 $inventoryItem = InventoryItem::withoutGlobalScope(BranchScope::class)
                     ->where('branch_id', $branchId)
@@ -370,11 +407,21 @@ class PurchaseRequestService
 
                 if (! $inventoryItem) {
                     $messages["items.{$index}.inventory_item_id"] = 'Selected inventory item is invalid for this branch.';
+
                     continue;
                 }
 
-                if ($itemName === '') {
-                    $itemName = $inventoryItem->name;
+                if ($old && (int) $old->inventory_item_id === $inventoryItemId && (int) $old->inventory_stock_unit_id === (int) ($item['inventory_stock_unit_id'] ?? 0)) {
+                    $identity = $old->only(['inventory_stock_unit_id', 'inventory_item_variant_id', 'variation_description', 'sku']);
+                    $itemName = $old->item_name;
+                } else {
+                    $selection = app(InventorySelectionService::class);
+                    $unit = $selection->resolve($inventoryItemId, $item['inventory_stock_unit_id'] ?? null, $branchId);
+                    if (isset($item['inventory_item_variant_id']) && (int) $item['inventory_item_variant_id'] !== (int) $unit->inventory_item_variant_id) {
+                        throw ValidationException::withMessages(['items' => 'Variant does not match the selected stock identity.']);
+                    }
+                    $identity = $selection->snapshot($unit);
+                    $itemName = $identity['item_name'];
                 }
             }
 
@@ -387,6 +434,7 @@ class PurchaseRequestService
             }
 
             $validatedItems[] = [
+                ...$identity,
                 'inventory_item_id' => $inventoryItemId,
                 'item_name' => $itemName,
                 'qty' => $qty,
@@ -423,11 +471,16 @@ class PurchaseRequestService
 
             if (! $itemId || ! in_array($itemId, $requestItemIds, true)) {
                 $messages["reviewedItems.{$index}.id"] = 'Reviewed item is invalid.';
+
                 continue;
             }
 
-            $qty = (float) ($item['qty'] ?? 0);
-            $unitPriceEst = (float) ($item['unit_price_est'] ?? 0);
+            try {
+                $qty = (string) BigDecimal::of((string) ($item['qty'] ?? 0))->toScale(2);
+                $unitPriceEst = (string) BigDecimal::of((string) ($item['unit_price_est'] ?? 0))->toScale(2);
+            } catch (\Throwable) {
+                throw ValidationException::withMessages(['reviewedItems' => 'Enter valid decimal quantities and costs.']);
+            }
 
             if ($qty <= 0) {
                 $messages["reviewedItems.{$itemId}.qty"] = 'Approved quantity must be greater than zero.';

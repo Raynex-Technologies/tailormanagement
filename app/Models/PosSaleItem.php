@@ -13,6 +13,9 @@ class PosSaleItem extends Model
     protected $fillable = [
         'pos_sale_id',
         'inventory_item_id',
+        'inventory_stock_unit_id',
+        'inventory_item_variant_id',
+        'variation_description',
         'item_name',
         'sku',
         'unit_price',
@@ -39,5 +42,10 @@ class PosSaleItem extends Model
     public function inventoryItem(): BelongsTo
     {
         return $this->belongsTo(InventoryItem::class);
+    }
+
+    public function stockUnit(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(InventoryStockUnit::class, 'inventory_stock_unit_id');
     }
 }

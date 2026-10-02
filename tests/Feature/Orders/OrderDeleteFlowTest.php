@@ -213,8 +213,8 @@ class OrderDeleteFlowTest extends TestCase
         $returnTransaction = InventoryTransaction::query()
             ->where('inventory_item_id', $inventoryItem->id)
             ->where('type', InventoryTransactionType::Return)
-            ->where('reference_type', Order::class)
-            ->where('reference_id', $order->id)
+            ->where('reference_type', OrderStockRequest::class)
+            ->where('reference_id', $stockRequest->id)
             ->latest('id')
             ->first();
 

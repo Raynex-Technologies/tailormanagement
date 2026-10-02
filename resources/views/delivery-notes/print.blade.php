@@ -252,7 +252,7 @@
                 @foreach ($group['lines'] as $displayLine)
                     @php($line = $displayLine['record'])
                     <tr>
-                        <td>{{ $displayLine['display_name'] }}</td>
+                        <td>{{ $displayLine['display_name'] }}@if($displayLine['source_line']?->variation_description)<br>{{ $displayLine['source_line']->variation_description }}<br>{{ $displayLine['source_line']->sku }}@endif</td>
                         <td>{{ rtrim(rtrim(number_format((float) $line->qty, 2, '.', ''), '0'), '.') }}</td>
                         <td>{{ number_format($line->unit_price, 0) }}</td>
                         <td>{{ number_format($line->line_total, 0) }}</td>

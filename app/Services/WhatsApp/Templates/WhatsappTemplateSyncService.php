@@ -12,6 +12,9 @@ class WhatsappTemplateSyncService
 
     public function sync(WhatsappIntegration $integration): array
     {
+        if (config('twilio.active')) {
+            return app(TwilioTemplateManager::class)->sync($integration);
+        }
         $after = null;
         $count = 0;
         do {

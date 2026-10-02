@@ -55,6 +55,7 @@
                     <tr>
                         <td class="py-1.5 pr-2 align-top">
                             <div class="font-medium leading-tight">{{ $item->item_name }}</div>
+                            @if($item->variation_description)<div class="text-xs">{{ $item->variation_description }}</div>@endif
                             @if ($item->sku)
                                 <div class="text-[11px] text-zinc-500">{{ $item->sku }}</div>
                             @endif

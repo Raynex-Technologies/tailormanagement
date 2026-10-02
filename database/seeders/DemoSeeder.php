@@ -7,7 +7,6 @@ use App\Models\Customer;
 use App\Models\ExpenseCategory;
 use App\Models\InventoryCategory;
 use App\Models\InventoryItem;
-use App\Models\InventoryStock;
 use App\Models\Order;
 use App\Models\Supplier;
 use App\Models\User;
@@ -135,7 +134,7 @@ class DemoSeeder extends Seeder
             }
         }
 
-        $this->command->info('Created ' . count($allUsers) . ' demo users.');
+        $this->command->info('Created '.count($allUsers).' demo users.');
     }
 
     /**
@@ -235,15 +234,7 @@ class DemoSeeder extends Seeder
             ->get();
 
         foreach ($items as $item) {
-            InventoryStock::withoutBranchScope()->firstOrCreate(
-                ['inventory_item_id' => $item->id, 'branch_id' => $branchId],
-                [
-                    'branch_id' => $branchId,
-                    'inventory_item_id' => $item->id,
-                    'qty_on_hand' => rand(10, 100),
-                    'qty_reserved' => 0,
-                ]
-            );
+            app(\App\Services\Inventory\StockMovementService::class)->initialize($item);
         }
     }
 

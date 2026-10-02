@@ -129,9 +129,9 @@
                         @forelse ($stocks as $item)
                             @php
                                 $stock = $item->stock;
-                                $onHand = $stock?->qty_on_hand ?? 0;
-                                $reserved = $stock?->qty_reserved ?? 0;
-                                $isLow = $onHand <= $item->reorder_level;
+                                $onHand = $item->physical_on_hand;
+                                $reserved = $item->physicalStocks->sum('qty_reserved');
+                                $isLow = $item->physicalStocks->contains(fn ($row) => $row->qty_on_hand <= $item->reorder_level);
                             @endphp
                             <tr class="text-sm text-zinc-700 dark:text-zinc-300 {{ $isLow ? 'bg-red-50 dark:bg-red-900/10' : '' }}" wire:key="stock-{{ $item->id }}">
                                 <td class="px-4 py-3">

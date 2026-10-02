@@ -39,7 +39,7 @@
                         </flux:badge>
                     </div>
                     <flux:text class="mt-2">
-                        Order: <a href="{{ route('orders.show', $stockRequest->order) }}" class="font-medium text-indigo-600 hover:text-indigo-800 dark:text-indigo-400" wire:navigate>
+                        Order: <a href="{{ route('orders.show', $stockRequest->order) }}" class="font-medium text-[var(--tm-accent)] hover:underline" wire:navigate>
                             {{ $stockRequest->order?->order_no }}
                         </a>
                         â€¢ Customer: <span class="font-medium">{{ $stockRequest->order?->customer?->name ?? 'N/A' }}</span>
@@ -76,7 +76,7 @@
                             <thead>
                                 <tr class="border-b border-zinc-200 text-left dark:border-zinc-700">
                                     <th class="pb-3 font-medium text-zinc-600 dark:text-zinc-400">Item</th>
-                                    <th class="pb-3 text-center font-medium text-zinc-600 dark:text-zinc-400">On Hand</th>
+                                    <th class="pb-3 text-center font-medium text-zinc-600 dark:text-zinc-400">Available</th>
                                     <th class="pb-3 text-center font-medium text-zinc-600 dark:text-zinc-400">Requested</th>
                                     <th class="pb-3 text-center font-medium text-zinc-600 dark:text-zinc-400">Approved</th>
                                     <th class="pb-3 text-center font-medium text-zinc-600 dark:text-zinc-400">Issued</th>
@@ -89,7 +89,7 @@
                                         <td class="py-3">
                                             <div>
                                                 <span class="font-medium text-zinc-900 dark:text-white">
-                                                    {{ $item->inventoryItem?->name ?? 'Unknown' }}
+                                                    {{ $item->item_name ?? $item->inventoryItem?->name ?? 'Unknown' }} @if($item->variation_description)<span class="block text-sm">{{ $item->variation_description }} / {{ $item->sku }}</span>@endif @if($item->selection_warning)<span class="block text-sm text-amber-700 dark:text-amber-300">{{ $item->selection_warning }}</span>@endif
                                                 </span>
                                                 @if ($item->inventoryItem?->sku)
                                                     <span class="ml-1 text-xs text-zinc-500">({{ $item->inventoryItem->sku }})</span>
@@ -101,20 +101,20 @@
                                         </td>
                                         <td class="py-3 text-center">
                                             @php
-                                                $onHand = $item->inventoryItem?->stock?->qty_on_hand ?? 0;
+                                                $onHand = $item->available_stock;
                                                 $isLow = $onHand < ($item->qty_requested ?? 0);
                                             @endphp
                                             <span class="{{ $isLow ? 'text-red-600 dark:text-red-400' : '' }}">
-                                                {{ number_format($onHand, 0) }}
+                                                {{ number_format($onHand, 2) }}
                                             </span>
                                         </td>
                                         <td class="py-3 text-center font-medium">
-                                            {{ number_format($item->qty_requested, 0) }}
+                                            {{ number_format($item->qty_requested, 2) }}
                                         </td>
                                         <td class="py-3 text-center">
                                             @if ($item->qty_approved !== null)
                                                 <span class="text-amber-600 dark:text-amber-400">
-                                                    {{ number_format($item->qty_approved, 0) }}
+                                                    {{ number_format($item->qty_approved, 2) }}
                                                 </span>
                                             @else
                                                 <span class="text-zinc-400">â€”</span>
@@ -123,7 +123,7 @@
                                         <td class="py-3 text-center">
                                             @if ($item->qty_issued > 0)
                                                 <span class="text-green-600 dark:text-green-400">
-                                                    {{ number_format($item->qty_issued, 0) }}
+                                                    {{ number_format($item->qty_issued, 2) }}
                                                 </span>
                                             @else
                                                 <span class="text-zinc-400">â€”</span>
@@ -132,7 +132,7 @@
                                         <td class="py-3 text-center">
                                             @if ($item->qty_approved !== null && $item->remaining_to_issue > 0)
                                                 <span class="text-blue-600 dark:text-blue-400">
-                                                    {{ number_format($item->remaining_to_issue, 0) }}
+                                                    {{ number_format($item->remaining_to_issue, 2) }}
                                                 </span>
                                             @elseif ($item->qty_approved !== null)
                                                 <flux:badge color="green" size="sm">Complete</flux:badge>
@@ -206,7 +206,7 @@
                         <div class="flex justify-between">
                             <dt class="text-zinc-500 dark:text-zinc-400">Order No</dt>
                             <dd>
-                                <a href="{{ route('orders.show', $stockRequest->order) }}" class="font-medium text-indigo-600 hover:text-indigo-800 dark:text-indigo-400" wire:navigate>
+                                <a href="{{ route('orders.show', $stockRequest->order) }}" class="font-medium text-[var(--tm-accent)] hover:underline" wire:navigate>
                                     {{ $stockRequest->order?->order_no }}
                                 </a>
                             </dd>
@@ -264,9 +264,9 @@
                             @foreach ($stockRequest->items as $index => $item)
                                 <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between" wire:key="approve-item-{{ $item->id }}">
                                     <div class="flex-1">
-                                        <span class="font-medium">{{ $item->inventoryItem?->name }}</span>
+                                        <span class="font-medium">{{ $item->item_name ?? $item->inventoryItem?->name }} @if($item->variation_description)<span class="block text-sm">{{ $item->variation_description }} / {{ $item->sku }}</span>@endif @if($item->selection_warning)<span class="block text-sm text-amber-700 dark:text-amber-300">{{ $item->selection_warning }}</span>@endif</span>
                                         <span class="ml-2 text-sm text-zinc-500">
-                                            (Requested: {{ number_format($item->qty_requested, 0) }}, On Hand: {{ number_format($item->inventoryItem?->stock?->qty_on_hand ?? 0, 0) }})
+                                            (Requested: {{ number_format($item->qty_requested, 2) }}, Available: {{ number_format($item->available_stock, 2) }})
                                         </span>
                                     </div>
                                     <flux:input
@@ -274,7 +274,7 @@
                                         type="number"
                                         min="0"
                                         max="{{ $item->qty_requested }}"
-                                        step="1"
+                                        step="0.01"
                                         class="w-24"
                                     />
                                 </div>
@@ -320,13 +320,13 @@
                             @if ($item->remaining_to_issue > 0)
                                 <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between" wire:key="issue-item-{{ $item->id }}">
                                     <div class="flex-1">
-                                        <span class="font-medium">{{ $item->inventoryItem?->name }}</span>
+                                        <span class="font-medium">{{ $item->item_name ?? $item->inventoryItem?->name }} @if($item->variation_description)<span class="block text-sm">{{ $item->variation_description }} / {{ $item->sku }}</span>@endif @if($item->selection_warning)<span class="block text-sm text-amber-700 dark:text-amber-300">{{ $item->selection_warning }}</span>@endif</span>
                                         <div class="text-sm text-zinc-500">
-                                            Approved: {{ number_format($item->qty_approved, 0) }} â€¢
-                                            Issued: {{ number_format($item->qty_issued, 0) }} â€¢
-                                            Remaining: {{ number_format($item->remaining_to_issue, 0) }} â€¢
-                                            <span class="{{ ($item->inventoryItem?->stock?->qty_on_hand ?? 0) < $item->remaining_to_issue ? 'text-red-500' : '' }}">
-                                                On Hand: {{ number_format($item->inventoryItem?->stock?->qty_on_hand ?? 0, 0) }}
+                                            Approved: {{ number_format($item->qty_approved, 2) }} â€¢
+                                            Issued: {{ number_format($item->qty_issued, 2) }} â€¢
+                                            Remaining: {{ number_format($item->remaining_to_issue, 2) }} â€¢
+                                            <span class="{{ ($item->available_stock) < $item->remaining_to_issue ? 'text-red-500' : '' }}">
+                                                Available: {{ number_format($item->available_stock, 2) }}
                                             </span>
                                         </div>
                                     </div>
@@ -334,15 +334,15 @@
                                         wire:model="issueItems.{{ $index }}.qty_to_issue"
                                         type="number"
                                         min="0"
-                                        max="{{ min($item->remaining_to_issue, $item->inventoryItem?->stock?->qty_on_hand ?? 0) }}"
-                                        step="1"
+                                        max="{{ min($item->remaining_to_issue, $item->available_stock) }}"
+                                        step="0.01"
                                         class="w-24"
                                     />
                                 </div>
                             @else
                                 <div class="flex flex-col gap-3 opacity-50 sm:flex-row sm:items-center sm:justify-between" wire:key="issue-item-{{ $item->id }}">
                                     <div class="flex-1">
-                                        <span class="font-medium">{{ $item->inventoryItem?->name }}</span>
+                                        <span class="font-medium">{{ $item->item_name ?? $item->inventoryItem?->name }} @if($item->variation_description)<span class="block text-sm">{{ $item->variation_description }} / {{ $item->sku }}</span>@endif @if($item->selection_warning)<span class="block text-sm text-amber-700 dark:text-amber-300">{{ $item->selection_warning }}</span>@endif</span>
                                         <flux:badge color="green" size="sm" class="ml-2">Fully Issued</flux:badge>
                                     </div>
                                 </div>

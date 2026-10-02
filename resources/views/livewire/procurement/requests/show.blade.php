@@ -134,8 +134,10 @@
                                 <flux:table.row>
                                     <flux:table.cell>
                                         <span class="font-medium">{{ $item->item_name }}</span>
+                                    @if($item->variation_description)<span class="block text-sm text-zinc-600 dark:text-zinc-300">{{ $item->variation_description }}</span>@endif
+                                    @if($item->selection_warning)<span class="block text-sm text-amber-700 dark:text-amber-300">{{ $item->selection_warning }}</span>@endif
                                         @if ($item->inventoryItem)
-                                            <span class="block text-xs text-zinc-500">SKU: {{ $item->inventoryItem->sku }}</span>
+                                            <span class="block text-xs text-zinc-500">SKU: {{ $item->sku ?? $item->inventoryItem->sku }}</span>
                                         @endif
                                     </flux:table.cell>
                                     <flux:table.cell>
@@ -210,8 +212,10 @@
                                 <flux:table.row>
                                     <flux:table.cell>
                                         <span class="font-medium">{{ $item->item_name }}</span>
+                                    @if($item->variation_description)<span class="block text-sm text-zinc-600 dark:text-zinc-300">{{ $item->variation_description }}</span>@endif
+                                    @if($item->selection_warning)<span class="block text-sm text-amber-700 dark:text-amber-300">{{ $item->selection_warning }}</span>@endif
                                         @if ($item->inventoryItem)
-                                            <span class="block text-xs text-zinc-500">SKU: {{ $item->inventoryItem->sku }}</span>
+                                            <span class="block text-xs text-zinc-500">SKU: {{ $item->sku ?? $item->inventoryItem->sku }}</span>
                                         @endif
                                     </flux:table.cell>
                                     <flux:table.cell>{{ number_format($item->qty, 2) }}</flux:table.cell>

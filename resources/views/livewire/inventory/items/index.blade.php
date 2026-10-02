@@ -79,6 +79,7 @@
                             <th class="px-4 py-3">{{ __('Name') }}</th>
                             <th class="px-4 py-3">{{ __('Category') }}</th>
                             <th class="px-4 py-3">{{ __('Unit') }}</th>
+                            <th class="px-4 py-3 text-right">{{ __('Selling Price') }}</th>
                             <th class="px-4 py-3 text-right">{{ __('On Hand') }}</th>
                             <th class="px-4 py-3 text-center">{{ __('Status') }}</th>
                             <th class="px-4 py-3 text-right">{{ __('Actions') }}</th>
@@ -88,14 +89,21 @@
                         @forelse ($items as $item)
                             @php
                                 $stock = $item->stock;
-                                $onHand = $stock?->qty_on_hand ?? 0;
-                                $isLow = $onHand <= $item->reorder_level;
+                                $onHand = $item->physical_on_hand;
+                                $isLow = $item->physicalStocks->contains(fn ($row) => $row->qty_on_hand <= $item->reorder_level);
                             @endphp
                             <tr class="text-sm text-zinc-700 dark:text-zinc-300" wire:key="item-{{ $item->id }}">
                                 <td class="px-4 py-3">
                                     <code class="rounded bg-zinc-100 px-2 py-1 text-xs font-medium dark:bg-zinc-700">
-                                        {{ $item->sku }}
+                                        {{ $item->simpleStockUnit?->sku ?? $item->sku }}
                                     </code>
+                                    @if ($item->simpleStockUnit?->primaryBarcode)
+                                        <div class="text-xs">{{ __('Barcode') }}: {{ $item->simpleStockUnit->primaryBarcode->barcode }}</div>
+                                    @endif
+                                    @if ($item->variant_mode === 'variants' || $item->variants_count > 0)
+                                        <div class="mt-1 text-xs">{{ $item->variants_count }} {{ __('variations') }} {{ $item->stock_identity_status === 'ready' ? '' : __('? Allocation review required') }}</div>
+                                    @endif
+
                                 </td>
                                 <td class="px-4 py-3">
                                     <div class="flex items-center gap-3">
@@ -120,7 +128,7 @@
                                     @error('itemImages.'.$item->id) <p class="mt-1 text-xs text-red-600 dark:text-red-400">{{ $message }}</p> @enderror
                                 </td>
                                 <td class="px-4 py-3 font-medium">
-                                    {{ $item->name }}
+                                    <a href="{{ route('inventory.items.variations',$item->id) }}" wire:navigate class="underline">{{ $item->name }}</a>
                                 </td>
                                 <td class="px-4 py-3">
                                     {{ $item->category?->name ?? '-' }}
@@ -128,9 +136,10 @@
                                 <td class="px-4 py-3">
                                     {{ $item->inventoryUnit?->name ?? $item->unit }}
                                 </td>
+                                <td class="px-4 py-3 text-right">@if($item->variant_mode === 'variants'){{ __('From') }} {{ money_tzs($item->variants->where('is_active',true)->map(fn($v)=>$v->stockUnit?->selling_price)->filter(fn($p)=>$p!==null)->min()) }}@else{{ money_tzs($item->simpleStockUnit?->selling_price) }}@endif</td>
                                 <td class="px-4 py-3 text-right">
                                     <span class="{{ $isLow ? 'text-red-600 dark:text-red-400 font-semibold' : '' }}">
-                                        {{ number_format($onHand, 0) }}
+                                        {{ number_format((float)$onHand, 2) }}
                                     </span>
                                     @if ($isLow)
                                         <flux:badge size="sm" color="red" class="ml-1">Low</flux:badge>
@@ -176,6 +185,7 @@
                                         @endcan
 
                                         @can('inventory.items.manage')
+                                            <flux:button size="sm" variant="ghost" :href="route('inventory.items.variations', $item->id)" wire:navigate>{{ __('Manage Variations') }}</flux:button>
                                             <flux:button
                                                 size="sm"
                                                 variant="ghost"
@@ -189,7 +199,7 @@
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="8" class="px-4 py-12 text-center">
+                                <td colspan="9" class="px-4 py-12 text-center">
                                     <div class="flex flex-col items-center gap-2">
                                         <x-icon name="inventory_2" class="size-12 text-zinc-300 dark:text-zinc-600" />
                                         <flux:text class="text-zinc-500 dark:text-zinc-400">
@@ -222,6 +232,18 @@
             <flux:heading size="lg">
                 {{ $isEditing ? __('Edit Item') : __('New Item') }}
             </flux:heading>
+
+            @if ($isEditing && $editingId)
+                @can('inventory.items.manage')
+                    <div class="rounded-lg border border-zinc-200 p-4 dark:border-zinc-700">
+                        <flux:heading size="sm">{{ __('Product Variations') }}</flux:heading>
+                        <flux:text class="mt-1">{{ __('Configure options such as size and color, then manage prices and stock in its workspace. Save any item edits before continuing.') }}</flux:text>
+                        <flux:button class="mt-3" :href="route('inventory.items.variations', $editingId)" wire:navigate>{{ __('Manage Variations') }}</flux:button>
+                    </div>
+                @endcan
+            @else
+                <flux:text>{{ __('After creating the item, use Manage Variations to configure size, color or other options.') }}</flux:text>
+            @endif
 
             <form wire:submit="saveItem" class="space-y-4">
                 {{-- Branch Selector for Global Admins (Create only) --}}

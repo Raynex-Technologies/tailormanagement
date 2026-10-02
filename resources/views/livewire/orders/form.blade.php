@@ -254,7 +254,8 @@
                             <button type="button" wire:click="setCatalogTab('catalog')" class="rounded-lg px-2 py-2 text-sm font-medium {{ $catalogTab === 'catalog' ? 'bg-white shadow dark:bg-zinc-700' : 'text-zinc-500' }}">{{ __('Garments & Services') }}</button>
                             <button type="button" wire:click="setCatalogTab('inventory')" class="rounded-lg px-2 py-2 text-sm font-medium {{ $catalogTab === 'inventory' ? 'bg-white shadow dark:bg-zinc-700' : 'text-zinc-500' }}">{{ __('Inventory Products') }}</button>
                         </div>
-                        <flux:input wire:model.live.debounce.300ms="catalogSearch" class="mt-3" icon="magnifying-glass" placeholder="{{ __('Search the selected catalog source') }}" />
+                        <flux:input wire:keydown.enter.prevent="{{ $catalogTab === 'inventory' ? 'resolveInventorySearch($event.target.value)' : '$refresh' }}" wire:model.live.debounce.300ms="catalogSearch" class="mt-3" icon="magnifying-glass" placeholder="{{ __('Search the selected catalog source') }}" />
+                        @error('catalogSearch')<p class="text-sm text-amber-700 dark:text-amber-300">{{ $message }}</p>@enderror
                         @if ($showBranchSelector && ! $isEdit && ! $branch_id)<p class="mt-3 text-sm text-amber-600">{{ __('Select an order branch to browse catalog content.') }}</p>@endif
 
                         <div class="mt-4 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
@@ -271,10 +272,10 @@
                             @else
                                 @forelse ($inventoryItems as $inventoryItem)
                                     @php
-                                        $availableQty = (float) ($inventoryItem->stock?->qty_on_hand ?? 0)
-                                            - (float) ($inventoryItem->stock?->qty_reserved ?? 0);
+                                        $availableQty = (float) ($inventoryItem->physical_stocks_sum_qty_on_hand ?? 0)
+                                            - (float) ($inventoryItem->physical_stocks_sum_qty_reserved ?? 0);
                                     @endphp
-                                    <button type="button" wire:click="addInventoryLine({{ $inventoryItem->id }})" class="flex gap-3 rounded-xl border border-zinc-200 p-3 text-left transition hover:border-lime-400 dark:border-zinc-700"><div class="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-zinc-100 dark:bg-zinc-700">@if($inventoryItem->featured_image_url)<img src="{{ $inventoryItem->featured_image_url }}" alt="" class="size-full object-cover">@else<i class="fa-duotone fa-box text-zinc-400"></i>@endif</div><div class="min-w-0"><p class="truncate text-sm font-semibold">{{ $inventoryItem->name }}</p><p class="text-xs text-zinc-500">{{ $inventoryItem->sku ?: __('No SKU') }} · {{ __('Available: :qty', ['qty' => rtrim(rtrim(number_format($availableQty, 2), '0'), '.')]) }}</p><p class="mt-1 text-xs font-medium">{{ money_currency($inventoryItem->default_sell_price) }}</p></div></button>
+                                    <button type="button" wire:click="addInventoryLine({{ $inventoryItem->id }})" class="flex gap-3 rounded-xl border border-zinc-200 p-3 text-left transition hover:border-lime-400 dark:border-zinc-700"><div class="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-zinc-100 dark:bg-zinc-700">@if($inventoryItem->featured_image_url)<img src="{{ $inventoryItem->featured_image_url }}" alt="" class="size-full object-cover">@else<i class="fa-duotone fa-box text-zinc-400"></i>@endif</div><div class="min-w-0"><p class="truncate text-sm font-semibold">{{ $inventoryItem->name }}</p><p class="text-xs text-zinc-500">{{ $inventoryItem->sku ?: __('No SKU') }} · {{ __('Available: :qty', ['qty' => rtrim(rtrim(number_format($availableQty, 2), '0'), '.')]) }}</p><p class="mt-1 text-xs font-medium">{{ money_currency($inventoryItem->stock_units_min_selling_price ?? 0) }}@if($inventoryItem->stock_units_max_selling_price > $inventoryItem->stock_units_min_selling_price) - {{ money_currency($inventoryItem->stock_units_max_selling_price) }}@endif @if($inventoryItem->variant_mode === 'variants')<span class="block text-xs text-zinc-500">{{ $inventoryItem->variants_count }} {{ __('variations') }}</span>@endif</p></div></button>
                                 @empty <p class="col-span-full rounded-xl border border-dashed p-5 text-center text-sm text-zinc-500">{{ __('No active inventory products found for this branch.') }}</p> @endforelse
                             @endif
                         </div>
@@ -295,11 +296,11 @@
                     </div>
                 @else
                 <div class="space-y-6" data-order-lines>
-                    @php($previousPackageKey = null)
+                    @php $previousPackageKey = null; @endphp
                     @foreach ($lines as $index => $line)
-                        @php($linePackageKey = $line['package_key'] ?? null)
+                        @php $linePackageKey = $line['package_key'] ?? null; @endphp
                         @if ($linePackageKey && $linePackageKey !== $previousPackageKey && isset($packages[$linePackageKey]))
-                            @php($packageState = $packages[$linePackageKey]['configured_snapshot'])
+                            @php $packageState = $packages[$linePackageKey]['configured_snapshot']; @endphp
                             <div class="rounded-2xl border border-indigo-200 bg-indigo-50/60 p-4 dark:border-indigo-500/20 dark:bg-indigo-500/5" wire:key="package-heading-{{ $linePackageKey }}">
                                 <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                                     <div><div class="flex items-center gap-2"><i class="fa-duotone fa-box-open-full text-indigo-500"></i><h3 class="font-semibold uppercase tracking-wide text-zinc-900 dark:text-white">{{ $packageState['name'] }}</h3></div><p class="mt-1 text-sm text-zinc-500">{{ money_currency($packageState['configured_package_total']) }} · {{ __('Source revision :revision', ['revision' => $packageState['revision']]) }}</p></div>
@@ -349,6 +350,8 @@
                                     @error("lines.$index.inventory_item_id")
                                         <p class="mt-1 text-sm text-red-500">{{ $message }}</p>
                                     @enderror
+                                    @if(!empty($line['variation_description']))<p class="mt-2 text-sm font-medium">{{ $line['variation_description'] }}</p><p class="text-xs text-zinc-500">{{ $line['sku'] ?? '' }}</p>@endif
+                                    @if(!empty($line['inventory_item_id']) && empty($line['package_key']))<flux:button type="button" size="sm" variant="subtle" wire:click="replaceInventoryLine({{ $index }})">{{ __('Change selection') }}</flux:button>@endif
                                     @error("lines.$index.item_name")
                                         <p class="mt-1 text-sm text-red-500">{{ $message }}</p>
                                     @enderror
@@ -398,9 +401,9 @@
 
                             {{-- Structured garment measurements --}}
                             @if ($line['measurement_enabled'] ?? false)
-                                @php($recordedMeasurements = collect($line['measurements'] ?? [])->filter(fn ($row) => filled($row['value'] ?? null)))
-                                @php($requiredMeasurements = collect($line['measurements'] ?? [])->filter(fn ($row) => $row['required'] ?? false))
-                                @php($requiredMissing = $requiredMeasurements->filter(fn ($row) => blank($row['value'] ?? null))->count())
+                                @php $recordedMeasurements = collect($line['measurements'] ?? [])->filter(fn ($row) => filled($row['value'] ?? null)); @endphp
+                                @php $requiredMeasurements = collect($line['measurements'] ?? [])->filter(fn ($row) => $row['required'] ?? false); @endphp
+                                @php $requiredMissing = $requiredMeasurements->filter(fn ($row) => blank($row['value'] ?? null))->count(); @endphp
                                 <section class="mt-3 flex flex-col gap-3 rounded-lg border border-zinc-200/80 bg-zinc-50/50 px-3 py-2.5 dark:border-white/10 dark:bg-white/[0.02] sm:flex-row sm:items-center sm:justify-between" aria-label="{{ __('Measurements for :item', ['item' => $line['item_name'] ?: __('order line')]) }}" data-order-line-measurements>
                                     <div class="min-w-0">
                                         <p class="text-sm font-medium text-zinc-800 dark:text-zinc-100">{{ __('Measurements') }}</p>
@@ -422,7 +425,7 @@
                                 </section>
                             @endif
                         </div>
-                        @php($previousPackageKey = $linePackageKey)
+                        @php $previousPackageKey = $linePackageKey; @endphp
                     @endforeach
                 </div>
                 @endif
@@ -606,18 +609,39 @@
             </div>
         </flux:modal>
 
-        <flux:modal wire:model.self="showPackageConfigurator" class="w-full max-w-4xl">
+        <flux:modal wire:model.self="showPackageConfigurator" class="w-full max-w-4xl max-h-[85dvh] overflow-y-auto">
             <div class="space-y-5">
                 <div><flux:heading size="xl">{{ $packageConfigurator['name'] ?? __('Configure Package') }}</flux:heading><flux:text class="mt-1">{{ $packageConfigurator['description'] ?? '' }}</flux:text></div>
                 <div class="max-h-[60vh] space-y-3 overflow-y-auto pr-1">
                     @foreach ($packageConfigurator['components'] ?? [] as $packageComponent)
-                        @php($packageComponentId = (int) $packageComponent['template_item_id'])
+                        @php $packageComponentId = (int) $packageComponent['template_item_id']; @endphp
                         <div class="rounded-xl border border-zinc-200 p-4 dark:border-zinc-700">
                             <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div><div class="flex flex-wrap items-center gap-2"><p class="font-semibold">{{ $packageComponent['name'] }}</p><flux:badge size="sm" color="{{ (float) $packageComponent['minimum_quantity'] > 0 ? 'indigo' : 'zinc' }}">{{ (float) $packageComponent['minimum_quantity'] > 0 ? __('Required') : __('Optional') }}</flux:badge></div><p class="text-xs text-zinc-500">{{ __('Package unit price: :price', ['price' => money_currency($packageComponent['package_unit_price'])]) }} · {{ __('Default: :quantity', ['quantity' => $packageComponent['default_quantity']]) }}</p></div><div class="w-full sm:w-40"><flux:input wire:model.live.debounce.200ms="packageQuantities.{{ $packageComponentId }}" type="number" step="0.01" min="{{ $packageComponent['minimum_quantity'] }}" max="{{ $packageComponent['maximum_quantity'] }}" label="{{ __('Configured quantity') }}" /></div></div>
                             <p class="mt-2 text-xs text-zinc-500">{{ __('Allowed: :minimum to :maximum', ['minimum' => $packageComponent['minimum_quantity'], 'maximum' => $packageComponent['maximum_quantity'] ?? __('no maximum')]) }}</p>
                         </div>
                     @endforeach
                 </div>
+                @foreach(($packageConfigurator['components'] ?? []) as $allocationComponent)
+                    @if(($allocationComponent['variation_selection'] ?? null) === 'deferred')
+                        @php $allocationKey = 'component_'.$allocationComponent['template_item_id']; @endphp
+                        <section class="space-y-3 rounded-xl border border-zinc-200 p-4 dark:border-white/10">
+                            <div class="flex flex-wrap items-center justify-between gap-2"><h3 class="font-semibold">{{ $allocationComponent['name'] }}</h3><p class="text-sm">{{ __('Allocated') }}: {{ collect($packageInventoryAllocations[$allocationKey] ?? [])->sum('quantity') }} / {{ $packageQuantities[$allocationComponent['template_item_id']] ?? $allocationComponent['configured_quantity'] }}</p></div>
+                            @forelse(($packageInventoryAllocations[$allocationKey] ?? []) as $row => $allocation)
+                                <div class="flex flex-col gap-2 rounded-lg bg-zinc-50 p-3 dark:bg-white/5 sm:flex-row sm:items-end">
+                                    <div class="sm:w-28"><flux:input type="number" min="0.01" step="0.01" wire:model.live="packageInventoryAllocations.{{ $allocationKey }}.{{ $row }}.quantity" label="{{ __('Quantity') }}" /></div>
+                                    <div class="flex-1"><p class="mb-2 text-sm">{{ $allocation['variation_description'] ?? __('Variation required') }}</p><flux:button type="button" wire:click="choosePackageVariation({{ $allocationComponent['template_item_id'] }}, {{ $row }})">{{ __('Choose variation') }}</flux:button></div>
+                                    <flux:button type="button" variant="subtle" wire:click="removePackageAllocation({{ $allocationComponent['template_item_id'] }}, {{ $row }})">{{ __('Remove') }}</flux:button>
+                                </div>
+                            @empty
+                                <flux:button type="button" wire:click="choosePackageVariation({{ $allocationComponent['template_item_id'] }})">{{ __('Choose variation') }}</flux:button>
+                            @endforelse
+                            <flux:button type="button" variant="subtle" wire:click="splitPackageQuantity({{ $allocationComponent['template_item_id'] }})">{{ __('Split quantity across variations') }}</flux:button>
+                            <p class="text-xs text-zinc-500">{{ __('Selected quantities must match the configured component quantity. Package prices are preserved.') }}</p>
+                        </section>
+                    @elseif(!empty($allocationComponent['variation_description']))
+                        <p class="text-sm">{{ $allocationComponent['name'] }} ? {{ $allocationComponent['variation_description'] }} ({{ __('Fixed variation') }})</p>
+                    @endif
+                @endforeach
                 @error('packageQuantities')<p class="rounded-xl bg-red-50 p-3 text-sm text-red-700 dark:bg-red-500/10 dark:text-red-300">{{ $message }}</p>@enderror
                 <div class="flex flex-col gap-3 rounded-xl bg-zinc-50 p-4 dark:bg-white/5 sm:flex-row sm:items-center sm:justify-between"><div><p class="text-xs uppercase tracking-wide text-zinc-500">{{ __('Configured package total') }}</p><p class="text-xl font-semibold">{{ money_currency($packageConfigurationPreview['configured_package_total'] ?? 0) }}</p></div><div class="flex justify-end gap-2"><flux:button type="button" variant="ghost" wire:click="$set('showPackageConfigurator', false)">{{ __('Cancel') }}</flux:button><flux:button type="button" variant="primary" wire:click="confirmPackageConfiguration">{{ $configuringPackageKey ? __('Update Package') : __('Add Package') }}</flux:button></div></div>
             </div>
@@ -700,7 +724,7 @@
                 <div class="max-h-[55vh] overflow-y-auto pr-1">
                     <div class="grid gap-3 md:grid-cols-2" data-compact-measurement-grid>
                         @foreach ($measurementDraft['measurements'] ?? [] as $mIndex => $measurement)
-                            @php($measurementLabel = ($measurement['label'] ?? '') ?: __('Custom measurement'))
+                            @php $measurementLabel = ($measurement['label'] ?? '') ?: __('Custom measurement'); @endphp
                             <div class="rounded-xl border border-zinc-200 bg-zinc-50/60 p-3 dark:border-white/10 dark:bg-white/[0.025]" wire:key="measurement-draft-{{ $measurement['measurement_field_id'] ?? 'custom' }}-{{ $mIndex }}">
                                 <div class="mb-2 flex items-start justify-between gap-2">
                                     <div class="min-w-0">
@@ -820,4 +844,5 @@
             </div>
         </flux:modal>
     </flux:main>
+    @include('livewire.partials.order-inventory-selector')
 </div>

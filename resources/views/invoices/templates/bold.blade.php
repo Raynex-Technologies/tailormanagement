@@ -60,7 +60,7 @@
                 <tr style="background: {{ $loop->odd ? '#ffffff' : '#ead8c4' }};">
                     <td style="border: 0; border-radius: 999px 0 0 999px; text-align: center; font-weight: 700;">{{ number_format($line->qty, 0) }}</td>
                     <td style="border: 0;">
-                        <strong>{{ $line->item_name }}</strong>
+                        <strong>{{ $line->item_name }}@if($line->orderLine?->variation_description)<br><small>{{ $line->orderLine->variation_description }} / {{ $line->orderLine->sku }}</small>@endif</strong>
                         @if ($line->notes)
                             <div class="small muted" style="margin-top: 3px;">{{ $line->notes }}</div>
                         @endif

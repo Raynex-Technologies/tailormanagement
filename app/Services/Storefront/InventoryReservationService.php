@@ -2,143 +2,82 @@
 
 namespace App\Services\Storefront;
 
-use App\Enums\InventoryTransactionType;
-use App\Models\InventoryStock;
-use App\Models\InventoryTransaction;
+use App\Enums\OrderStatus;
+use App\Models\InventoryItem;
 use App\Models\Order;
 use App\Models\User;
+use App\Services\Inventory\StockMovementService;
+use Brick\Math\BigDecimal;
 use Illuminate\Support\Facades\DB;
-use RuntimeException;
+use Illuminate\Validation\ValidationException;
 
 class InventoryReservationService
 {
+    public function __construct(protected StockMovementService $stock) {}
+
     public function reserve(Order $order): void
     {
-        if ($order->statusHistory()->where('status', 'inventory_reserved')->exists()) {
-            return;
-        }
-
-        DB::transaction(function () use ($order) {
-            $lines = $order->lines()->whereNotNull('inventory_item_id')->get();
-
-            foreach ($lines as $line) {
-                $qty = (float) $line->qty;
-                if ($qty <= 0) {
-                    continue;
-                }
-
-                $stock = InventoryStock::withoutBranchScope()
-                    ->where('inventory_item_id', $line->inventory_item_id)
-                    ->lockForUpdate()
-                    ->first();
-
-                if (! $stock) {
-                    throw new RuntimeException('Stock record is missing for one or more items in cart.');
-                }
-
-                $available = (float) $stock->qty_on_hand - (float) $stock->qty_reserved;
-                if ($available < $qty) {
-                    throw new RuntimeException('Requested quantity exceeds available stock for '.$line->item_name.'.');
-                }
-
-                $stock->qty_reserved = (float) $stock->qty_reserved + $qty;
-                $stock->save();
-            }
-
-            $order->statusHistory()->create([
-                'status' => 'inventory_reserved',
-                'title' => 'Inventory Reserved',
-                'note' => 'Stock quantities reserved for checkout.',
-                'is_customer_visible' => false,
-            ]);
-        });
+        $this->transition($order, 'reserve');
     }
 
     public function release(Order $order): void
     {
-        if ($order->statusHistory()->where('status', 'inventory_released')->exists()) {
-            return;
-        }
-
-        DB::transaction(function () use ($order) {
-            $lines = $order->lines()->whereNotNull('inventory_item_id')->get();
-
-            foreach ($lines as $line) {
-                $qty = (float) $line->qty;
-                if ($qty <= 0) {
-                    continue;
-                }
-
-                $stock = InventoryStock::withoutBranchScope()
-                    ->where('inventory_item_id', $line->inventory_item_id)
-                    ->lockForUpdate()
-                    ->first();
-
-                if (! $stock) {
-                    continue;
-                }
-
-                $stock->qty_reserved = max(0, (float) $stock->qty_reserved - $qty);
-                $stock->save();
-            }
-
-            $order->statusHistory()->create([
-                'status' => 'inventory_released',
-                'title' => 'Inventory Released',
-                'note' => 'Reserved stock released after payment failure or cancellation.',
-                'is_customer_visible' => false,
-            ]);
-        });
+        $this->transition($order, 'release');
     }
 
     public function commit(Order $order, ?User $actor = null): void
     {
-        if ($order->statusHistory()->where('status', 'inventory_committed')->exists()) {
-            return;
-        }
+        $this->transition($order, 'commit', $actor);
+    }
 
-        DB::transaction(function () use ($order, $actor) {
-            $lines = $order->lines()->whereNotNull('inventory_item_id')->get();
-
-            foreach ($lines as $line) {
-                $qty = (float) $line->qty;
-                if ($qty <= 0) {
-                    continue;
-                }
-
-                $stock = InventoryStock::withoutBranchScope()
-                    ->where('inventory_item_id', $line->inventory_item_id)
-                    ->lockForUpdate()
-                    ->first();
-
-                if (! $stock) {
-                    continue;
-                }
-
-                $stock->qty_reserved = max(0, (float) $stock->qty_reserved - $qty);
-                $stock->qty_on_hand = max(0, (float) $stock->qty_on_hand - $qty);
-                $stock->save();
-
-                InventoryTransaction::create([
-                    'branch_id' => $order->branch_id,
-                    'inventory_item_id' => $line->inventory_item_id,
-                    'type' => InventoryTransactionType::Issue,
-                    'qty' => -$qty,
-                    'unit_cost' => $line->unit_price,
-                    'total_cost' => $line->line_total,
-                    'reference_type' => Order::class,
-                    'reference_id' => $order->id,
-                    'created_by' => $actor?->id,
-                    'note' => 'Storefront order payment confirmed.',
-                ]);
+    protected function transition(Order $order, string $action, ?User $actor = null): void
+    {
+        DB::transaction(function () use ($order, $action, $actor) {
+            $locked = Order::withoutBranchScope()->whereKey($order->id)->lockForUpdate()->firstOrFail();
+            $history = $locked->statusHistory()->whereIn('status', ['inventory_reserved', 'inventory_released', 'inventory_committed'])->orderByDesc('id')->first();
+            $state = $history?->status;
+            if ($state === 'inventory_committed' || ($action === 'reserve' && $state === 'inventory_reserved') || ($action === 'release' && $state !== 'inventory_reserved')) {
+                return;
             }
-
-            $order->statusHistory()->create([
-                'status' => 'inventory_committed',
-                'title' => 'Inventory Committed',
-                'note' => 'Reserved stock converted to issued inventory after payment confirmation.',
-                'is_customer_visible' => false,
-                'changed_by' => $actor?->id,
+            if ($action !== 'release' && $locked->status === OrderStatus::Cancelled) {
+                throw ValidationException::withMessages(['stock' => 'Cancelled orders cannot reserve or commit stock.']);
+            }
+            // A late successful payment after release must acquire stock again.
+            if ($action === 'commit' && $state !== 'inventory_reserved') {
+                $this->reserve($locked);
+                $history = $locked->statusHistory()->where('status', 'inventory_reserved')->orderByDesc('id')->firstOrFail();
+                $state = 'inventory_reserved';
+            }
+            if ($action === 'reserve') {
+                $quantities = [];
+                foreach ($locked->lines()->whereNotNull('inventory_item_id')->orderBy('inventory_item_id')->get() as $line) {
+                    $item = InventoryItem::withoutBranchScope()->whereKey($line->inventory_item_id)->where('branch_id', $locked->branch_id)->firstOrFail();
+                    if (! $item->track_stock) {
+                        continue;
+                    }
+                    $qty = BigDecimal::of((string) $line->qty);
+                    if (! $qty->isPositive()) {
+                        continue;
+                    }
+                    $quantities[$item->id] = (string) BigDecimal::of($quantities[$item->id] ?? '0')->plus($qty);
+                }
+            } else {
+                $quantities = $history->metadata['inventory_quantities'] ?? null;
+                if (! is_array($quantities)) {
+                    throw ValidationException::withMessages(['stock' => 'Legacy reservation lacks a quantity snapshot; run inventory:reconcile --detailed before resolving it.']);
+                }
+            }
+            ksort($quantities, SORT_NUMERIC);
+            foreach ($quantities as $itemId => $qty) {
+                $item = InventoryItem::withoutBranchScope()->whereKey($itemId)->where('branch_id', $locked->branch_id)->firstOrFail();
+                // Backorder admission never authorizes negative physical/reserved stock.
+                $this->stock->reservation($item, (string) $qty, $action, $locked, $actor);
+            }
+            $status = ['reserve' => 'inventory_reserved', 'release' => 'inventory_released', 'commit' => 'inventory_committed'][$action];
+            $locked->statusHistory()->create([
+                'status' => $status, 'title' => ucfirst(str_replace('_', ' ', $status)),
+                'note' => 'Inventory reservation '.$action.'.', 'is_customer_visible' => false,
+                'changed_by' => $actor?->id, 'metadata' => ['inventory_quantities' => $quantities],
             ]);
         });
     }

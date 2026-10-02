@@ -30,7 +30,7 @@ class WhatsAppService
         if (! $integration->enabled) {
             return $this->rejected('disabled', 'WhatsApp is disabled.');
         } if (! $integration->isConfigured()) {
-            return $this->rejected('not_configured', 'Meta WhatsApp is not configured.');
+            return $this->rejected('not_configured', 'WhatsApp is not configured.');
         } $phone = $this->phones->normalize($recipient);
         if (! $phone) {
             return $this->rejected('invalid_recipient', 'The WhatsApp recipient is invalid.');
@@ -39,8 +39,8 @@ class WhatsAppService
         } $contact = WhatsappContact::firstOrCreate(['whatsapp_integration_id' => $integration->id, 'phone' => $phone], ['branch_id' => $branchId, 'customer_id' => $customerId]);
         if ($customerId && ! $contact->customer_id) {
             $contact->update(['customer_id' => $customerId]);
-        } $record = WhatsappMessage::create(['branch_id' => $branchId, 'whatsapp_integration_id' => $integration->id, 'whatsapp_contact_id' => $contact->id, 'customer_id' => $customerId ?: $contact->customer_id, 'direction' => 'outbound', 'message_type' => 'text', 'phone' => $phone, 'body' => $message, 'status' => 'queued', 'queued_at' => now(), 'context_type' => $context?->getMorphClass(), 'context_id' => $context?->getKey()]);
-        SendWhatsappMessage::dispatch($record->id);
+        } $record = WhatsappMessage::create(['branch_id' => $branchId, 'whatsapp_integration_id' => $integration->id, 'whatsapp_contact_id' => $contact->id, 'customer_id' => $customerId ?: $contact->customer_id, 'direction' => 'outbound', 'message_type' => 'text', 'safe_metadata' => ['provider' => config('twilio.active') ? 'twilio' : 'meta', 'twilio_account_sid' => $integration->twilio_account_sid, 'twilio_from' => $integration->twilio_from], 'phone' => $phone, 'body' => $message, 'status' => 'queued', 'queued_at' => now(), 'context_type' => $context?->getMorphClass(), 'context_id' => $context?->getKey()]);
+        SendWhatsappMessage::dispatch($record->id)->afterCommit();
 
         return ['success' => true, 'queued' => true, 'message_id' => $record->id, 'status' => 'queued'];
     }
@@ -57,7 +57,7 @@ class WhatsAppService
             return $this->rejected('disabled', 'WhatsApp is disabled.');
         }
         if (! $integration->isConfigured()) {
-            return $this->rejected('not_configured', 'Meta WhatsApp is not configured.');
+            return $this->rejected('not_configured', 'WhatsApp is not configured.');
         }
         if ((int) $template->branch_id !== $branchId || (int) $template->whatsapp_integration_id !== (int) $integration->id) {
             return $this->rejected('template_scope_mismatch', 'The WhatsApp template does not belong to this integration.');
@@ -97,6 +97,10 @@ class WhatsAppService
             'context_type' => $context?->getMorphClass(),
             'context_id' => $context?->getKey(),
             'safe_metadata' => [
+                'provider' => config('twilio.active') ? 'twilio' : 'meta',
+                'twilio_from' => $integration->twilio_from,
+                'twilio_content_sid' => $template->twilio_content_sid,
+                'twilio_account_sid' => $template->twilio_account_sid,
                 'template_id' => $template->id,
                 'template_name' => $template->name,
                 'language' => $template->language,
@@ -108,7 +112,7 @@ class WhatsAppService
         if (! empty($metadata['sms_log_id'])) {
             SmsLog::withoutGlobalScopes()->where('branch_id', $branchId)->whereKey((int) $metadata['sms_log_id'])->update(['whatsapp_message_id' => $record->id]);
         }
-        SendWhatsappMessage::dispatch($record->id);
+        SendWhatsappMessage::dispatch($record->id)->afterCommit();
 
         return ['success' => true, 'queued' => true, 'message_id' => $record->id, 'status' => 'queued'];
     }
@@ -119,6 +123,14 @@ class WhatsAppService
         if (! $normalized) {
             return false;
         } $last = WhatsappContact::withoutGlobalScopes()->where('whatsapp_integration_id', $integration->id)->where('phone', $normalized)->value('last_customer_message_at');
+
+        if (config('twilio.active')) {
+            $last = WhatsappMessage::withoutGlobalScopes()->where('whatsapp_integration_id', $integration->id)
+                ->where('phone', $normalized)->where('direction', 'inbound')
+                ->where('safe_metadata->provider', 'twilio')
+                ->where('safe_metadata->twilio_account_sid', $integration->twilio_account_sid)
+                ->where('safe_metadata->twilio_from', $integration->twilio_from)->max('delivered_at');
+        }
 
         return $last && now()->setTimestamp(($at?->getTimestamp()) ?? now()->timestamp)->diffInSeconds($last, false) >= -86400;
     }
@@ -147,6 +159,19 @@ class WhatsAppService
 
     protected function templateComponents(WhatsappTemplate $template, array $values): array
     {
+        if (config('twilio.active')) {
+            $variables = [];
+            preg_match_all('/\{\{(\d+)\}\}/', (string) data_get($template->components, '0.text', ''), $matches);
+            foreach (array_unique($matches[1]) as $position) {
+                $key = $template->variable_mappings[$position] ?? null;
+                if (! is_string($key) || ! array_key_exists($key, $values) || ! is_scalar($values[$key])) {
+                    return $this->rejected('template_variables_missing', 'Required WhatsApp template variables are missing.');
+                }
+                $variables[$position] = (string) $values[$key];
+            }
+
+            return ['success' => true, 'components' => $variables];
+        }
         $components = [];
         $mappings = $template->variable_mappings ?: [];
         foreach ($template->components ?: [] as $component) {

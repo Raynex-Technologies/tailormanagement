@@ -16,6 +16,13 @@ use Tests\TestCase;
 
 class MetaWhatsAppFoundationTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+        config(['twilio.active' => false]);
+        $this->app->bind(\App\Contracts\WhatsAppProvider::class, \App\Services\WhatsApp\MetaWhatsAppProvider::class);
+    }
+
     use RefreshDatabase;
 
     public function test_meta_provider_is_the_whatsapp_provider_binding(): void
@@ -88,17 +95,16 @@ class MetaWhatsAppFoundationTest extends TestCase
         $this->actingAsRole('admin');
         Livewire::test(WhatsappConfigurations::class)
             ->set('enabled', true)
-            ->set('waba_id', 'not-numeric')
-            ->set('phone_number_id', '')
+            ->set('twilio_account_sid', 'invalid')
+            ->set('twilio_from', '')
             ->call('save')
-            ->assertHasErrors(['waba_id', 'phone_number_id'])
-            ->set('waba_id', '67890')
-            ->set('phone_number_id', '12345')
-            ->set('access_token', 'saved-secret')
-            ->set('webhook_verify_token', 'long-enough-verify-token')
+            ->assertHasErrors(['twilio_account_sid', 'twilio_from'])
+            ->set('twilio_account_sid', 'AC'.str_repeat('a', 32))
+            ->set('twilio_from', '+255712345678')
+            ->set('twilio_auth_token', 'saved-secret')
             ->call('save')
             ->assertHasNoErrors()
-            ->assertSet('access_token', '')
+            ->assertSet('twilio_auth_token', '')
             ->assertDontSee('saved-secret');
         $this->assertSame($this->branch->id, WhatsappIntegration::query()->sole()->branch_id);
     }

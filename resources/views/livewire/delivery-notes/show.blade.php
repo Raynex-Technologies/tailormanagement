@@ -108,7 +108,7 @@
                                 @foreach ($group['lines'] as $displayLine)
                                     @php($line = $displayLine['record'])
                                     <tr>
-                                        <td class="py-2 pl-3 text-zinc-900 dark:text-white">{{ $displayLine['display_name'] }}</td>
+                                        <td class="py-2 pl-3 text-zinc-900 dark:text-white">{{ $displayLine['display_name'] }}@if($displayLine['source_line']?->variation_description)<br>{{ $displayLine['source_line']->variation_description }}<br>{{ $displayLine['source_line']->sku }}@endif</td>
                                         <td class="py-2 text-right text-zinc-600 dark:text-zinc-400">{{ rtrim(rtrim(number_format((float) $line->qty, 2, '.', ''), '0'), '.') }}</td>
                                         <td class="py-2 text-right font-mono text-zinc-600 dark:text-zinc-400">{{ number_format($line->unit_price, 0) }}</td>
                                         <td class="py-2 text-right font-mono text-zinc-900 dark:text-white">{{ number_format($line->line_total, 0) }}</td>

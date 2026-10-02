@@ -12,6 +12,7 @@ class MetaWhatsappWebhookController extends Controller
 {
     public function __invoke(Request $request, string $webhookKey): Response
     {
+        abort_if(config('twilio.active'), 410, 'This integration now uses Twilio webhooks.');
         $integration = WhatsappIntegration::query()->where('webhook_key', $webhookKey)->firstOrFail();
         if ($request->isMethod('get')) {
             return $this->verify($request, $integration);

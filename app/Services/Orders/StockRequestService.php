@@ -11,9 +11,11 @@ use App\Models\User;
 use App\Notifications\StockRequestCreated;
 use App\Notifications\StockRequestFulfilled;
 use App\Notifications\StockRequestReviewed;
+use App\Services\Inventory\InventorySelectionService;
 use App\Services\Inventory\StockMovementService;
-use App\Support\BranchContext;
+use Brick\Math\BigDecimal;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Validation\ValidationException;
 
 class StockRequestService
@@ -32,6 +34,7 @@ class StockRequestService
      */
     public function createRequest(Order $order, array $items, ?string $note, User $actor): OrderStockRequest
     {
+        Gate::forUser($actor)->authorize('create', [OrderStockRequest::class, $order]);
         // Validate items
         if (empty($items)) {
             throw ValidationException::withMessages([
@@ -64,6 +67,12 @@ class StockRequestService
         }
 
         return DB::transaction(function () use ($order, $items, $note, $actor, $branchId) {
+            $order = Order::whereKey($order->id)->lockForUpdate()->firstOrFail();
+            Gate::forUser($actor)->authorize('create', [OrderStockRequest::class, $order]);
+            if ($order->status === \App\Enums\OrderStatus::Cancelled) {
+                throw ValidationException::withMessages(['order' => 'Cancelled orders cannot request stock.']);
+            }
+            InventoryItem::withoutBranchScope()->whereIn('id', collect($items)->pluck('inventory_item_id'))->orderBy('id')->lockForUpdate()->get();
             // Create the request
             $stockRequest = OrderStockRequest::create([
                 'branch_id' => $branchId,
@@ -75,10 +84,16 @@ class StockRequestService
 
             // Create request items
             foreach ($items as $item) {
+                $selection = app(InventorySelectionService::class);
+                $unit = $selection->resolve($item['inventory_item_id'], $item['inventory_stock_unit_id'] ?? null, $branchId);
+                if (isset($item['inventory_item_variant_id']) && (int) $item['inventory_item_variant_id'] !== (int) $unit->inventory_item_variant_id) {
+                    throw ValidationException::withMessages(['items' => 'Variant does not match the selected stock identity.']);
+                }
                 OrderStockRequestItem::create([
+                    ...$selection->snapshot($unit),
                     'order_stock_request_id' => $stockRequest->id,
                     'inventory_item_id' => $item['inventory_item_id'],
-                    'qty_requested' => $item['qty_requested'],
+                    'qty_requested' => $this->quantity($item['qty_requested']),
                     'note' => $item['note'] ?? null,
                 ]);
             }
@@ -106,6 +121,7 @@ class StockRequestService
         ?string $note,
         User $actor
     ): OrderStockRequest {
+        Gate::forUser($actor)->authorize('review', $request);
         if (! $request->canBeReviewed()) {
             throw ValidationException::withMessages([
                 'status' => 'This request cannot be reviewed in its current state.',
@@ -119,6 +135,11 @@ class StockRequestService
         }
 
         return DB::transaction(function () use ($request, $decision, $approvedItems, $note, $actor) {
+            $request = OrderStockRequest::whereKey($request->id)->lockForUpdate()->firstOrFail();
+            Gate::forUser($actor)->authorize('review', $request);
+            if (! $request->canBeReviewed()) {
+                throw ValidationException::withMessages(['status' => 'This request can no longer be reviewed.']);
+            }
             if ($decision === 'decline') {
                 $request->update([
                     'status' => StockRequestStatus::Declined,
@@ -131,7 +152,7 @@ class StockRequestService
 
                 foreach ($request->items as $item) {
                     $approved = collect($approvedItems)->firstWhere('id', $item->id);
-                    $qtyApproved = $approved['qty_approved'] ?? 0;
+                    $qtyApproved = $this->quantity($approved['qty_approved'] ?? 0);
 
                     if ($qtyApproved < 0) {
                         throw ValidationException::withMessages([
@@ -176,6 +197,7 @@ class StockRequestService
         ?string $note,
         User $actor
     ): OrderStockRequest {
+        Gate::forUser($actor)->authorize('fulfill', $request);
         if (! $request->canBeFulfilled()) {
             throw ValidationException::withMessages([
                 'status' => 'This request cannot be fulfilled in its current state.',
@@ -183,47 +205,53 @@ class StockRequestService
         }
 
         return DB::transaction(function () use ($request, $issueItems, $note, $actor) {
+            $order = \App\Models\Order::query()->whereKey($request->order_id)->lockForUpdate()->firstOrFail();
+            if ($order->status === \App\Enums\OrderStatus::Cancelled) {
+                throw ValidationException::withMessages(['status' => 'Cancelled orders cannot issue stock.']);
+            }
             // Lock the request for update
             $request = OrderStockRequest::lockForUpdate()->find($request->id);
-            $request->load('items.inventoryItem.stock');
+            Gate::forUser($actor)->authorize('fulfill', $request);
+            $request->load('items.inventoryItem', 'items.stockUnit.stock');
+            InventoryItem::withoutBranchScope()->whereIn('id', $request->items->pluck('inventory_item_id'))->orderBy('id')->lockForUpdate()->get();
+            if (! $request->canBeFulfilled()) {
+                throw ValidationException::withMessages(['status' => 'This request can no longer be fulfilled.']);
+            }
 
+            $seen = [];
             foreach ($issueItems as $issueItem) {
                 if (empty($issueItem['id']) || empty($issueItem['qty_to_issue'])) {
                     continue;
                 }
 
                 $requestItem = $request->items->firstWhere('id', $issueItem['id']);
-                if (! $requestItem) {
-                    continue;
+                if (! $requestItem || isset($seen[$requestItem->id])) {
+                    throw ValidationException::withMessages(['items' => 'Choose each owned request line once.']);
                 }
+                $seen[$requestItem->id] = true;
 
-                $qtyToIssue = (float) $issueItem['qty_to_issue'];
+                $qtyToIssue = $this->quantity($issueItem['qty_to_issue']);
 
                 if ($qtyToIssue <= 0) {
                     continue;
                 }
 
                 // Check against remaining approved quantity
-                $remaining = $requestItem->remaining_to_issue;
-                if ($qtyToIssue > $remaining) {
+                $remaining = BigDecimal::of($requestItem->qty_approved)->minus($requestItem->qty_issued);
+                if (BigDecimal::of($qtyToIssue)->isGreaterThan($remaining)) {
                     throw ValidationException::withMessages([
                         "items.{$requestItem->id}" => "Cannot issue more than remaining approved quantity ({$remaining}).",
                     ]);
                 }
 
-                // Check stock availability
-                $inventoryItem = $requestItem->inventoryItem;
-                $currentStock = $inventoryItem->stock?->qty_on_hand ?? 0;
-
-                if ($qtyToIssue > $currentStock) {
-                    throw ValidationException::withMessages([
-                        "items.{$requestItem->id}" => "Insufficient stock. Available: {$currentStock}, Requested: {$qtyToIssue}.",
-                    ]);
+                $unit = app(InventorySelectionService::class)->resolve($requestItem->inventory_item_id, $requestItem->inventory_stock_unit_id, $request->branch_id);
+                if ($requestItem->inventory_item_variant_id !== null && (int) $requestItem->inventory_item_variant_id !== (int) $unit->inventory_item_variant_id) {
+                    throw ValidationException::withMessages(['items' => 'Request identity requires reconciliation.']);
                 }
 
                 // Issue the stock using StockMovementService
                 $this->stockMovementService->issue(
-                    $inventoryItem,
+                    $unit,
                     $qtyToIssue,
                     "Stock request fulfillment for Order #{$request->order->order_no}",
                     $actor,
@@ -231,7 +259,7 @@ class StockRequestService
                 );
 
                 // Update qty_issued
-                $requestItem->increment('qty_issued', $qtyToIssue);
+                $requestItem->update(['qty_issued' => (string) BigDecimal::of($requestItem->qty_issued)->plus($qtyToIssue)]);
             }
 
             // Reload and check if fully issued
@@ -249,6 +277,20 @@ class StockRequestService
 
             return $request->fresh(['items.inventoryItem.stock', 'requester', 'handler', 'order']);
         });
+    }
+
+    private function quantity(mixed $value): string
+    {
+        try {
+            $qty = BigDecimal::of((string) $value)->toScale(2);
+            if ($qty->isNegative()) {
+                throw new \InvalidArgumentException;
+            }
+
+            return (string) $qty;
+        } catch (\Throwable) {
+            throw ValidationException::withMessages(['items' => 'Enter a nonnegative quantity with at most two decimal places.']);
+        }
     }
 
     /**

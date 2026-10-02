@@ -226,15 +226,12 @@ class ProductManager extends Component
         $payload = [
             'branch_id' => $branchId,
             'inventory_category_id' => $validated['productCategoryId'] ?: null,
-            'inventory_unit_id' => null,
             'sku' => $this->prepareSku($validated['productSku'] ?? null),
             'name' => $name,
             'slug' => $this->generateUniqueProductSlug($name, $branchId, $this->editingProductId),
-            'unit' => 'pcs',
             'short_description' => $this->sanitizeText($validated['productShortDescription'] ?? null),
             'full_description' => $this->sanitizeText($validated['productDescription'] ?? null),
             'status' => $status,
-            'default_buy_price' => null,
             'default_sell_price' => round((float) $validated['productPrice'], 2),
             'compare_at_price' => $validated['productCompareAtPrice'] !== null
                 ? round((float) $validated['productCompareAtPrice'], 2)
@@ -272,25 +269,21 @@ class ProductManager extends Component
             $payload['featured_image_path'] = $stored->path;
         }
 
-        $product->fill($payload);
-        $product->save();
+        \Illuminate\Support\Facades\DB::transaction(function () use ($product, $payload, $validated) {
+            $payload['unit'] = $product->exists ? $product->unit : 'pcs';
+            $product->fill($payload);
+            $product->save();
 
-        $product->stock()->updateOrCreate(
-            ['inventory_item_id' => $product->id],
-            [
-                'branch_id' => $product->branch_id,
-                'qty_on_hand' => round((float) ($validated['productStockQuantity'] ?? 0), 2),
-                'qty_reserved' => (float) ($product->stock?->qty_reserved ?? 0),
-            ]
-        );
+            app(\App\Services\Inventory\StockMovementService::class)->initialize($product);
 
-        $this->syncProductVariants(
-            $product,
-            $this->splitCsv($validated['productSizes'] ?? ''),
-            $this->splitCsv($validated['productColors'] ?? '')
-        );
+            $this->syncProductVariants(
+                $product,
+                $this->splitCsv($validated['productSizes'] ?? ''),
+                $this->splitCsv($validated['productColors'] ?? '')
+            );
 
-        $this->appendGalleryUploads($product);
+            $this->appendGalleryUploads($product);
+        });
 
         session()->flash('success', $this->editingProductId ? 'Product updated.' : 'Product created.');
         $this->resetProductForm();
@@ -326,8 +319,8 @@ class ProductManager extends Component
         $this->productLength = data_get($product->dimensions, 'length');
         $this->productWidth = data_get($product->dimensions, 'width');
         $this->productHeight = data_get($product->dimensions, 'height');
-        $this->productSizes = $product->variants->pluck('size')->filter()->unique()->implode(', ');
-        $this->productColors = $product->variants->pluck('color')->filter()->unique()->implode(', ');
+        $this->productSizes = $product->variants->where('is_active', true)->pluck('size')->filter()->unique()->implode(', ');
+        $this->productColors = $product->variants->where('is_active', true)->pluck('color')->filter()->unique()->implode(', ');
         $this->existingProductGallery = $product->media->map(fn (InventoryItemMedia $media) => [
             'id' => $media->id,
             'path' => $media->path,
@@ -364,31 +357,12 @@ class ProductManager extends Component
     public function deleteProduct(int $productId): void
     {
         $this->authorize('storefront.catalog.manage');
-
-        $product = InventoryItem::query()->with(['media'])->findOrFail($productId);
-
-        $isUsedInOrders = \App\Models\OrderLine::query()->where('inventory_item_id', $product->id)->exists();
-        if ($isUsedInOrders) {
-            throw ValidationException::withMessages([
-                'productName' => 'This product is already used in orders and cannot be deleted.',
-            ]);
-        }
-
-        if ($product->featured_image_path) {
-            StorefrontMedia::delete($product->featured_image_path);
-        }
-
-        foreach ($product->media as $media) {
-            StorefrontMedia::delete($media->path);
-        }
-
-        $product->delete();
-
-        if ($this->editingProductId === $productId) {
-            $this->resetProductForm();
-        }
-
-        session()->flash('success', 'Product deleted.');
+        \Illuminate\Support\Facades\DB::transaction(function () use ($productId) {
+            $product = InventoryItem::query()->whereKey($productId)->lockForUpdate()->firstOrFail();
+            $product->update(['is_active' => false, 'status' => 'inactive', 'storefront_is_visible' => false]);
+            app(\App\Services\Inventory\VariantSynchronizationService::class)->sync($product, []);
+        });
+        session()->flash('success', 'Product retired. Stock, media and historical identities were preserved.');
     }
 
     public function resetProductForm(): void
@@ -737,11 +711,7 @@ class ProductManager extends Component
             }
         }
 
-        $product->variants()->delete();
-
-        if ($variants !== []) {
-            $product->variants()->createMany($variants);
-        }
+        app(\App\Services\Inventory\VariantSynchronizationService::class)->sync($product, $variants);
     }
 
     protected function variantPayload(InventoryItem $product, ?string $size, ?string $color, int $index): array

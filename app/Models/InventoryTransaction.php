@@ -16,6 +16,7 @@ class InventoryTransaction extends Model
     protected $fillable = [
         'branch_id',
         'inventory_item_id',
+        'inventory_stock_unit_id',
         'type',
         'qty',
         'unit_cost',
@@ -24,6 +25,7 @@ class InventoryTransaction extends Model
         'reference_id',
         'created_by',
         'note',
+        'operation_key',
     ];
 
     protected function casts(): array
@@ -49,5 +51,10 @@ class InventoryTransaction extends Model
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+    public function stockUnit(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(InventoryStockUnit::class, 'inventory_stock_unit_id');
     }
 }

@@ -112,7 +112,7 @@
                 <flux:input wire:model.blur="productLength" type="number" step="0.01" min="0" label="{{ __('Length') }}" />
                 <flux:input wire:model.blur="productWidth" type="number" step="0.01" min="0" label="{{ __('Width') }}" />
                 <flux:input wire:model.blur="productHeight" type="number" step="0.01" min="0" label="{{ __('Height') }}" />
-                <flux:input wire:model.blur="productStockQuantity" type="number" step="0.01" min="0" label="{{ __('Stock Quantity') }}" />
+                <flux:text>{{ __('Manage physical stock through Inventory Receive or Adjust. Product edits do not change quantities.') }}</flux:text>
             </div>
 
             <div class="grid gap-3 sm:grid-cols-2">

@@ -144,6 +144,11 @@ class OrderPackagePricingService
                 'template_item_id' => $component->id,
                 'source_type' => $component->sourceType(),
                 'source_id' => $source->id,
+                'variation_selection' => $component->variation_selection,
+                'inventory_stock_unit_id' => $component->inventory_stock_unit_id,
+                'inventory_item_variant_id' => $component->inventory_item_variant_id,
+                'variation_description' => $component->stockUnit?->variant?->display_name,
+                'inventory_sku' => $component->stockUnit?->sku,
                 'source_code' => $source instanceof OrderCatalogItem ? $source->code : $source->sku,
                 'name' => $source->name,
                 'description' => $source instanceof OrderCatalogItem

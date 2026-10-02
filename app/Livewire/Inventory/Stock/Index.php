@@ -98,6 +98,11 @@ class Index extends Component
         $this->authorize('inventory.stock.receive');
 
         $item = InventoryItem::findOrFail($id);
+        if ($item->variant_mode === 'variants') {
+            $this->redirectRoute('inventory.items.variations', ['item' => $item->id], navigate: true);
+
+            return;
+        }
 
         $this->receiveItemId = $item->id;
         $this->receiveItemName = "{$item->sku} - {$item->name}";
@@ -148,6 +153,11 @@ class Index extends Component
         $this->authorize('inventory.stock.adjust');
 
         $item = InventoryItem::with('stock')->findOrFail($id);
+        if ($item->variant_mode === 'variants') {
+            $this->redirectRoute('inventory.items.variations', ['item' => $item->id], navigate: true);
+
+            return;
+        }
 
         $this->adjustItemId = $item->id;
         $this->adjustItemName = "{$item->sku} - {$item->name}";
@@ -197,17 +207,17 @@ class Index extends Component
 
         // Get stock items with their details
         $stocks = InventoryItem::query()
-            ->with(['category', 'stock'])
+            ->with(['category', 'stock', 'physicalStocks'])
             ->where('is_active', true)
             ->when($this->search, fn ($q) => $q->where(function ($q) {
                 $q->where('name', 'like', "%{$this->search}%")
                     ->orWhere('sku', 'like', "%{$this->search}%");
             }))
             ->when($this->categoryFilter, fn ($q) => $q->where('inventory_category_id', $this->categoryFilter))
-            ->when($this->stockFilter === 'low', fn ($q) => $q->whereHas('stock', function ($sq) {
+            ->when($this->stockFilter === 'low', fn ($q) => $q->whereHas('physicalStocks', function ($sq) {
                 $sq->whereRaw('qty_on_hand <= inventory_items.reorder_level');
             }))
-            ->orderByRaw('COALESCE((SELECT qty_on_hand FROM inventory_stocks WHERE inventory_stocks.inventory_item_id = inventory_items.id), 0) <= reorder_level DESC')
+            ->orderByRaw('COALESCE((SELECT SUM(qty_on_hand) FROM inventory_stocks WHERE inventory_stocks.inventory_item_id = inventory_items.id), 0) <= reorder_level DESC')
             ->orderBy('name')
             ->paginate($this->perPage);
 
@@ -225,7 +235,7 @@ class Index extends Component
         $totalItems = InventoryItem::where('is_active', true)->count();
 
         $lowStockCount = InventoryItem::where('is_active', true)
-            ->whereHas('stock', function ($q) {
+            ->whereHas('physicalStocks', function ($q) {
                 $q->whereRaw('qty_on_hand <= inventory_items.reorder_level');
             })
             ->count();

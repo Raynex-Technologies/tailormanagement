@@ -57,7 +57,6 @@ use App\Policies\PurchaseOrderPolicy;
 use App\Policies\PurchaseRequestPolicy;
 use App\Policies\UserPolicy;
 use App\Services\Mail\MailConfiguration;
-use App\Services\WhatsApp\MetaWhatsAppProvider;
 use App\Support\BranchContext;
 use App\Support\PrivateImage;
 use App\Support\SystemUiSettings;
@@ -119,7 +118,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->app->bind(WhatsAppProvider::class, MetaWhatsAppProvider::class);
+        $this->app->bind(WhatsAppProvider::class, \App\Services\WhatsApp\TwilioWhatsAppProvider::class);
     }
 
     /**

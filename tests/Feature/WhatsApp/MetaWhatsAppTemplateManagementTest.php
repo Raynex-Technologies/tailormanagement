@@ -17,6 +17,13 @@ use Tests\TestCase;
 
 class MetaWhatsAppTemplateManagementTest extends TestCase
 {
+    protected function setUp(): void
+    {
+        parent::setUp();
+        config(['twilio.active' => false]);
+        $this->app->bind(\App\Contracts\WhatsAppProvider::class, \App\Services\WhatsApp\MetaWhatsAppProvider::class);
+    }
+
     public function test_valid_template_and_risk_warnings_are_structured(): void
     {
         $validator = app(MetaWhatsappTemplateValidator::class);

@@ -2,7 +2,6 @@
 
 namespace App\Livewire\Store\StockRequests;
 
-use App\Enums\StockRequestStatus;
 use App\Models\OrderStockRequest;
 use App\Services\Orders\StockRequestService;
 use Livewire\Attributes\Layout;
@@ -15,13 +14,18 @@ class Show extends Component
 
     // Review modal
     public bool $showReviewModal = false;
+
     public string $reviewDecision = 'approve';
+
     public array $approvedItems = [];
+
     public string $reviewNote = '';
 
     // Fulfill modal
     public bool $showFulfillModal = false;
+
     public array $issueItems = [];
+
     public string $fulfillNote = '';
 
     public function mount(OrderStockRequest $stockRequest): void
@@ -29,7 +33,7 @@ class Show extends Component
         $this->authorize('view', $stockRequest);
         $this->stockRequest = $stockRequest->load([
             'order.customer',
-            'items.inventoryItem.stock',
+            'items.inventoryItem.stock', 'items.stockUnit.stock',
             'requester',
             'handler',
         ]);
@@ -71,7 +75,7 @@ class Show extends Component
 
             $this->stockRequest = $this->stockRequest->fresh([
                 'order.customer',
-                'items.inventoryItem.stock',
+                'items.inventoryItem.stock', 'items.stockUnit.stock',
                 'requester',
                 'handler',
             ]);
@@ -119,7 +123,7 @@ class Show extends Component
 
             $this->stockRequest = $this->stockRequest->fresh([
                 'order.customer',
-                'items.inventoryItem.stock',
+                'items.inventoryItem.stock', 'items.stockUnit.stock',
                 'requester',
                 'handler',
             ]);

@@ -1,5 +1,6 @@
 <div
-    class="flex h-screen flex-col overflow-hidden bg-zinc-100 p-3 dark:bg-zinc-950"
+    class="flex min-h-screen flex-col bg-zinc-100 p-3 dark:bg-zinc-950 lg:h-screen lg:overflow-hidden"
+    x-on:pos-scan-ready.window="$nextTick(() => document.getElementById('itemSearch')?.focus())"
     x-on:open-pos-receipt.window="window.open($event.detail.url, '_blank', 'noopener')"
 >
     @if (session('success'))
@@ -35,7 +36,7 @@
                 <flux:input
                     id="itemSearch"
                     wire:model.live.debounce.200ms="itemSearch"
-                    wire:keydown.enter.prevent="addFirstSearchMatch"
+                    wire:keydown.enter.prevent="addFirstSearchMatch($event.target.value)"
                     icon="magnifying-glass"
                     placeholder="Scan barcode or search item name, SKU, or category..."
                     autofocus
@@ -47,7 +48,7 @@
                 <div class="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     @forelse ($items as $item)
                         @php
-                            $available = max(0, (float) (($item->stock?->qty_on_hand ?? 0) - ($item->stock?->qty_reserved ?? 0)));
+                            $available = max(0, (float)(($item->pos_on_hand??0)-($item->pos_reserved??0)));
                             $imageUrl = $item->featured_image_url;
                         @endphp
                         <button
@@ -56,11 +57,11 @@
                             wire:click="addItem({{ $item->id }})"
                             wire:loading.attr="disabled"
                             @class([
-                                'group overflow-hidden rounded-lg border p-0 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-lime-400',
-                                'border-zinc-200 hover:-translate-y-0.5 hover:border-lime-400 hover:shadow-md dark:border-zinc-700 dark:hover:border-lime-400' => $available > 0,
+                                'group overflow-hidden rounded-lg border p-0 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--tm-accent)]',
+                                'border-zinc-200 hover:-translate-y-0.5 hover:border-[var(--tm-accent)] hover:shadow-md dark:border-zinc-700 dark:hover:border-[var(--tm-accent)]' => $available > 0,
                                 'cursor-not-allowed border-zinc-200 opacity-55 dark:border-zinc-800' => $available <= 0,
                             ])
-                            @disabled($available <= 0)
+                            @disabled($available <= 0 && $item->variant_mode === 'simple')
                         >
                             <div class="h-20 bg-zinc-100 dark:bg-zinc-800 2xl:h-24">
                                 @if ($imageUrl)
@@ -89,10 +90,11 @@
                                     </span>
                                 </div>
 
-                                <div class="flex items-center justify-between">
-                                    <span class="font-mono text-[13px] font-bold text-zinc-950 dark:text-white 2xl:text-sm">{{ money_tzs($item->default_sell_price ?? 0) }}</span>
-                                    <span class="text-[10px] font-medium text-zinc-500 group-hover:text-lime-600 dark:group-hover:text-lime-300 2xl:text-[11px]">
-                                        {{ $available > 0 ? __('Tap to add') : __('Out of stock') }}
+                                @if($item->variant_mode === 'variants')<p class="text-xs text-zinc-500">{{ $item->pos_variation_count }} {{ __('variations') }} / {{ number_format($available,2) }} {{ __('available') }}</p>@endif
+                                <div class="flex flex-wrap gap-2 items-center justify-between">
+                                    <span class="font-mono text-[13px] font-bold text-zinc-950 dark:text-white 2xl:text-sm">{{ $item->pos_min_price != $item->pos_max_price ? __('From').' ' : '' }}{{ $item->pos_min_price === null ? __('Price not set') : money_tzs($item->pos_min_price) }}</span>
+                                    <span class="text-[10px] font-medium text-zinc-500 group-hover:text-[var(--tm-accent)] dark:group-hover:text-[var(--tm-accent)] 2xl:text-[11px]">
+                                        {{ $item->variant_mode === 'variants' ? __('Select Variation') : ($available > 0 ? __('Add') : __('Out of stock')) }}
                                     </span>
                                 </div>
                             </div>
@@ -173,6 +175,7 @@
                             <div class="flex items-start justify-between gap-3">
                                 <div class="min-w-0">
                                     <p class="truncate text-sm font-semibold text-zinc-900 dark:text-white">{{ $line['name'] }}</p>
+                                    @if($line['variation'] ?? null)<p class="text-sm text-zinc-600 dark:text-zinc-300">{{ $line['variation'] }}</p>@endif
                                     <p class="text-xs text-zinc-500">{{ $line['sku'] }} &middot; {{ money_tzs($line['price']) }}</p>
                                 </div>
                                 <button type="button" wire:click="removeItem({{ $line['id'] }})" class="text-zinc-400 hover:text-red-600">
@@ -192,7 +195,7 @@
                                 >
                                 <flux:button size="sm" variant="ghost" icon="plus" wire:click="increaseQty({{ $line['id'] }})" />
                             </div>
-                            @error('cart.'.$line['id'].'.quantity') <p class="mt-1 text-xs text-red-600 dark:text-red-400">{{ $message }}</p> @enderror
+                            @error('cart.unit_'.$line['id'].'.quantity') <p class="mt-1 text-xs text-red-600 dark:text-red-400">{{ $message }}</p> @enderror
 
                             <div class="mt-3 flex items-center justify-between text-sm">
                                 <span class="text-zinc-500">{{ __('Line total') }}</span>
@@ -385,4 +388,41 @@
             }
         }
     </style>
+
+    <flux:modal wire:model="showVariationModal" class="w-full max-w-lg">
+        @if($variationProduct)
+            <div class="space-y-5">
+                <div><flux:heading size="lg">{{ $variationProduct->name }}</flux:heading><flux:text class="mt-1">{{ __('Select Variation') }}</flux:text></div>
+                @php $chosenIds=array_map('intval',array_values($variationChoices)); $prior=[]; @endphp
+                @foreach($variationProduct->options as $option)
+                    <fieldset wire:key="pos-option-{{ $option->id }}"><legend class="mb-2 font-medium">{{ $option->name }}</legend><div class="flex flex-wrap gap-2">
+                    @foreach($option->values as $value)
+                        @php
+                            $candidateIds=[...$prior,$value->id];
+                            $offered=$variationProduct->variants->filter(fn($v)=>count(array_intersect($candidateIds,$v->selectedValues->pluck('id')->all()))===count($candidateIds));
+                            $ready=$offered->filter(fn($v)=>$v->is_active && $v->stockUnit?->is_active && $v->stockUnit?->allocation_status==='ready' && $v->stockUnit?->selling_price !== null);
+                            $hasStock=$ready->contains(fn($v)=>(float)($v->stockUnit?->stock?->qty_on_hand??0)-(float)($v->stockUnit?->stock?->qty_reserved??0)>=1);
+                            $selected=($variationChoices['option_'.$option->id]??null)==$value->id;
+                            $state=$offered->isEmpty()?__('Not offered'):($ready->isEmpty()?__('Unavailable'):(! $hasStock?__('Out of stock'):''));
+                        @endphp
+                        <button type="button" wire:click="chooseVariationValue({{ $option->id }},{{ $value->id }})" @disabled(! $hasStock) aria-pressed="{{ $selected ? 'true' : 'false' }}" class="min-h-11 rounded-lg border border-zinc-300 px-4 py-2 text-sm disabled:opacity-50 dark:border-zinc-600" @if($selected) style="background:var(--tm-accent);color:var(--tm-accent-foreground);border-color:var(--tm-accent)" @endif>
+                            <span class="block">{{ $value->name }}</span>@if($state)<span class="block text-xs mt-1">{{ $state }}</span>@endif
+                        </button>
+                    @endforeach
+                    </div></fieldset>
+                    @php if(isset($variationChoices['option_'.$option->id])){$prior[]=(int)$variationChoices['option_'.$option->id];} @endphp
+                @endforeach
+                @php
+                    sort($chosenIds);
+                    $resolved=$variationProduct->variants->filter(fn($v)=>$v->selectedValues->pluck('id')->sort()->values()->all()===$chosenIds);
+                    $selectedVariant=$resolved->count()===1 && count($chosenIds)===$variationProduct->options->count()?$resolved->first():null;
+                @endphp
+                @if($selectedVariant)
+                    <div class="rounded-xl bg-zinc-100 p-4 dark:bg-zinc-800"><flux:heading>{{ $selectedVariant->display_name }}</flux:heading><flux:text>{{ __('SKU') }}: {{ $selectedVariant->stockUnit->sku }}</flux:text><p class="mt-2 text-lg font-semibold">{{ money_tzs($selectedVariant->stockUnit->selling_price) }}</p><flux:text>{{ number_format((float)($selectedVariant->stockUnit->stock?->qty_on_hand??0)-(float)($selectedVariant->stockUnit->stock?->qty_reserved??0),2) }} {{ __('available') }}</flux:text></div>
+                @else<flux:text>{{ __('Choose one value for each option to see its exact price and availability.') }}</flux:text>@endif
+                @error('cart')<p role="alert" class="text-red-600 dark:text-red-300">{{ $message }}</p>@enderror
+                <div class="flex gap-3"><flux:button class="flex-1" wire:click="$set('showVariationModal',false)">{{ __('Cancel') }}</flux:button><flux:button class="flex-1" variant="primary" wire:click="addSelectedVariation" :disabled="! $selectedVariant" wire:loading.attr="disabled">{{ __('Add to Cart') }}</flux:button></div>
+            </div>
+        @endif
+    </flux:modal>
 </div>

@@ -23,7 +23,7 @@
     <flux:card>
         <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
             <div>
-                <div class="flex items-center gap-3">
+                <div class="flex flex-wrap items-center gap-3">
                     <flux:heading size="xl">{{ __('Receive Goods') }}: {{ $purchaseOrder->po_no }}</flux:heading>
                     <flux:badge color="{{ $purchaseOrder->status->color() }}" size="lg">
                         {{ $purchaseOrder->status->label() }}
@@ -41,6 +41,7 @@
         <flux:card>
             <flux:heading size="lg" class="mb-4">{{ __('Items to Receive') }}</flux:heading>
 
+            @if($errors->any())<flux:callout variant="danger" class="mb-4">{{ $errors->first() }}</flux:callout>@endif
             <flux:table>
                 <flux:table.columns>
                     <flux:table.column>{{ __('Item') }}</flux:table.column>
@@ -48,7 +49,7 @@
                     <flux:table.column>{{ __('Already Received') }}</flux:table.column>
                     <flux:table.column>{{ __('Pending') }}</flux:table.column>
                     <flux:table.column>{{ __('Qty to Receive') }}</flux:table.column>
-                    <flux:table.column>{{ __('Unit Cost') }}</flux:table.column>
+                    <flux:table.column>{{ __('Actual Unit Cost') }}</flux:table.column>
                 </flux:table.columns>
 
                 <flux:table.rows>
@@ -59,8 +60,10 @@
                         <flux:table.row wire:key="item-{{ $item->id }}">
                             <flux:table.cell>
                                 <span class="font-medium">{{ $item->item_name }}</span>
+                                    @if($item->variation_description)<span class="block text-sm text-zinc-600 dark:text-zinc-300">{{ $item->variation_description }}</span>@endif
+                                    @if($item->selection_warning)<span class="block text-sm text-amber-700 dark:text-amber-300">{{ $item->selection_warning }}</span>@endif
                                 @if ($item->inventoryItem)
-                                    <span class="block text-xs text-zinc-500">SKU: {{ $item->inventoryItem->sku }}</span>
+                                    <span class="block text-xs text-zinc-500">SKU: {{ $item->sku ?? $item->inventoryItem->sku }}</span>
                                 @endif
                             </flux:table.cell>
                             <flux:table.cell>{{ number_format($item->qty_ordered, 2) }}</flux:table.cell>
@@ -74,8 +77,8 @@
                                 @if ($pendingQty > 0)
                                     <flux:input
                                         type="number"
-                                        wire:model.blur="receivingItems.{{ $item->id }}.qty_received"
-                                        step="1"
+                                        wire:model.live.blur="receivingItems.{{ $item->id }}.qty_received"
+                                        step="0.01"
                                         min="0"
                                         max="{{ $pendingQty }}"
                                         class="w-24"
@@ -87,8 +90,8 @@
                             <flux:table.cell>
                                 @if ($pendingQty > 0)
                                     <x-money-input
-                                        wire:model.blur="receivingItems.{{ $item->id }}.unit_cost"
-                                        step="1"
+                                        wire:model.live.blur="receivingItems.{{ $item->id }}.unit_cost"
+                                        step="0.01"
                                         min="0"
                                         class="w-28"
                                     />
@@ -109,7 +112,7 @@
                 </div>
                 <div class="text-right">
                     <flux:label>{{ __('Total Qty to Receive') }}</flux:label>
-                    <flux:heading size="lg" class="font-mono text-indigo-600 dark:text-indigo-400">
+                    <flux:heading size="lg" class="font-mono text-[var(--tm-accent)]">
                         {{ number_format($totalToReceive, 2) }}
                     </flux:heading>
                 </div>
@@ -149,6 +152,7 @@
                         <div class="mt-2 text-sm text-zinc-500">
                             {{ __('Received by') }}: {{ $grn->receiver?->name ?? 'N/A' }}
                         </div>
+                        @include('livewire.partials.procurement-receipt-lines')
                         @if ($grn->note)
                             <div class="mt-1 text-sm text-zinc-500">
                                 {{ $grn->note }}

@@ -12,7 +12,7 @@
             <flux:dropdown position="bottom" align="end">
                 <flux:button variant="outline" icon="ellipsis-vertical" class="!border-white/25 !bg-white/10 !text-white hover:!bg-white/20" aria-label="{{ __('Garment customization actions') }}" />
                 <flux:menu class="w-64">
-                    <flux:menu.item :href="route('admin.garment-categories.index')" wire:navigate icon="squares-2x2">{{ __('Garment Categories') }}</flux:menu.item>
+                    <flux:menu.item :href="route('admin.garment-categories.index')" wire:navigate icon="squares-2x2">{{ __('Garment Types') }}</flux:menu.item>
                     <flux:menu.item :href="route('admin.garment-option-groups.index')" wire:navigate icon="adjustments-horizontal">{{ __('Customization Sections') }}</flux:menu.item>
                     @can('garment-options.manage')
                         <flux:menu.separator />
@@ -22,7 +22,9 @@
             </flux:dropdown>
         </x-slot:actions>
     </x-orders.workspace-header>
+    <x-orders.catalog-navigation active="customization" />
 
+    @if ($categoryId)<flux:button variant="ghost" :href="route('order-catalog.garment-types.show', ['garmentCategory' => $categoryId, 'tab' => 'customization'])" wire:navigate icon="arrow-left">{{ __('Back to Garment Type') }}</flux:button>@endif
     @if (session('success'))
         <flux:callout variant="success" icon="check-circle">{{ session('success') }}</flux:callout>
     @endif
@@ -30,8 +32,8 @@
     <flux:card>
         <div class="grid gap-3 md:grid-cols-4">
             <flux:input wire:model.live.debounce.300ms="search" icon="magnifying-glass" placeholder="{{ __('Search options') }}" />
-            <flux:select wire:model.live="categoryId" aria-label="{{ __('Filter by garment category') }}">
-                <flux:select.option value="">{{ __('All garment categories') }}</flux:select.option>
+            <flux:select wire:model.live="categoryId" aria-label="{{ __('Filter by garment type') }}">
+                <flux:select.option value="">{{ __('All garment types') }}</flux:select.option>
                 @foreach ($categories as $category)
                     <flux:select.option value="{{ $category->id }}">{{ $category->name }}</flux:select.option>
                 @endforeach
@@ -50,7 +52,7 @@
         </div>
     </flux:card>
 
-    <div class="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-white/10 dark:bg-[#1e1f2e]">
+    <div class="overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-900">
         <div class="overflow-x-auto">
             <table class="min-w-full divide-y divide-zinc-200 dark:divide-white/10">
                 <thead class="bg-zinc-50 dark:bg-white/5">
@@ -98,7 +100,7 @@
 
     @if ($panelOpen)
         <div class="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-0 sm:items-center sm:p-6" role="dialog" aria-modal="true">
-            <div class="max-h-[92vh] w-full overflow-y-auto rounded-t-3xl bg-white p-6 shadow-2xl sm:max-w-2xl sm:rounded-3xl dark:bg-[#1e1f2e]">
+            <div class="max-h-[92vh] w-full overflow-y-auto rounded-t-3xl bg-white p-6 shadow-2xl sm:max-w-2xl sm:rounded-3xl dark:bg-zinc-900">
                 <div class="flex items-start justify-between gap-4">
                     <div>
                         <flux:heading size="lg">{{ $readOnly ? __('View Choice') : ($optionId ? __('Edit Choice') : __('New Choice')) }}</flux:heading>

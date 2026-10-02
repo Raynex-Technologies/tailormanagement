@@ -3,8 +3,8 @@
     <head>
         @include('partials.head')
     </head>
-    <body class="min-h-screen overflow-hidden bg-zinc-100 text-zinc-950 antialiased dark:bg-zinc-950 dark:text-zinc-50">
-        <main class="h-screen overflow-hidden">
+    <body class="min-h-screen lg:overflow-hidden bg-zinc-100 text-zinc-950 antialiased dark:bg-zinc-950 dark:text-zinc-50">
+        <main class="min-h-screen lg:h-screen lg:overflow-hidden">
             {{ $slot }}
         </main>
 

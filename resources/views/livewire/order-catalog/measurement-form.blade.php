@@ -1,5 +1,5 @@
-<div class="mx-auto max-w-5xl space-y-5">
-    <x-orders.workspace-header class="!mb-0" :title="$measurementId ? __('Edit Measurement') : __('New Measurement')" :subtitle="__('Define a reusable dimensional measurement and the garment categories that use it.')">
+<div class="mx-auto flex max-w-5xl flex-col gap-5">
+    <x-orders.workspace-header class="!mb-0" :title="$measurementId ? __('Edit Measurement') : __('New Measurement')" :subtitle="__('Define a reusable dimensional measurement and the garment types that use it.')">
         <x-slot:breadcrumbs>
             <flux:breadcrumbs class="text-white/70">
                 <flux:breadcrumbs.item :href="route('dashboard')" icon="home" class="!text-white/70 hover:!text-white" wire:navigate />
@@ -9,9 +9,10 @@
             </flux:breadcrumbs>
         </x-slot:breadcrumbs>
     </x-orders.workspace-header>
+    <x-orders.catalog-navigation active="measurements" />
 
     <form wire:submit="save" class="space-y-5">
-        <section class="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-[#1e1f2e] sm:p-6">
+        <section class="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-zinc-900 sm:p-6">
             <h2 class="font-semibold text-zinc-900 dark:text-white">{{ __('Definition') }}</h2>
             <p class="mt-1 text-sm text-zinc-500">{{ __('Measurement definitions remain numeric; fit and style choices belong to Garment Options.') }}</p>
             <div class="mt-5 grid gap-5 md:grid-cols-2">
@@ -32,7 +33,7 @@
                 <div class="flex flex-col justify-end gap-3">
                     <label class="flex items-start gap-3 rounded-xl border border-zinc-200 p-3 dark:border-white/10">
                         <input type="checkbox" wire:model="isGlobal" class="mt-1 rounded border-zinc-300">
-                        <span><strong class="block text-sm">{{ __('Globally available') }}</strong><span class="text-xs text-zinc-500">{{ __('Show in online booking for every garment category.') }}</span></span>
+                        <span><strong class="block text-sm">{{ __('Globally available') }}</strong><span class="text-xs text-zinc-500">{{ __('Show in online booking for every garment type.') }}</span></span>
                     </label>
                     <label class="flex items-center gap-3 px-1 text-sm"><input type="checkbox" wire:model="isActive" class="rounded border-zinc-300"><span>{{ __('Active for new configuration') }}</span></label>
                 </div>
@@ -40,24 +41,25 @@
             </div>
         </section>
 
-        <section class="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-[#1e1f2e] sm:p-6">
-            <h2 class="font-semibold text-zinc-900 dark:text-white">{{ __('Garment applicability') }}</h2>
-            <p class="mt-1 text-sm text-zinc-500">{{ __('Required state and display order are specific to each garment category.') }}</p>
+        <section class="rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-zinc-900 sm:p-6">
+            <h2 class="font-semibold text-zinc-900 dark:text-white">{{ __('Applicable Garment Types') }}</h2>
+            <p class="mt-1 text-sm text-zinc-500">{{ __('Choose the garment types where this measurement normally appears. Required flags and display order guide measurement entry; additional measurements are allowed and missing values do not block initial order saving.') }}</p>
+            @error('categoryApplicability')<p class="mt-2 text-sm text-red-600">{{ $message }}</p>@enderror
             <div class="mt-5 space-y-3">
                 @forelse ($categories as $category)
                     @php($settings = $categoryApplicability[$category->id] ?? ['selected' => false, 'required' => false, 'sort_order' => 0])
                     <div class="grid gap-3 rounded-xl border border-zinc-200 p-4 dark:border-white/10 sm:grid-cols-[minmax(0,1fr)_auto_8rem] sm:items-center">
-                        <label class="flex items-center gap-3 font-medium text-zinc-800 dark:text-zinc-100"><input type="checkbox" wire:model.live="categoryApplicability.{{ $category->id }}.selected" class="rounded border-zinc-300">{{ $category->name }}</label>
+                        <label class="flex items-center gap-3 font-medium text-zinc-800 dark:text-zinc-100"><input type="checkbox" wire:model.live="categoryApplicability.{{ $category->id }}.selected" class="rounded border-zinc-300">{{ $category->name }} @if (! $category->is_active)<flux:badge size="sm">{{ __('Archived') }}</flux:badge>@endif</label>
                         <label class="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-300"><input type="checkbox" wire:model="categoryApplicability.{{ $category->id }}.required" class="rounded border-zinc-300" @disabled(! $settings['selected'])>{{ __('Required') }}</label>
                         <flux:input type="number" min="0" max="9999" wire:model="categoryApplicability.{{ $category->id }}.sort_order" aria-label="{{ __('Display order for :category', ['category' => $category->name]) }}" :disabled="!$settings['selected']" />
                     </div>
                 @empty
-                    <div class="rounded-xl border border-dashed border-zinc-300 px-5 py-8 text-center text-sm text-zinc-500 dark:border-white/15">{{ __('No garment categories are configured yet.') }}</div>
+                    <div class="rounded-xl border border-dashed border-zinc-300 px-5 py-8 text-center text-sm text-zinc-500 dark:border-white/15">{{ __('No garment types are configured yet.') }}</div>
                 @endforelse
             </div>
         </section>
 
-        <section class="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-[#1e1f2e]">
+        <section class="rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-zinc-900">
             <div class="grid gap-2 sm:grid-flow-col sm:auto-cols-max sm:justify-end">
                 <flux:button :href="route('order-catalog.index', ['tab' => 'measurements'])" wire:navigate variant="ghost" class="w-full sm:w-auto">{{ __('Cancel') }}</flux:button>
                 <flux:button type="submit" variant="primary" icon="check" class="w-full sm:w-auto" wire:loading.attr="disabled"><span wire:loading.remove>{{ $measurementId ? __('Save Changes') : __('Create Measurement') }}</span><span wire:loading>{{ __('Saving…') }}</span></flux:button>

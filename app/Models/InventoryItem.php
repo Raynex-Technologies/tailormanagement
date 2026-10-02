@@ -17,6 +17,8 @@ class InventoryItem extends Model
 
     protected $fillable = [
         'branch_id',
+        'variant_mode',
+        'stock_identity_status',
         'inventory_category_id',
         'inventory_unit_id',
         'sku',
@@ -46,6 +48,56 @@ class InventoryItem extends Model
         'is_active',
     ];
 
+    public function save(array $options = [])
+    {
+        return \Illuminate\Support\Facades\DB::transaction(fn () => parent::save($options));
+    }
+
+    protected static function booted(): void
+    {
+        static::creating(function (self $item) {
+            $item->variant_mode ??= 'simple';
+        });
+        static::saving(function (self $item) {
+            if (! in_array($item->variant_mode ?? 'simple', ['simple', 'variants'], true)) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['variant_mode' => 'Choose simple or variants.']);
+            }
+        });
+        static::created(function (self $item) {
+            if ($item->variant_mode === 'simple') {
+                app(\App\Services\Inventory\StockUnitBackfillService::class)->createSimpleIdentity($item);
+            }
+        });
+        static::updating(function (self $item) {
+            if ($item->isDirty(['branch_id', 'variant_mode']) && $item->stockUnits()->exists()) {
+                throw \Illuminate\Validation\ValidationException::withMessages(['item' => 'Stock identity ownership/mode changes require a reviewed stock allocation transition.']);
+            }
+        });
+        static::updated(function (self $item) {
+            if ($item->variant_mode === 'simple' && $item->wasChanged(['sku', 'default_sell_price', 'default_buy_price', 'is_active'])) {
+                $unit = $item->stockUnits()->whereNull('inventory_item_variant_id')->first();
+                if ($unit) {
+                    $unit->update(['sku' => $item->sku, 'selling_price' => $item->default_sell_price, 'reference_cost' => $item->default_buy_price, 'is_active' => $item->is_active]);
+                }
+            }
+        });
+    }
+
+    public function options(): HasMany
+    {
+        return $this->hasMany(InventoryItemOption::class)->orderBy('sort_order')->orderBy('id');
+    }
+
+    public function stockUnits(): HasMany
+    {
+        return $this->hasMany(InventoryStockUnit::class);
+    }
+
+    public function simpleStockUnit(): HasOne
+    {
+        return $this->hasOne(InventoryStockUnit::class)->whereNull('inventory_item_variant_id');
+    }
+
     protected function casts(): array
     {
         return [
@@ -74,6 +126,16 @@ class InventoryItem extends Model
     public function inventoryUnit(): BelongsTo
     {
         return $this->belongsTo(InventoryUnit::class, 'inventory_unit_id');
+    }
+
+    public function physicalStocks(): HasMany
+    {
+        return $this->hasMany(InventoryStock::class)->whereHas('stockUnit', fn ($q) => $q->where('is_active', true)->where('allocation_status', 'ready'));
+    }
+
+    public function getPhysicalOnHandAttribute(): string
+    {
+        return (string) $this->physicalStocks->reduce(fn ($sum, $row) => $sum->plus($row->qty_on_hand), \Brick\Math\BigDecimal::zero());
     }
 
     public function stock(): HasOne

@@ -21,8 +21,7 @@ class CartController extends Controller
     public function __construct(
         protected CartService $cartService,
         protected StorefrontContext $storefrontContext,
-    ) {
-    }
+    ) {}
 
     public function index(Request $request)
     {
@@ -110,7 +109,7 @@ class CartController extends Controller
 
         $variant = null;
         if (! empty($payload['inventory_item_variant_id'])) {
-            $variant = InventoryItemVariant::query()
+            $variant = InventoryItemVariant::query()->where('is_active', true)
                 ->where('inventory_item_id', $item->id)
                 ->findOrFail($payload['inventory_item_variant_id']);
         }

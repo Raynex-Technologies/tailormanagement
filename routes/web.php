@@ -262,6 +262,14 @@ Route::middleware(['auth', 'verified', 'branch.context'])->group(function () {
                 ->middleware('can:measurement_fields.manage')->name('measurements.edit');
         });
 
+    Route::prefix('order-catalog/garment-types')
+        ->middleware(['module.enabled:orders', 'can:garment-options.view'])
+        ->name('order-catalog.garment-types.')
+        ->group(function () {
+            Route::get('/', \App\Livewire\GarmentOptions\CategoriesIndex::class)->name('index');
+            Route::get('/{garmentCategory}', \App\Livewire\GarmentOptions\Show::class)->name('show');
+        });
+
     // Order Board (Sales/Receptionist view)
     Route::get('order-board', OrdersBoard::class)
         ->middleware(['module.enabled:orders', 'can:orders.view'])
@@ -280,6 +288,9 @@ Route::middleware(['auth', 'verified', 'branch.context'])->group(function () {
             ->middleware('can:availability.view')
             ->name('admin.availability.index');
 
+    });
+
+    Route::prefix('admin')->middleware('module.enabled:orders')->group(function () {
         Route::get('/garment-options', \App\Livewire\GarmentOptions\OptionsIndex::class)
             ->middleware('can:garment-options.view')
             ->name('admin.garment-options.index');
@@ -414,6 +425,7 @@ Route::middleware(['auth', 'verified', 'branch.context'])->group(function () {
 
         // Items Management
         Route::get('items', ItemsIndex::class)->name('inventory.items.index');
+        Route::get('items/{item}/variations', \App\Livewire\Inventory\Items\Variations::class)->name('inventory.items.variations');
 
         // Suppliers Management
         Route::get('suppliers', InventorySuppliersIndex::class)->name('inventory.suppliers.index');
@@ -497,7 +509,7 @@ Route::middleware(['auth', 'verified', 'branch.context'])->group(function () {
             ->middleware('can:procurement.po.manage')
             ->name('procurement.pos.index');
         Route::get('/purchase-orders/{purchaseOrder}', \App\Livewire\Procurement\PurchaseOrders\Show::class)
-            ->middleware('can:procurement.po.manage')
+            ->middleware('can:view,purchaseOrder')
             ->name('procurement.pos.show');
 
         // Receiving
@@ -647,3 +659,5 @@ Route::middleware(['auth', 'can:sms-templates.view'])->group(function () {
     Route::get('/administration/whatsapp-templates/create', \App\Livewire\WhatsApp\Templates\Builder::class)->name('whatsapp-templates.create');
     Route::get('/administration/whatsapp-templates/{template}', \App\Livewire\WhatsApp\Templates\Builder::class)->whereNumber('template')->name('whatsapp-templates.edit');
 });
+
+Route::post('/webhooks/twilio/whatsapp/{webhookKey}', App\Http\Controllers\TwilioWhatsappWebhookController::class)->middleware('throttle:web')->name('webhooks.twilio-whatsapp');

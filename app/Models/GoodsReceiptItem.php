@@ -12,7 +12,13 @@ class GoodsReceiptItem extends Model
 
     protected $fillable = [
         'goods_receipt_id',
+        'purchase_order_item_id',
         'inventory_item_id',
+        'inventory_stock_unit_id',
+        'inventory_item_variant_id',
+        'variation_description',
+        'sku',
+        'item_name',
         'qty_received',
         'unit_cost',
         'line_total',
@@ -30,6 +36,11 @@ class GoodsReceiptItem extends Model
     public function goodsReceipt(): BelongsTo
     {
         return $this->belongsTo(GoodsReceipt::class);
+    }
+
+    public function stockUnit(): BelongsTo
+    {
+        return $this->belongsTo(InventoryStockUnit::class, 'inventory_stock_unit_id');
     }
 
     public function inventoryItem(): BelongsTo

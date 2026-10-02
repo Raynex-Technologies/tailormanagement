@@ -35,6 +35,13 @@ class Index extends Component
     {
         $this->authorize('viewAny', GarmentCategory::class);
         $this->categoryId = GarmentCategory::query()->orderBy('sort_order')->value('id');
+        if (request()->filled('garment_type')) {
+            $this->categoryId = GarmentCategory::query()->findOrFail(request()->integer('garment_type'))->id;
+        }
+        if (request()->filled('edit_group')) {
+            $group = GarmentOptionGroup::query()->where('garment_category_id', $this->categoryId)->findOrFail(request()->integer('edit_group'));
+            $this->editGroup($group->id);
+        }
     }
 
     public function saveGroup(): void

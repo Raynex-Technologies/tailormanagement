@@ -91,7 +91,7 @@
                         {{ number_format($line->qty, 0) }}
                     </td>
                     <td style="font-size: 15px; padding: 7px 10px; {{ $outlined ? 'border: 1.4px solid #2f3240; border-left: 0; border-right: 0;' : 'border: 0;' }}">
-                        {{ $line->item_name }}
+                        {{ $line->item_name }}@if($line->orderLine?->variation_description)<br><small>{{ $line->orderLine->variation_description }} / {{ $line->orderLine->sku }}</small>@endif
                         @if ($line->notes)
                             <div style="margin-top: 2px; font-size: 11px; color: #4b5563;">{{ $line->notes }}</div>
                         @endif

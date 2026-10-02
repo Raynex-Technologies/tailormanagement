@@ -15,6 +15,8 @@ class OrderLine extends Model
     protected $fillable = [
         'order_id',
         'inventory_item_id',
+        'inventory_stock_unit_id',
+        'variation_description',
         'inventory_item_variant_id',
         'order_catalog_item_id',
         'order_package_instance_id',
@@ -28,6 +30,21 @@ class OrderLine extends Model
         'notes',
         'meta',
     ];
+
+    protected static function booted(): void
+    {
+        static::saving(function (self $line) {
+            if ($line->exists && $line->isDirty('inventory_item_id') && ! $line->isDirty('inventory_stock_unit_id')) {
+                $line->inventory_stock_unit_id = null;
+            }
+            if ((! $line->exists || $line->isDirty('inventory_item_id')) && $line->inventory_item_id && ! $line->inventory_stock_unit_id) {
+                $item = InventoryItem::withoutBranchScope()->findOrFail($line->inventory_item_id);
+                if ($item->variant_mode === 'simple') {
+                    $line->inventory_stock_unit_id = app(\App\Services\Inventory\StockUnitResolver::class)->forItem($item)->id;
+                }
+            }
+        });
+    }
 
     protected function casts(): array
     {
@@ -83,5 +100,10 @@ class OrderLine extends Model
     public function sourcePackageComponent(): BelongsTo
     {
         return $this->belongsTo(OrderPackageTemplateItem::class, 'order_package_template_item_id');
+    }
+
+    public function stockUnit(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(InventoryStockUnit::class, 'inventory_stock_unit_id');
     }
 }

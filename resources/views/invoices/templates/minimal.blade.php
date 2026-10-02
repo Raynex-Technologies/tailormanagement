@@ -35,7 +35,7 @@
                 <tr>
                     <td style="border: 0; border-bottom: 1px solid #d6c4a9; text-align: center;">{{ $loop->iteration }}</td>
                     <td style="border: 0; border-bottom: 1px solid #d6c4a9;">
-                        {{ $line->item_name }}
+                        {{ $line->item_name }}@if($line->orderLine?->variation_description)<br><small>{{ $line->orderLine->variation_description }} / {{ $line->orderLine->sku }}</small>@endif
                         @if ($line->notes)
                             <div style="margin-top: 2px; font-size: 11px; color: #6a4f3e;">{{ $line->notes }}</div>
                         @endif

@@ -1,8 +1,8 @@
 <?php
 
 namespace App\Models;
-use App\Services\Media\ImageUploadService;
 
+use App\Services\Media\ImageUploadService;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -30,6 +30,11 @@ class GarmentCategory extends Model
     public function optionGroups(): HasMany
     {
         return $this->hasMany(GarmentOptionGroup::class);
+    }
+
+    public function catalogItems(): HasMany
+    {
+        return $this->hasMany(OrderCatalogItem::class)->where('type', 'garment');
     }
 
     public function fabrics(): BelongsToMany

@@ -14,6 +14,7 @@ class InventoryStock extends Model
     protected $fillable = [
         'branch_id',
         'inventory_item_id',
+        'inventory_stock_unit_id',
         'qty_on_hand',
         'qty_reserved',
     ];
@@ -37,5 +38,10 @@ class InventoryStock extends Model
     public function getAvailableAttribute(): float
     {
         return $this->qty_on_hand - $this->qty_reserved;
+    }
+
+    public function stockUnit(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(InventoryStockUnit::class, 'inventory_stock_unit_id');
     }
 }

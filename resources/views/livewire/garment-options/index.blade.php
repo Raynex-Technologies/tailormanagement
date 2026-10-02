@@ -15,11 +15,14 @@
         </div>
     </flux:card>
 
+    <x-orders.catalog-navigation active="customization" />
+    @if ($categoryId)<flux:button variant="ghost" :href="route('order-catalog.garment-types.show', ['garmentCategory' => $categoryId, 'tab' => 'customization'])" wire:navigate icon="arrow-left">{{ __('Back to Garment Type') }}</flux:button>@endif
     <div class="grid gap-6 xl:grid-cols-3">
+        @can('garment-options.manage')
         <flux:card>
             <flux:heading size="lg">{{ $groupId ? __('Edit Section') : __('New Customization Section') }}</flux:heading>
             <form wire:submit="saveGroup" class="mt-4 space-y-4">
-                <flux:select wire:model.live="categoryId">
+                <flux:select wire:model.live="categoryId" :label="__('Garment Type')">
                     @foreach ($categories as $category)
                         <flux:select.option value="{{ $category->id }}">{{ $category->name }}</flux:select.option>
                     @endforeach
@@ -41,6 +44,7 @@
                 </div>
             </form>
         </flux:card>
+        @endcan
 
         <flux:card class="xl:col-span-2">
             <div class="space-y-4">
@@ -51,22 +55,23 @@
                                 <div class="font-semibold">{{ $group->name }}</div>
                                 <div class="text-sm text-zinc-500">{{ str($group->input_type)->replace('_', ' ')->headline() }} · {{ $group->is_required ? __('Required') : __('Optional') }}</div>
                             </div>
-                            <flux:button size="xs" variant="ghost" wire:click="editGroup({{ $group->id }})">{{ __('Edit') }}</flux:button>
+                            @can('garment-options.manage')<flux:button size="xs" variant="ghost" wire:click="editGroup({{ $group->id }})">{{ __('Edit') }}</flux:button>@endcan
                         </div>
                         <div class="mt-3 flex flex-wrap gap-2">
                             @foreach ($group->options as $option)
-                                <button type="button" wire:click="toggleOption({{ $option->id }})" class="rounded-full border px-3 py-1 text-xs {{ $option->is_active ? 'border-lime-300 bg-lime-50 text-lime-800 dark:border-lime-800 dark:bg-lime-950/30 dark:text-lime-200' : 'border-zinc-200 bg-zinc-50 text-zinc-500 dark:border-zinc-700 dark:bg-zinc-800' }}">
+                                <button type="button" @can('garment-options.manage') wire:click="toggleOption({{ $option->id }})" @else disabled @endcan class="rounded-full border px-3 py-1 text-xs {{ $option->is_active ? 'border-green-300 bg-green-50 text-green-800 dark:border-green-800 dark:bg-green-950/30 dark:text-green-200' : 'border-zinc-200 bg-zinc-50 text-zinc-500 dark:border-zinc-700 dark:bg-zinc-800' }}">
                                     {{ $option->label }}
                                 </button>
                             @endforeach
                         </div>
-                        <div class="mt-3 flex gap-2">
+                        @can('garment-options.manage')<div class="mt-3 flex gap-2">
                             <flux:input wire:model="optionLabel" placeholder="{{ __('New option label') }}" />
                             <flux:button type="button" wire:click="addOption({{ $group->id }})">{{ __('Add') }}</flux:button>
                         </div>
+                        @endcan
                     </div>
                 @empty
-                    <div class="py-12 text-center text-zinc-500">{{ __('No customization sections for this category yet.') }}</div>
+                    <div class="py-12 text-center text-zinc-500">{{ __('No customization sections for this garment type yet.') }}</div>
                 @endforelse
             </div>
         </flux:card>

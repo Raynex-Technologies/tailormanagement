@@ -14,6 +14,11 @@ class OrderStockRequestItem extends Model
     protected $fillable = [
         'order_stock_request_id',
         'inventory_item_id',
+        'inventory_stock_unit_id',
+        'inventory_item_variant_id',
+        'variation_description',
+        'sku',
+        'item_name',
         'qty_requested',
         'qty_approved',
         'qty_issued',
@@ -36,6 +41,27 @@ class OrderStockRequestItem extends Model
     public function stockRequest(): BelongsTo
     {
         return $this->belongsTo(OrderStockRequest::class, 'order_stock_request_id');
+    }
+
+    public function getSelectionWarningAttribute(): ?string
+    {
+        if ($this->inventory_stock_unit_id) {
+            return $this->stockUnit && app(\App\Services\Inventory\StockUnitResolver::class)->isSellable($this->stockUnit) ? null : 'Requires attention';
+        }
+
+        return $this->inventoryItem?->variant_mode === 'variants' ? 'Requires attention: historical selection needs review' : null;
+    }
+
+    public function getAvailableStockAttribute(): string
+    {
+        $stock = $this->inventory_stock_unit_id ? $this->stockUnit?->stock : ($this->inventoryItem?->variant_mode === 'simple' ? $this->inventoryItem?->stock : null);
+
+        return (string) \Brick\Math\BigDecimal::of($stock?->qty_on_hand ?? 0)->minus($stock?->qty_reserved ?? 0);
+    }
+
+    public function stockUnit(): BelongsTo
+    {
+        return $this->belongsTo(InventoryStockUnit::class, 'inventory_stock_unit_id');
     }
 
     public function inventoryItem(): BelongsTo

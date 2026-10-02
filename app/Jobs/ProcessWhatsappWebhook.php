@@ -46,7 +46,7 @@ class ProcessWhatsappWebhook implements ShouldQueue
                         $this->inbound($integration, $incoming, $phones);
                     }
                     foreach ($value['statuses'] ?? [] as $status) {
-                        $this->status($integration, $status, $lifecycle);
+                        $this->status($integration, $status, $lifecycle, $event->event_type === 'twilio');
                     }
                 }
             }
@@ -97,10 +97,10 @@ class ProcessWhatsappWebhook implements ShouldQueue
         $contact = WhatsappContact::withoutGlobalScopes()->firstOrCreate(['whatsapp_integration_id' => $integration->id, 'phone' => $phone], ['branch_id' => $integration->branch_id]);
         $contact->update(['customer_id' => $customer?->id ?: $contact->customer_id, 'last_customer_message_at' => $at]);
         $type = (string) ($incoming['type'] ?? 'unknown');
-        WhatsappMessage::withoutGlobalScopes()->create(['branch_id' => $integration->branch_id, 'whatsapp_integration_id' => $integration->id, 'whatsapp_contact_id' => $contact->id, 'customer_id' => $customer?->id, 'external_message_id' => $external, 'direction' => 'inbound', 'message_type' => $type, 'phone' => $phone, 'body' => $type === 'text' ? data_get($incoming, 'text.body') : null, 'status' => 'delivered', 'delivered_at' => $at, 'meta_timestamp' => $at, 'safe_metadata' => $type === 'text' ? null : ['type' => $type]]);
+        WhatsappMessage::withoutGlobalScopes()->create(['branch_id' => $integration->branch_id, 'whatsapp_integration_id' => $integration->id, 'whatsapp_contact_id' => $contact->id, 'customer_id' => $customer?->id, 'external_message_id' => $external, 'direction' => 'inbound', 'message_type' => $type, 'phone' => $phone, 'body' => $type === 'text' ? data_get($incoming, 'text.body') : null, 'status' => 'delivered', 'delivered_at' => $at, 'meta_timestamp' => $at, 'safe_metadata' => isset($incoming['twilio_account_sid']) ? ['provider' => 'twilio', 'twilio_account_sid' => $incoming['twilio_account_sid'], 'twilio_from' => $incoming['twilio_from'], 'type' => $type] : ($type === 'text' ? null : ['type' => $type])]);
     }
 
-    protected function status($integration, array $status, WhatsappMessageLifecycle $lifecycle): void
+    protected function status($integration, array $status, WhatsappMessageLifecycle $lifecycle, bool $twilio = false): void
     {
         $id = (string) ($status['id'] ?? '');
         $state = (string) ($status['status'] ?? '');
@@ -108,10 +108,14 @@ class ProcessWhatsappWebhook implements ShouldQueue
             return;
         } $message = WhatsappMessage::withoutGlobalScopes()->where('whatsapp_integration_id', $integration->id)->where('external_message_id', $id)->first();
         if (! $message) {
+            if ($twilio) {
+                throw new \RuntimeException('Twilio status arrived before its outgoing message was recorded.');
+            }
+
             return;
         } $at = CarbonImmutable::createFromTimestampUTC((int) ($status['timestamp'] ?? now()->timestamp));
         $error = $status['errors'][0] ?? [];
-        $lifecycle->apply($message, $state, $at, isset($error['code']) ? (string) $error['code'] : null, $state === 'failed' ? $this->safeFailure($error) : null);
+        $lifecycle->apply($message, $state, $at, isset($error['code']) ? (string) $error['code'] : null, $state === 'failed' ? ($twilio ? 'Twilio reported that the message failed.' : $this->safeFailure($error)) : null);
     }
 
     protected function safeFailure(array $error): string

@@ -121,6 +121,9 @@ class OrderCatalogAdministrationService
             'components' => $template->items->map(fn ($item) => [
                 'catalog' => $item->order_catalog_item_id,
                 'inventory' => $item->inventory_item_id,
+                'variation_selection' => $item->variation_selection,
+                'stock_unit' => $item->inventory_stock_unit_id,
+                'variant' => $item->inventory_item_variant_id,
                 'minimum' => (string) $item->minimum_quantity,
                 'default' => (string) $item->default_quantity,
                 'maximum' => $item->maximum_quantity === null ? null : (string) $item->maximum_quantity,

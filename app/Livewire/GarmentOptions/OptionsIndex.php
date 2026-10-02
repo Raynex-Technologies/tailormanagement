@@ -44,6 +44,14 @@ class OptionsIndex extends Component
     public function mount(): void
     {
         $this->authorize('viewAny', GarmentCategory::class);
+        if (request()->filled('garment_type')) {
+            $this->categoryId = GarmentCategory::query()->findOrFail(request()->integer('garment_type'))->id;
+        }
+        if (request()->filled('group')) {
+            $this->groupFilter = GarmentOptionGroup::query()
+                ->when($this->categoryId, fn ($query) => $query->where('garment_category_id', $this->categoryId))
+                ->findOrFail(request()->integer('group'))->id;
+        }
     }
 
     public function updatedCategoryId(): void

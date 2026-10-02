@@ -27,6 +27,13 @@ class PosTerminal extends Component
 
     public string $itemSearch = '';
 
+    public bool $showVariationModal = false;
+
+    #[\Livewire\Attributes\Locked]
+    public ?int $variationItemId = null;
+
+    public array $variationChoices = [];
+
     public string $customerSearch = '';
 
     public ?int $customerId = null;
@@ -84,54 +91,106 @@ class PosTerminal extends Component
         $this->syncAmountPaidToTotal();
     }
 
-    public function addFirstSearchMatch(): void
+    public function addFirstSearchMatch(?string $scan = null): void
     {
-        $item = $this->searchItemsQuery()->first();
-
-        if (! $item) {
-            $this->addError('itemSearch', 'No matching in-stock item was found.');
+        $this->authorize('pos.sell');
+        if ($scan !== null) {
+            $this->itemSearch = $scan;
+        }
+        $resolver = app(\App\Services\Inventory\StockUnitResolver::class);
+        $unit = $resolver->byBarcode($this->itemSearch) ?? $resolver->bySku($this->itemSearch);
+        if ($unit) {
+            $this->addStockUnit($unit->id);
+            $this->itemSearch = '';
+            $this->dispatch('pos-scan-ready');
 
             return;
         }
-
-        $this->addItem($item->id);
-        $this->itemSearch = '';
+        // Known but unavailable identities must not fall through to a different product.
+        $known = \App\Models\InventoryStockUnit::where('sku', $this->itemSearch)->exists() || \App\Models\InventoryStockUnitBarcode::where('barcode', $this->itemSearch)->exists();
+        $this->addError('itemSearch', $known ? 'This exact SKU or barcode is unavailable in this branch. No item was added.' : 'No exact barcode or SKU match. Choose a product from the search results.');
     }
 
     public function addItem(int $itemId): void
     {
         $this->authorize('pos.sell');
-
-        $item = InventoryItem::query()->with('stock')->whereKey($itemId)->where('is_active', true)->firstOrFail();
-        $available = $this->availableStock($item);
-
-        if ($available <= 0) {
-            $this->addError('cart', "{$item->name} is out of stock.");
-
-            return;
-        }
-
-        if (isset($this->cart[$item->id])) {
-            $this->increaseQty($item->id);
+        $item = InventoryItem::query()->whereKey($itemId)->where('branch_id', BranchContext::getEffectiveBranchId())->where('is_active', true)->firstOrFail();
+        if ($item->variant_mode === 'variants') {
+            $this->variationItemId = $item->id;
+            $this->variationChoices = [];
+            $this->showVariationModal = true;
+            $this->resetErrorBag();
 
             return;
         }
+        $this->addStockUnit(app(\App\Services\Inventory\StockUnitResolver::class)->forItem($item)->id);
+    }
 
-        $this->cart[$item->id] = [
-            'id' => $item->id,
-            'sku' => $item->sku,
-            'name' => $item->name,
-            'price' => (float) ($item->default_sell_price ?? 0),
-            'quantity' => 1,
-            'stock' => $available,
-            'discount_amount' => 0,
-        ];
+    public function chooseVariationValue(int $optionId, int $valueId): void
+    {
+        $this->authorize('pos.sell');
+        $item = $this->variationProduct();
+        $item->options()->findOrFail($optionId)->values()->findOrFail($valueId);
+        // Later choices are deliberately cleared when an earlier choice changes.
+        $keep = true;
+        foreach ($item->options as $option) {
+            if ($option->id === $optionId) {
+                $keep = false;
+            } if (! $keep) {
+                unset($this->variationChoices['option_'.$option->id]);
+            }
+        }
+        $this->variationChoices['option_'.$optionId] = $valueId;
+    }
 
+    protected function variationProduct(): InventoryItem
+    {
+        return InventoryItem::query()->where('branch_id', BranchContext::getEffectiveBranchId())->where('variant_mode', 'variants')->where('is_active', true)->with(['options.values', 'variants.selectedValues.option', 'variants.stockUnit.stock'])->findOrFail($this->variationItemId);
+    }
+
+    public function addSelectedVariation(): void
+    {
+        $item = $this->variationProduct();
+        $ids = array_map('intval', array_values($this->variationChoices));
+        sort($ids);
+        $matches = $item->variants->filter(function ($v) use ($ids) {
+            $selected = $v->selectedValues->pluck('id')->sort()->values()->all();
+
+            return $ids === $selected;
+        });
+        if ($matches->count() !== 1 || ! $ids) {
+            $this->addError('cart', 'Choose an exact offered variation.');
+
+            return;
+        }
+        $this->addStockUnit($matches->first()->stockUnit->id);
+    }
+
+    public function addStockUnit(int $unitId): void
+    {
+        $this->authorize('pos.sell');
+        $unit = \App\Models\InventoryStockUnit::with(['item', 'variant.selectedValues.option', 'stock'])->findOrFail($unitId);
+        if (! app(\App\Services\Inventory\StockUnitResolver::class)->isSellable($unit) || (int) $unit->item->branch_id !== (int) BranchContext::getEffectiveBranchId() || $unit->selling_price === null) {
+            $this->addError('cart', 'This product or variation is unavailable or needs pricing.');
+
+            return;
+        }
+        $available = max(0, (float) (($unit->stock?->qty_on_hand ?? 0) - ($unit->stock?->qty_reserved ?? 0)));
+        $key = 'unit_'.$unit->id;
+        $quantity = ($this->cart[$key]['quantity'] ?? 0) + 1;
+        if ($quantity > $available) {
+            $this->addError('cart', 'This variation no longer has enough stock available.');
+
+            return;
+        }
+        $this->cart[$key] = ['id' => $unit->id, 'inventory_item_id' => $unit->inventory_item_id, 'inventory_stock_unit_id' => $unit->id, 'sku' => $unit->sku, 'name' => $unit->item->name, 'variation' => $unit->variant?->display_name, 'price' => (float) $unit->selling_price, 'quantity' => $quantity, 'stock' => $available, 'discount_amount' => $this->cart[$key]['discount_amount'] ?? 0];
+        $this->showVariationModal = false;
         $this->syncAmountPaidToTotal();
     }
 
     public function increaseQty(int $itemId): void
     {
+        $itemId = 'unit_'.$itemId;
         if (! isset($this->cart[$itemId])) {
             return;
         }
@@ -148,6 +207,7 @@ class PosTerminal extends Component
 
     public function decreaseQty(int $itemId): void
     {
+        $itemId = 'unit_'.$itemId;
         if (! isset($this->cart[$itemId])) {
             return;
         }
@@ -158,6 +218,7 @@ class PosTerminal extends Component
 
     public function updateQty(int $itemId, mixed $quantity): void
     {
+        $itemId = 'unit_'.$itemId;
         if (! isset($this->cart[$itemId])) {
             return;
         }
@@ -181,6 +242,7 @@ class PosTerminal extends Component
 
     public function removeItem(int $itemId): void
     {
+        $itemId = 'unit_'.$itemId;
         unset($this->cart[$itemId]);
         $this->syncAmountPaidToTotal();
     }
@@ -266,7 +328,9 @@ class PosTerminal extends Component
         try {
             $sale = $service->complete(
                 cart: collect($this->cart)->map(fn ($line) => [
-                    'inventory_item_id' => $line['id'],
+                    'inventory_item_id' => $line['inventory_item_id'],
+                    'inventory_stock_unit_id' => $line['inventory_stock_unit_id'],
+                    'expected_price' => $line['price'],
                     'quantity' => $line['quantity'],
                     'discount_amount' => $line['discount_amount'] ?? 0,
                 ])->values()->all(),
@@ -330,6 +394,7 @@ class PosTerminal extends Component
 
         return view('livewire.pos.pos-terminal', [
             'items' => $items,
+            'variationProduct' => $this->showVariationModal ? $this->variationProduct() : null,
             'customers' => $customers,
             'completedSale' => $this->completedSale(),
             'businessSettings' => BusinessSetting::instance(),
@@ -340,11 +405,17 @@ class PosTerminal extends Component
     protected function searchItemsQuery()
     {
         return InventoryItem::query()
-            ->with(['category', 'stock'])
-            ->where('is_active', true)
+            ->with(['category'])
+            ->withSum(['physicalStocks as pos_on_hand'], 'qty_on_hand')
+            ->withSum(['physicalStocks as pos_reserved'], 'qty_reserved')
+            ->withMin(['stockUnits as pos_min_price' => fn ($q) => $q->where('is_active', true)->where('allocation_status', 'ready')], 'selling_price')
+            ->withMax(['stockUnits as pos_max_price' => fn ($q) => $q->where('is_active', true)->where('allocation_status', 'ready')], 'selling_price')
+            ->withCount(['stockUnits as pos_variation_count' => fn ($q) => $q->whereNotNull('inventory_item_variant_id')->where('is_active', true)->where('allocation_status', 'ready')])
+            ->where('branch_id', BranchContext::getEffectiveBranchId())->where('is_active', true)
             ->when($this->itemSearch, fn ($query) => $query->where(function ($q) {
                 $q->where('name', 'like', "%{$this->itemSearch}%")
                     ->orWhere('sku', 'like', "%{$this->itemSearch}%")
+                    ->orWhereHas('variants', fn ($v) => $v->where('sku', 'like', "%{$this->itemSearch}%")->orWhere('name', 'like', "%{$this->itemSearch}%")->orWhereHas('selectedValues', fn ($values) => $values->where('name', 'like', "%{$this->itemSearch}%")))
                     ->orWhereHas('category', fn ($category) => $category->where('name', 'like', "%{$this->itemSearch}%"));
             }))
             ->orderBy('name');

@@ -12,13 +12,19 @@ use Livewire\Component;
 #[Layout('layouts.app.sidebar')]
 class Index extends Component
 {
+    use \App\Livewire\Concerns\SelectsOrderInventory;
+
     public Order $order;
 
     // New request modal
     public bool $showNewRequestModal = false;
+
     public array $requestItems = [];
+
     public string $requestNote = '';
+
     public string $itemSearch = '';
+
     public ?int $activeSearchIndex = null;
 
     // View request detail
@@ -71,13 +77,31 @@ class Index extends Component
 
     public function selectItem(int $index, int $itemId): void
     {
-        $item = InventoryItem::find($itemId);
-        if ($item) {
-            $this->requestItems[$index]['inventory_item_id'] = $item->id;
-            $this->requestItems[$index]['inventory_item_name'] = $item->name;
-            $this->activeSearchIndex = null;
-            $this->itemSearch = '';
-        }
+        abort_unless(isset($this->requestItems[$index]), 422);
+        $this->beginInventorySelection($itemId, (string) $index);
+    }
+
+    protected function authorizeInventorySelection(): void
+    {
+        $this->authorize('create', [OrderStockRequest::class, $this->order]);
+    }
+
+    protected function inventorySelectionBranch(): int
+    {
+        return $this->order->branch_id;
+    }
+
+    protected function inventorySelectionResolver(): \App\Services\Inventory\InventorySelectionService
+    {
+        return app(\App\Services\Inventory\InventorySelectionService::class);
+    }
+
+    protected function acceptInventoryUnit(\App\Models\InventoryStockUnit $unit, string $target): void
+    {
+        abort_unless(isset($this->requestItems[(int) $target]), 422);
+        $this->requestItems[(int) $target] = array_replace($this->requestItems[(int) $target], $this->inventorySelectionResolver()->snapshot($unit), ['inventory_item_name' => $unit->item->name]);
+        $this->activeSearchIndex = null;
+        $this->itemSearch = '';
     }
 
     /**
@@ -96,6 +120,10 @@ class Index extends Component
     {
         $this->requestItems[$index]['inventory_item_id'] = null;
         $this->requestItems[$index]['inventory_item_name'] = '';
+        $this->requestItems[$index]['inventory_stock_unit_id'] = null;
+        $this->requestItems[$index]['inventory_item_variant_id'] = null;
+        $this->requestItems[$index]['variation_description'] = null;
+        $this->requestItems[$index]['sku'] = null;
     }
 
     public function createRequest(StockRequestService $service): void
@@ -107,6 +135,8 @@ class Index extends Component
             ->filter(fn ($item) => ! empty($item['inventory_item_id']) && $item['qty_requested'] > 0)
             ->map(fn ($item) => [
                 'inventory_item_id' => $item['inventory_item_id'],
+                'inventory_stock_unit_id' => $item['inventory_stock_unit_id'] ?? null,
+                'inventory_item_variant_id' => $item['inventory_item_variant_id'] ?? null,
                 'qty_requested' => $item['qty_requested'],
                 'note' => $item['note'] ?? null,
             ])
@@ -151,7 +181,7 @@ class Index extends Component
         // Get stock requests for this order
         $requests = OrderStockRequest::query()
             ->where('order_id', $this->order->id)
-            ->with(['items.inventoryItem.stock', 'requester', 'handler'])
+            ->with(['items.inventoryItem.stock', 'items.stockUnit.stock', 'requester', 'handler'])
             ->latest()
             ->get();
 
@@ -160,26 +190,17 @@ class Index extends Component
         if ($this->showNewRequestModal && $this->activeSearchIndex !== null) {
             $query = InventoryItem::query()
                 ->where('is_active', true)
-                ->with('stock');
+                ->where('branch_id', $this->order->branch_id)
+                ->withSum('physicalStocks as aggregate_stock', 'qty_on_hand');
 
             // Filter by search term if the user has typed something
             if (strlen($this->itemSearch) >= 1) {
                 $search = $this->itemSearch;
                 $query->where(function ($q) use ($search) {
                     $q->where('name', 'like', "%{$search}%")
-                      ->orWhere('sku', 'like', "%{$search}%");
+                        ->orWhere('sku', 'like', "%{$search}%")
+                        ->orWhereHas('variants', fn ($v) => $v->where('sku', 'like', "%{$search}%")->orWhereHas('selectedValues', fn ($value) => $value->where('name', 'like', "%{$search}%")));
                 });
-            }
-
-            // Exclude items already selected in other rows
-            $selectedIds = collect($this->requestItems)
-                ->pluck('inventory_item_id')
-                ->filter()
-                ->values()
-                ->toArray();
-
-            if (! empty($selectedIds)) {
-                $query->whereNotIn('id', $selectedIds);
             }
 
             $inventoryItems = $query->orderBy('name')->limit(20)->get();

@@ -174,6 +174,7 @@ class PosTerminalTest extends TestCase
     public function test_new_customer_can_be_created_from_pos_flow(): void
     {
         $user = $this->actingAsRole('sales', $this->branch);
+        $user->givePermissionTo('customers.create');
 
         Livewire::actingAs($user)
             ->test(PosTerminal::class)

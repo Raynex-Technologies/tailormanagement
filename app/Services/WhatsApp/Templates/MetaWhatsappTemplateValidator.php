@@ -59,7 +59,7 @@ class MetaWhatsappTemplateValidator
             $add($errors, "components.$component.text", 'braces', 'Fix unmatched or malformed variable braces.');
         }$numbers = array_map('intval', $m[1]);
         $unique = array_values(array_unique($numbers));
-        if ($unique && $unique !== range(1, max($unique))) {
+        if ($unique && $unique !== range(1, count($unique))) {
             $add($errors, "components.$component.text", 'variable_sequence', 'Variables must be sequential starting at {{1}}.');
         }foreach ($unique as $n) {
             if (blank($examples[(string) $n] ?? $examples[$n] ?? null)) {

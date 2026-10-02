@@ -6,7 +6,9 @@ use App\Models\GarmentCategory;
 use App\Services\Media\ImageUploadService;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Livewire\Attributes\Layout;
+use Livewire\Attributes\Locked;
 use Livewire\Component;
 use Livewire\WithFileUploads;
 
@@ -20,7 +22,10 @@ class CategoriesIndex extends Component
 
     public string $status = 'active';
 
+    #[Locked]
     public ?int $categoryId = null;
+
+    public string $slug = '';
 
     public string $name = '';
 
@@ -70,7 +75,9 @@ class CategoriesIndex extends Component
         $this->authorize('manage', GarmentCategory::class);
         abort_if($this->readOnly, 403);
 
+        $this->slug = Str::slug($this->name);
         $validated = $this->validate([
+            'slug' => ['required', 'max:255', Rule::unique('garment_categories', 'slug')->ignore($this->categoryId)],
             'name' => ['required', 'string', 'max:191'],
             'description' => ['nullable', 'string', 'max:1000'],
             'genderScope' => ['nullable', 'in:male,female,unisex,children'],
@@ -95,7 +102,7 @@ class CategoriesIndex extends Component
 
         $category->fill([
             'name' => trim($validated['name']),
-            'slug' => Str::slug($validated['name']),
+            'slug' => $validated['slug'],
             'description' => filled($validated['description']) ? trim($validated['description']) : null,
             'gender_scope' => filled($validated['genderScope']) ? $validated['genderScope'] : null,
             'image_path' => $imagePath,
@@ -104,8 +111,9 @@ class CategoriesIndex extends Component
             'is_active' => $validated['isActive'],
         ])->save();
 
-        session()->flash('success', $this->categoryId ? __('Garment category updated.') : __('Garment category created.'));
+        session()->flash('success', $this->categoryId ? __('Garment type updated.') : __('Garment type created.'));
         $this->closePanel();
+        $this->redirectRoute('order-catalog.garment-types.show', $category, navigate: true);
     }
 
     public function toggleActive(int $id): void
@@ -113,7 +121,7 @@ class CategoriesIndex extends Component
         $this->authorize('manage', GarmentCategory::class);
         $category = GarmentCategory::query()->findOrFail($id);
         $category->update(['is_active' => ! $category->is_active]);
-        session()->flash('success', $category->is_active ? __('Garment category activated.') : __('Garment category archived.'));
+        session()->flash('success', $category->is_active ? __('Garment type activated.') : __('Garment type archived.'));
     }
 
     public function closePanel(): void
@@ -125,7 +133,8 @@ class CategoriesIndex extends Component
     {
         return view('livewire.garment-options.categories-index', [
             'categories' => GarmentCategory::query()
-                ->withCount(['optionGroups', 'fabrics'])
+                ->withCount(['optionGroups', 'measurementFields'])
+                ->withCount(['catalogItems' => fn ($query) => $query->when(! auth()->user()->isGlobalAdmin(), fn ($items) => $items->availableForBranch((int) auth()->user()->branch_id))])
                 ->when($this->search !== '', fn ($query) => $query->where(function ($search) {
                     $search->where('name', 'like', '%'.$this->search.'%')
                         ->orWhere('description', 'like', '%'.$this->search.'%');
@@ -135,7 +144,7 @@ class CategoriesIndex extends Component
                 ->orderBy('sort_order')
                 ->orderBy('name')
                 ->get(),
-        ])->title(__('Garment Categories'));
+        ])->title(__('Garment Types'));
     }
 
     private function loadCategory(int $id, bool $readOnly): void

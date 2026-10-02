@@ -2,13 +2,13 @@
 
 namespace App\Reports;
 
+use App\Enums\InventoryTransactionType;
 use App\Models\InventoryItem;
 use App\Models\InventoryStock;
 use App\Models\InventoryTransaction;
 use App\Support\BranchContext;
 use Carbon\Carbon;
 use Illuminate\Contracts\Pagination\LengthAwarePaginator;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
 class InventoryReport
@@ -62,8 +62,8 @@ class InventoryReport
             ->count();
 
         // Movement summary for the date range
-        $received = $this->getTransactionTotal('receive');
-        $issued = $this->getTransactionTotal('issue');
+        $received = $this->getTransactionTotal(InventoryTransactionType::Receive->value);
+        $issued = $this->getTransactionTotal(InventoryTransactionType::Issue->value);
 
         return [
             'total_items' => $totalItems,
@@ -116,18 +116,17 @@ class InventoryReport
      */
     public function movementSummary(int $perPage = 15): LengthAwarePaginator
     {
-        $branchId = BranchContext::id();
-
-        $query = InventoryItem::query()
-            ->select([
-                'inventory_items.id',
-                'inventory_items.sku',
-                'inventory_items.name',
-                DB::raw("(SELECT COALESCE(SUM(qty), 0) FROM inventory_transactions WHERE inventory_transactions.inventory_item_id = inventory_items.id AND inventory_transactions.type = 'receive' AND inventory_transactions.created_at >= '{$this->dateFrom}' AND inventory_transactions.created_at <= '{$this->dateTo} 23:59:59') as received_qty"),
-                DB::raw("(SELECT COALESCE(SUM(qty), 0) FROM inventory_transactions WHERE inventory_transactions.inventory_item_id = inventory_items.id AND inventory_transactions.type = 'issue' AND inventory_transactions.created_at >= '{$this->dateFrom}' AND inventory_transactions.created_at <= '{$this->dateTo} 23:59:59') as issued_qty"),
-                DB::raw("(SELECT COALESCE(SUM(CASE WHEN type = 'adjustment' THEN qty ELSE 0 END), 0) FROM inventory_transactions WHERE inventory_transactions.inventory_item_id = inventory_items.id AND inventory_transactions.created_at >= '{$this->dateFrom}' AND inventory_transactions.created_at <= '{$this->dateTo} 23:59:59') as adjusted_qty"),
-                DB::raw("(SELECT MAX(created_at) FROM inventory_transactions WHERE inventory_transactions.inventory_item_id = inventory_items.id) as last_movement_at"),
-            ]);
+        $query = InventoryItem::query()->select(['inventory_items.id', 'inventory_items.sku', 'inventory_items.name']);
+        foreach (['received_qty' => InventoryTransactionType::Receive, 'issued_qty' => InventoryTransactionType::Issue, 'adjusted_qty' => InventoryTransactionType::Adjust] as $alias => $type) {
+            $query->selectSub(DB::table('inventory_transactions')
+                ->selectRaw('COALESCE(SUM(qty), 0)')
+                ->whereColumn('inventory_item_id', 'inventory_items.id')
+                ->where('type', $type->value)
+                ->where('created_at', '>=', $this->dateFrom)
+                ->where('created_at', '<=', $this->dateTo.' 23:59:59'), $alias);
+        }
+        $query->selectSub(DB::table('inventory_transactions')->selectRaw('MAX(created_at)')
+            ->whereColumn('inventory_item_id', 'inventory_items.id'), 'last_movement_at');
 
         // Category filter
         if ($this->categoryId) {

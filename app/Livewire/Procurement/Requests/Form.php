@@ -16,6 +16,7 @@ use Livewire\Component;
 #[Layout('layouts.app.sidebar')]
 class Form extends Component
 {
+    use \App\Livewire\Concerns\SelectsOrderInventory;
     use AuthorizesRequests;
     use NormalizesMoneyInputs;
 
@@ -84,7 +85,10 @@ class Form extends Component
                     'id' => $item->id,
                     'inventory_item_id' => $item->inventory_item_id,
                     'item_name' => $item->item_name,
-                    'sku' => $item->inventoryItem?->sku,
+                    'sku' => $item->sku ?? $item->inventoryItem?->sku,
+                    'inventory_stock_unit_id' => $item->inventory_stock_unit_id,
+                    'inventory_item_variant_id' => $item->inventory_item_variant_id,
+                    'variation_description' => $item->variation_description,
                     'qty' => $item->qty,
                     'unit_price_est' => $item->unit_price_est,
                     'current_stock' => $item->inventoryItem?->stock?->qty_on_hand ?? 0,
@@ -203,9 +207,10 @@ class Form extends Component
             ->where('is_active', true)
             ->where(function ($query) use ($searchTerm) {
                 $query->where('name', 'like', "%{$searchTerm}%")
-                    ->orWhere('sku', 'like', "%{$searchTerm}%");
+                    ->orWhere('sku', 'like', "%{$searchTerm}%")
+                    ->orWhereHas('variants', fn ($v) => $v->where('sku', 'like', "%{$searchTerm}%")->orWhereHas('selectedValues', fn ($value) => $value->where('name', 'like', "%{$searchTerm}%")));
             })
-            ->with('stock')
+            ->withSum('physicalStocks as aggregate_stock', 'qty_on_hand')
             ->orderBy('name')
             ->limit(10)
             ->get()
@@ -216,7 +221,8 @@ class Form extends Component
                     'sku' => $item->sku,
                     'unit' => $item->unit,
                     'default_buy_price' => $item->default_buy_price ?? 0,
-                    'current_stock' => $item->stock?->qty_on_hand ?? 0,
+                    'current_stock' => $item->aggregate_stock ?? 0,
+                    'has_variations' => $item->variant_mode === 'variants',
                     'reorder_level' => $item->reorder_level ?? 0,
                 ];
             })
@@ -230,42 +236,32 @@ class Form extends Component
      */
     public function selectProduct(int $inventoryItemId): void
     {
-        $this->branchChangeMessage = null;
+        $this->beginInventorySelection($inventoryItemId);
+    }
 
-        $branchId = $this->getSearchBranchId();
+    protected function authorizeInventorySelection(): void
+    {
+        $this->purchaseRequest ? $this->authorize('update', $this->purchaseRequest) : $this->authorize('create', PurchaseRequest::class);
+    }
 
-        $invItem = InventoryItem::withoutGlobalScope(BranchScope::class)
-            ->where('branch_id', $branchId)
-            ->where('id', $inventoryItemId)
-            ->with('stock')
-            ->first();
+    protected function inventorySelectionBranch(): int
+    {
+        return $this->getSearchBranchId() ?? abort(422);
+    }
 
-        if (! $invItem) {
-            return;
-        }
+    protected function inventorySelectionResolver(): \App\Services\Inventory\InventorySelectionService
+    {
+        return app(\App\Services\Inventory\InventorySelectionService::class);
+    }
 
-        // Check if item is already in the list
-        $existingIndex = collect($this->items)->search(function ($item) use ($inventoryItemId) {
-            return $item['inventory_item_id'] === $inventoryItemId;
-        });
-
-        if ($existingIndex !== false) {
-            // Item already exists, increment qty
-            $this->items[$existingIndex]['qty'] = (float) $this->items[$existingIndex]['qty'] + 1;
-        } else {
-            // Add new item
-            $this->items[] = [
-                'id' => null,
-                'inventory_item_id' => $invItem->id,
-                'item_name' => $invItem->name,
-                'sku' => $invItem->sku,
-                'qty' => 1,
-                'unit_price_est' => $invItem->default_buy_price ?? 0,
-                'current_stock' => $invItem->stock?->qty_on_hand ?? 0,
-            ];
-        }
-
-        // Clear search
+    protected function acceptInventoryUnit(\App\Models\InventoryStockUnit $unit, string $target): void
+    {
+        $this->items[] = [
+            ...$this->inventorySelectionResolver()->snapshot($unit),
+            'id' => null, 'qty' => '1.00',
+            'unit_price_est' => $unit->reference_cost ?? 0,
+            'current_stock' => $unit->stock?->qty_on_hand ?? 0,
+        ];
         $this->productSearch = '';
         $this->searchResults = [];
         $this->showSearchDropdown = false;
@@ -322,6 +318,7 @@ class Form extends Component
      */
     public function save(PurchaseRequestService $service): void
     {
+        $this->authorizeInventorySelection();
         $this->normalizeMoneyInputs();
         $this->validate();
 

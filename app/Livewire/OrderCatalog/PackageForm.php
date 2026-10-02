@@ -22,6 +22,7 @@ use Livewire\WithFileUploads;
 #[Title('Package Builder')]
 class PackageForm extends Component
 {
+    use \App\Livewire\Concerns\SelectsOrderInventory;
     use NormalizesMoneyInputs;
     use WithFileUploads;
 
@@ -118,6 +119,10 @@ class PackageForm extends Component
             'image_url' => $item->featured_image_url,
             'source_archived' => ! $item->is_active,
             'source_branch_id' => $item->branch_id,
+            'has_variations' => $item->variant_mode === 'variants',
+            'variation_selection' => $item->variant_mode === 'variants' ? 'deferred' : 'simple',
+            'inventory_stock_unit_id' => null,
+            'inventory_item_variant_id' => null,
             'standard_unit_price' => (string) ($item->default_sell_price ?? '0.00'),
             'minimum_quantity' => '1.00',
             'default_quantity' => '1.00',
@@ -126,6 +131,61 @@ class PackageForm extends Component
             'sort_order' => count($this->components) + 1,
         ];
         $this->inventorySearch = '';
+    }
+
+    protected function authorizeInventorySelection(): void
+    {
+        $this->authorize('order_catalog.packages.manage');
+    }
+
+    protected function inventorySelectionBranch(): int
+    {
+        abort_unless(! $this->availableAllBranches && count($this->branchIds) === 1, 422);
+
+        return (int) $this->branchIds[0];
+    }
+
+    public function chooseFixedVariation(int $index): void
+    {
+        $this->authorizeInventorySelection();
+        abort_unless(isset($this->components[$index]) && $this->components[$index]['source_type'] === 'inventory_item', 422);
+        $this->beginInventorySelection((int) $this->components[$index]['source_id'], 'component:'.$index);
+    }
+
+    protected function acceptInventoryUnit(\App\Models\InventoryStockUnit $unit, string $target): void
+    {
+        $index = (int) substr($target, 10);
+        abort_unless(isset($this->components[$index]) && (int) $this->components[$index]['source_id'] === (int) $unit->inventory_item_id, 422);
+        $this->components[$index] = [...$this->components[$index], 'variation_selection' => $unit->inventory_item_variant_id ? 'fixed' : 'simple',
+            'inventory_stock_unit_id' => $unit->id, 'inventory_item_variant_id' => $unit->inventory_item_variant_id,
+            'variation_description' => $unit->variant?->display_name, 'variation_warning' => null];
+    }
+
+    private function normalizeInventoryComponents(): void
+    {
+        foreach ($this->components as &$component) {
+            if ($component['source_type'] !== 'inventory_item') {
+                continue;
+            }
+            $item = InventoryItem::withoutBranchScope()->where('branch_id', $this->inventorySelectionBranch())->findOrFail($component['source_id']);
+            if ($item->variant_mode === 'variants' && ($component['variation_selection'] ?? null) === 'deferred') {
+                $component['inventory_stock_unit_id'] = null;
+                $component['inventory_item_variant_id'] = null;
+
+                continue;
+            }
+            $old = ! empty($component['id']) && $this->templateId ? OrderPackageTemplateItem::where('order_package_template_id', $this->templateId)->findOrFail($component['id']) : null;
+            if ($old && $old->inventory_stock_unit_id && (int) $old->inventory_stock_unit_id === (int) ($component['inventory_stock_unit_id'] ?? 0) && (int) $old->inventory_item_id === (int) $item->id) {
+                $component['inventory_item_variant_id'] = $old->inventory_item_variant_id;
+                $component['variation_selection'] = $old->variation_selection;
+
+                continue;
+            }
+            $unit = app(\App\Services\Orders\OrderInventorySelectionService::class)->resolve($item->id, ($component['inventory_stock_unit_id'] ?? null) ?: null, $this->inventorySelectionBranch());
+            $component['inventory_stock_unit_id'] = $unit->id;
+            $component['inventory_item_variant_id'] = $unit->inventory_item_variant_id;
+            $component['variation_selection'] = $unit->inventory_item_variant_id ? 'fixed' : 'simple';
+        }
     }
 
     public function removeComponent(int $index): void
@@ -170,9 +230,10 @@ class PackageForm extends Component
         $administration = app(OrderCatalogAdministrationService::class);
         try {
             $branchIds = $administration->normalizeAvailability(auth()->user(), $this->availableAllBranches, $this->branchIds);
-            $this->assertComponentConfigurations();
             $administration->assertPackageSourcesValid($this->availableAllBranches, $branchIds, $this->components);
-        } catch (DomainException $exception) {
+            $this->normalizeInventoryComponents();
+            $this->assertComponentConfigurations();
+        } catch (\Throwable $exception) {
             $this->addError('components', $exception->getMessage());
 
             return null;
@@ -212,6 +273,9 @@ class PackageForm extends Component
                     'order_package_template_id' => $template->id,
                     'order_catalog_item_id' => $component['source_type'] === 'catalog_item' ? $component['source_id'] : null,
                     'inventory_item_id' => $component['source_type'] === 'inventory_item' ? $component['source_id'] : null,
+                    'inventory_stock_unit_id' => $component['inventory_stock_unit_id'] ?? null,
+                    'inventory_item_variant_id' => $component['inventory_item_variant_id'] ?? null,
+                    'variation_selection' => $component['variation_selection'] ?? null,
                     'minimum_quantity' => $component['minimum_quantity'],
                     'default_quantity' => $component['default_quantity'],
                     'maximum_quantity' => filled($component['maximum_quantity'] ?? null) ? $component['maximum_quantity'] : null,
@@ -274,6 +338,9 @@ class PackageForm extends Component
             (new OrderPackageTemplateItem([
                 'order_catalog_item_id' => $component['source_type'] === 'catalog_item' ? $component['source_id'] : null,
                 'inventory_item_id' => $component['source_type'] === 'inventory_item' ? $component['source_id'] : null,
+                'inventory_stock_unit_id' => $component['inventory_stock_unit_id'] ?? null,
+                'inventory_item_variant_id' => $component['inventory_item_variant_id'] ?? null,
+                'variation_selection' => $component['variation_selection'] ?? null,
                 'minimum_quantity' => $component['minimum_quantity'],
                 'default_quantity' => $component['default_quantity'],
                 'maximum_quantity' => filled($component['maximum_quantity'] ?? null) ? $component['maximum_quantity'] : null,
@@ -295,6 +362,12 @@ class PackageForm extends Component
             'image_url' => $source instanceof OrderCatalogItem ? $source->image_url : $source->featured_image_url,
             'source_archived' => $source instanceof OrderCatalogItem ? $source->archived_at !== null : ! $source->is_active,
             'source_branch_id' => $source instanceof InventoryItem ? $source->branch_id : null,
+            'has_variations' => $source instanceof InventoryItem && $source->variant_mode === 'variants',
+            'variation_selection' => $item->variation_selection,
+            'inventory_stock_unit_id' => $item->inventory_stock_unit_id,
+            'inventory_item_variant_id' => $item->inventory_item_variant_id,
+            'variation_description' => $item->stockUnit?->variant?->display_name,
+            'variation_warning' => $item->variationWarning(),
             'standard_unit_price' => $item->standardUnitPrice(),
             'minimum_quantity' => (string) $item->minimum_quantity,
             'default_quantity' => (string) $item->default_quantity,

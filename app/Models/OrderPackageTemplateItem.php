@@ -17,6 +17,9 @@ class OrderPackageTemplateItem extends Model
         'order_package_template_id',
         'order_catalog_item_id',
         'inventory_item_id',
+        'inventory_stock_unit_id',
+        'inventory_item_variant_id',
+        'variation_selection',
         'default_quantity',
         'minimum_quantity',
         'maximum_quantity',
@@ -57,6 +60,26 @@ class OrderPackageTemplateItem extends Model
         // Historical package components must remain resolvable even when the
         // active branch differs. Administration validates access on selection.
         return $this->belongsTo(InventoryItem::class)->withoutGlobalScopes();
+    }
+
+    public function stockUnit(): BelongsTo
+    {
+        return $this->belongsTo(InventoryStockUnit::class, 'inventory_stock_unit_id');
+    }
+
+    public function variationWarning(): ?string
+    {
+        if (! $this->inventory_item_id) {
+            return null;
+        }
+        if ($this->inventory_stock_unit_id && (! $this->stockUnit || ! app(\App\Services\Inventory\StockUnitResolver::class)->isSellable($this->stockUnit))) {
+            return 'Variation no longer sellable';
+        }
+        if ($this->inventoryItem->variant_mode === 'variants' && ! in_array($this->variation_selection, ['fixed', 'deferred'], true)) {
+            return 'Product now requires variation selection';
+        }
+
+        return null;
     }
 
     public function orderLines(): HasMany
@@ -103,6 +126,26 @@ class OrderPackageTemplateItem extends Model
 
         if ($hasCatalogItem === $hasInventoryItem) {
             throw new DomainException('A package component must reference exactly one catalog item or inventory item.');
+        }
+
+        if ($hasInventoryItem && ($this->variation_selection !== null || $this->inventory_stock_unit_id)) {
+            $product = InventoryItem::withoutBranchScope()->findOrFail($this->inventory_item_id);
+            if (! in_array($this->variation_selection, ['simple', 'fixed', 'deferred'], true)) {
+                throw new DomainException('Choose a supported variation selection mode.');
+            }
+            if ($this->variation_selection === 'deferred') {
+                if ($product->variant_mode !== 'variants' || $this->inventory_stock_unit_id || $this->inventory_item_variant_id) {
+                    throw new DomainException('Choose-at-order components retain only the variation product.');
+                }
+            } else {
+                $unit = InventoryStockUnit::where('inventory_item_id', $product->id)->find($this->inventory_stock_unit_id);
+                if (! $unit || (int) $unit->inventory_item_variant_id !== (int) $this->inventory_item_variant_id
+                    || ($this->variation_selection === 'fixed') !== (bool) $unit->inventory_item_variant_id) {
+                    throw new DomainException('The package variation must match its exact product and stock identity.');
+                }
+            }
+        } elseif (! $hasInventoryItem && ($this->inventory_stock_unit_id || $this->inventory_item_variant_id || $this->variation_selection)) {
+            throw new DomainException('Tailoring catalogue components cannot carry inventory variation identities.');
         }
 
         $minimum = BigDecimal::of((string) ($this->minimum_quantity ?? '0'));

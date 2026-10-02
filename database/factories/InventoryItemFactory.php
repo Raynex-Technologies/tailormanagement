@@ -61,6 +61,7 @@ class InventoryItemFactory extends Factory
             // Create initial stock record with same branch as item
             $item->stock()->create([
                 'branch_id' => $item->branch_id,
+                'inventory_stock_unit_id' => $item->simpleStockUnit?->id,
                 'qty_on_hand' => fake()->numberBetween(10, 100),
                 'qty_reserved' => 0,
             ]);

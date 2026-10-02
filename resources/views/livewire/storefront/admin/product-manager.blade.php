@@ -96,7 +96,7 @@
                                     <td class="px-4 py-3">
                                         <div class="flex justify-end gap-2">
                                             <flux:button type="button" size="sm" variant="ghost" :href="route('administration.storefront.products.edit', $product->id)" wire:navigate>{{ __('Edit') }}</flux:button>
-                                            <flux:button type="button" size="sm" variant="ghost" wire:click="deleteProduct({{ $product->id }})" class="text-red-600">{{ __('Delete') }}</flux:button>
+                                            <flux:button type="button" size="sm" variant="ghost" wire:click="deleteProduct({{ $product->id }})" class="text-red-600">{{ __('Retire') }}</flux:button>
                                         </div>
                                     </td>
                                 </tr>

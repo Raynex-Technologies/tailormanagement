@@ -11,7 +11,7 @@ class WhatsappTemplate extends Model
 {
     use BranchScoped;
 
-    protected $fillable = ['branch_id', 'whatsapp_integration_id', 'meta_template_id', 'name', 'language', 'category', 'local_state', 'meta_status', 'meta_quality', 'components', 'variable_mappings', 'validation_result', 'validation_fingerprint', 'submission_fingerprint', 'synced_fingerprint', 'rejection_reason', 'meta_status_details', 'submitted_at', 'approved_at', 'rejected_at', 'last_synced_at', 'deleted_at_meta'];
+    protected $fillable = ['twilio_content_sid', 'twilio_account_sid', 'twilio_content_fingerprint', 'twilio_status', 'branch_id', 'whatsapp_integration_id', 'meta_template_id', 'name', 'language', 'category', 'local_state', 'meta_status', 'meta_quality', 'components', 'variable_mappings', 'validation_result', 'validation_fingerprint', 'submission_fingerprint', 'synced_fingerprint', 'rejection_reason', 'meta_status_details', 'submitted_at', 'approved_at', 'rejected_at', 'last_synced_at', 'deleted_at_meta'];
 
     protected function casts(): array
     {
@@ -30,6 +30,12 @@ class WhatsappTemplate extends Model
 
     public function isSendable(): bool
     {
+        if (config('twilio.active')) {
+            return $this->twilio_status === 'APPROVED' && filled($this->twilio_content_sid)
+                && $this->twilio_account_sid === $this->integration->twilio_account_sid
+                && $this->twilio_content_fingerprint === $this->definitionFingerprint();
+        }
+
         return strtoupper((string) $this->meta_status) === 'APPROVED' && $this->deleted_at_meta === null;
     }
 

@@ -2,294 +2,277 @@
 
 namespace App\Services\Inventory;
 
-use App\Enums\InventoryTransactionType;
+use App\Enums\InventoryTransactionType as Type;
 use App\Models\InventoryItem;
 use App\Models\InventoryStock;
+use App\Models\InventoryStockUnit;
 use App\Models\InventoryTransaction;
 use App\Models\User;
-use App\Support\BranchContext;
+use Brick\Math\BigDecimal;
+use Brick\Math\RoundingMode;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
 class StockMovementService
 {
-    /**
-     * Receive stock into inventory.
-     *
-     * @param  InventoryItem  $item  The item to receive stock for
-     * @param  float  $qty  Quantity to receive (must be positive)
-     * @param  float|null  $unitCost  Cost per unit (optional)
-     * @param  string|null  $note  Optional note
-     * @param  User  $actor  User performing the operation
-     * @param  Model|null  $reference  Reference model (e.g., GoodsReceipt)
-     * @return InventoryTransaction The created transaction
-     *
-     * @throws ValidationException
-     */
-    public function receive(
-        InventoryItem $item,
-        float $qty,
-        ?float $unitCost = null,
-        ?string $note = null,
-        User $actor,
-        ?Model $reference = null
-    ): InventoryTransaction {
-        // Validate quantity
-        if ($qty <= 0) {
-            throw ValidationException::withMessages([
-                'qty' => ['Quantity to receive must be greater than zero.'],
-            ]);
+    public function receive(InventoryItem|InventoryStockUnit $item, float|string $qty, float|string|null $unitCost, ?string $note, User $actor, ?Model $reference = null): InventoryTransaction
+    {
+        $quantity = $this->positive($qty);
+        $cost = $unitCost === null ? null : $this->decimal($unitCost);
+        if ($cost?->isNegative()) {
+            $this->fail('Receipt cost cannot be negative.');
         }
 
-        return DB::transaction(function () use ($item, $qty, $unitCost, $note, $actor, $reference) {
-            // Get or create stock record with lock
-            $stock = $this->getOrCreateStockWithLock($item);
-
-            // Update stock quantity
-            $stock->qty_on_hand += $qty;
+        return $this->locked($item, $actor, $reference, function ($product, $unit, $stock) use ($quantity, $cost, $actor, $note, $reference) {
+            $stock->qty_on_hand = (string) $this->decimal($stock->qty_on_hand)->plus($quantity);
             $stock->save();
 
-            // Calculate total cost if unit cost provided
-            $totalCost = $unitCost !== null ? $qty * $unitCost : null;
-
-            // Prepare reference data
-            $referenceType = $reference ? get_class($reference) : null;
-            $referenceId = $reference?->id;
-
-            // Create transaction record
-            return InventoryTransaction::create([
-                'branch_id' => $item->branch_id ?? BranchContext::id(),
-                'inventory_item_id' => $item->id,
-                'type' => InventoryTransactionType::Receive,
-                'qty' => $qty,
-                'unit_cost' => $unitCost,
-                'total_cost' => $totalCost,
-                'reference_type' => $referenceType,
-                'reference_id' => $referenceId,
-                'created_by' => $actor->id,
-                'note' => $note,
-            ]);
+            return $this->movement($product, $unit, Type::Receive, $quantity, $actor, $note, $reference, $cost);
         });
     }
 
-    /**
-     * Adjust stock quantity (can be positive or negative).
-     *
-     * @param  InventoryItem  $item  The item to adjust stock for
-     * @param  float  $qtyDelta  Quantity change (positive to add, negative to remove)
-     * @param  string|null  $note  Optional note (recommended for adjustments)
-     * @param  User  $actor  User performing the operation
-     * @return InventoryTransaction The created transaction
-     *
-     * @throws ValidationException
-     */
-    public function adjust(
-        InventoryItem $item,
-        float $qtyDelta,
-        ?string $note = null,
-        User $actor
-    ): InventoryTransaction {
-        // Validate non-zero adjustment
-        if ($qtyDelta == 0) {
-            throw ValidationException::withMessages([
-                'qty' => ['Adjustment quantity cannot be zero.'],
-            ]);
+    public function adjust(InventoryItem|InventoryStockUnit $item, float|string $qtyDelta, ?string $note, User $actor): InventoryTransaction
+    {
+        $quantity = $this->decimal($qtyDelta);
+        if ($quantity->isZero()) {
+            $this->fail('Adjustment quantity cannot be zero.');
         }
 
-        return DB::transaction(function () use ($item, $qtyDelta, $note, $actor) {
-            // Get or create stock record with lock
-            $stock = $this->getOrCreateStockWithLock($item);
+        return $this->locked($item, $actor, null, function ($product, $unit, $stock) use ($quantity, $actor, $note) {
+            $next = $this->decimal($stock->qty_on_hand)->plus($quantity);
+            if ($next->isLessThan($stock->qty_reserved)) {
+                $this->fail('Adjustment cannot reduce stock below reserved quantity.');
+            }
+            $stock->qty_on_hand = (string) $next;
+            $stock->save();
 
-            // Check if adjustment would result in negative stock
-            $newQty = $stock->qty_on_hand + $qtyDelta;
-            if ($newQty < 0) {
-                throw ValidationException::withMessages([
-                    'qty' => [
-                        "Cannot adjust by {$qtyDelta}. Current stock is {$stock->qty_on_hand}. " .
-                        'Adjustment would result in negative stock which is not allowed.',
-                    ],
-                ]);
+            return $this->movement($product, $unit, Type::Adjust, $quantity, $actor, $note);
+        });
+    }
+
+    public function issue(InventoryItem|InventoryStockUnit $item, float|string $qty, ?string $note, User $actor, ?Model $reference = null): InventoryTransaction
+    {
+        $quantity = $this->positive($qty);
+
+        return $this->locked($item, $actor, $reference, function ($product, $unit, $stock) use ($quantity, $actor, $note, $reference) {
+            if (! $unit->is_active || ! $product->is_active) {
+                $this->fail('Inactive stock identity cannot be issued.');
+            }
+            if ($this->decimal($stock->qty_on_hand)->minus($stock->qty_reserved)->isLessThan($quantity)) {
+                $this->fail('Insufficient available stock. Reserved stock cannot be issued.');
+            }
+            $stock->qty_on_hand = (string) $this->decimal($stock->qty_on_hand)->minus($quantity);
+            $stock->save();
+
+            return $this->movement($product, $unit, Type::Issue, $quantity->negated(), $actor, $note, $reference);
+        });
+    }
+
+    public function return(InventoryItem|InventoryStockUnit $item, float|string $qty, ?string $note, User $actor, ?Model $reference = null, ?string $operationKey = null): ?InventoryTransaction
+    {
+        $quantity = $this->positive($qty);
+        if (! $reference?->exists) {
+            $this->fail('A return must reference the original issue.');
+        }
+
+        return $this->locked($item, $actor, $reference, function ($product, $unit, $stock) use ($quantity, $actor, $note, $reference, $operationKey) {
+            // Preserve the phase-1 key for simple identities so pre-cutover retries remain safe.
+            $identity = $unit->inventory_item_variant_id ? 'unit:'.$unit->id : $product->id;
+            $key = hash('sha256', implode(':', [$reference->getMorphClass(), $reference->getKey(), $identity, $operationKey ?? 'return:'.$quantity]));
+            if ($previous = InventoryTransaction::withoutBranchScope()->where('operation_key', $key)->first()) {
+                if (! $quantity->isEqualTo($previous->qty)) {
+                    $this->fail('Return key already used for a different quantity.');
+                }
+
+                return $previous;
+            }
+            if ($quantity->isGreaterThan($this->outstanding($product, $unit, $reference))) {
+                $this->fail('Return exceeds the outstanding quantity issued against this reference.');
+            }
+            $stock->qty_on_hand = (string) $this->decimal($stock->qty_on_hand)->plus($quantity);
+            $stock->save();
+
+            return $this->movement($product, $unit, Type::Return, $quantity, $actor, $note, $reference, operationKey: $key);
+        });
+    }
+
+    public function reverseOutstanding(InventoryItem|InventoryStockUnit $item, Model $reference, User $actor, ?string $note = null): ?InventoryTransaction
+    {
+        return $this->locked($item, $actor, $reference, function ($product, $unit, $stock) use ($actor, $note, $reference) {
+            $quantity = $this->outstanding($product, $unit, $reference);
+            if ($quantity->isZero()) {
+                return null;
+            }
+            $stock->qty_on_hand = (string) $this->decimal($stock->qty_on_hand)->plus($quantity);
+            $stock->save();
+
+            return $this->movement($product, $unit, Type::Return, $quantity, $actor, $note, $reference);
+        });
+    }
+
+    /** Called by the order-locked lifecycle with its durable item snapshot. */
+    public function reservation(InventoryItem|InventoryStockUnit $item, string $qty, string $transition, Model $reference, ?User $actor = null): void
+    {
+        $quantity = $this->positive($qty);
+        $this->locked($item, $actor, $reference, function ($product, $unit, $stock) use ($quantity, $transition, $actor, $reference) {
+            $onHand = $this->decimal($stock->qty_on_hand);
+            $reserved = $this->decimal($stock->qty_reserved);
+            if ($transition === 'reserve') {
+                if (! $unit->is_active || ! $product->is_active) {
+                    $this->fail('Inactive stock cannot be reserved.');
+                }
+                if ($onHand->minus($reserved)->isLessThan($quantity)) {
+                    $this->fail('Requested quantity exceeds available stock.');
+                }
+                $stock->qty_reserved = (string) $reserved->plus($quantity);
+            } elseif (in_array($transition, ['release', 'commit'], true)) {
+                if ($reserved->isLessThan($quantity)) {
+                    $this->fail('Reservation balance is inconsistent; reconciliation required.');
+                }
+                $stock->qty_reserved = (string) $reserved->minus($quantity);
+                if ($transition === 'commit') {
+                    $stock->qty_on_hand = (string) $onHand->minus($quantity);
+                    $this->movement($product, $unit, Type::Issue, $quantity->negated(), $actor, 'Storefront reservation committed.', $reference);
+                }
+            } else {
+                $this->fail('Unknown reservation transition.');
+            }
+            $stock->save();
+        });
+    }
+
+    public function initialize(InventoryItem|InventoryStockUnit $item): InventoryStock
+    {
+        return $this->locked($item, null, null, fn ($product, $unit, $stock) => $stock);
+    }
+
+    protected function locked(InventoryItem|InventoryStockUnit $source, ?User $actor, ?Model $reference, callable $operation): mixed
+    {
+        return DB::transaction(function () use ($source, $actor, $reference, $operation) {
+            $itemId = $source instanceof InventoryStockUnit ? $source->inventory_item_id : $source->id;
+            $item = InventoryItem::withoutBranchScope()->whereKey($itemId)->lockForUpdate()->firstOrFail();
+            if ($source instanceof InventoryItem && (int) $source->branch_id !== (int) $item->branch_id) {
+                $this->fail('Item branch changed; reload it.');
+            }
+            $resolver = app(StockUnitResolver::class);
+            $resolver->authorizeItem($item);
+            foreach (array_filter([$actor, auth()->user()]) as $user) {
+                if (! $user->isGlobalAdmin() && (int) $user->branch_id !== (int) $item->branch_id) {
+                    $this->fail('Stock operation is outside the user branch.');
+                }
+            }
+            $unit = $source instanceof InventoryStockUnit ? InventoryStockUnit::whereKey($source->id)->lockForUpdate()->firstOrFail() : $resolver->forItem($item);
+            if ($unit->inventory_item_id !== $item->id || $unit->allocation_status !== 'ready') {
+                $this->fail('Stock allocation requires review before this identity can be used.');
+            }
+            if (($item->variant_mode === 'variants') !== ($unit->inventory_item_variant_id !== null)) {
+                $this->fail('Stock unit does not match the intentional product mode.');
+            }
+            $referenceBranch = $reference?->getAttribute('branch_id');
+            if ($reference instanceof \App\Models\OrderLine) {
+                $referenceBranch = $reference->order?->branch_id;
+            }
+            if ($referenceBranch !== null && (int) $referenceBranch !== (int) $item->branch_id) {
+                $this->fail('Stock reference belongs to a different branch.');
+            }
+            $stock = InventoryStock::withoutBranchScope()->where('inventory_stock_unit_id', $unit->id)->lockForUpdate()->first();
+            if (! $stock && ! $unit->inventory_item_variant_id) {
+                $stock = InventoryStock::withoutBranchScope()->where('inventory_item_id', $item->id)->lockForUpdate()->first();
+                // Existing physical balances must be explicitly backfilled before writes.
+                if ($stock) {
+                    $this->fail('Existing balance is not backfilled. Run inventory:stock-units:backfill before writing stock.');
+                }
+                $stock ??= InventoryStock::create(['branch_id' => $item->branch_id, 'inventory_item_id' => $item->id, 'qty_on_hand' => 0, 'qty_reserved' => 0]);
+                app(StockUnitBackfillService::class)->attachBalance($item, $unit, $stock);
+            }
+            if (! $stock) {
+                $this->fail('Variant balance allocation is not implemented in this phase.');
+            }
+            if ((int) $stock->inventory_item_id !== $item->id || (int) $stock->inventory_stock_unit_id !== $unit->id) {
+                $this->fail('Stock balance identity mismatch.');
+            }
+            app(StockUnitBackfillService::class)->validateBalance($item, $stock);
+            if (! $unit->inventory_item_variant_id) {
+                app(StockUnitBackfillService::class)->attachBalance($item, $unit, $stock);
             }
 
-            // Update stock quantity
-            $stock->qty_on_hand = $newQty;
-            $stock->save();
-
-            // Create transaction record
-            return InventoryTransaction::create([
-                'branch_id' => $item->branch_id ?? BranchContext::id(),
-                'inventory_item_id' => $item->id,
-                'type' => InventoryTransactionType::Adjust,
-                'qty' => $qtyDelta, // Store signed value
-                'unit_cost' => null,
-                'total_cost' => null,
-                'created_by' => $actor->id,
-                'note' => $note,
-            ]);
+            return $operation($item, $unit, $stock);
         });
     }
 
-    /**
-     * Issue stock for an order (reduce available stock).
-     *
-     * @param  InventoryItem  $item  The item to issue stock from
-     * @param  float  $qty  Quantity to issue (must be positive)
-     * @param  string|null  $note  Optional note
-     * @param  User  $actor  User performing the operation
-     * @param  Model|null  $reference  Reference model (e.g., OrderStockRequest)
-     * @return InventoryTransaction The created transaction
-     *
-     * @throws ValidationException
-     */
-    public function issue(
-        InventoryItem $item,
-        float $qty,
-        ?string $note,
-        User $actor,
-        ?Model $reference = null
-    ): InventoryTransaction {
-        // Validate quantity
-        if ($qty <= 0) {
-            throw ValidationException::withMessages([
-                'qty' => ['Quantity to issue must be greater than zero.'],
-            ]);
-        }
-
-        return DB::transaction(function () use ($item, $qty, $note, $actor, $reference) {
-            // Get or create stock record with lock
-            $stock = $this->getOrCreateStockWithLock($item);
-
-            // Check sufficient stock
-            if ($stock->qty_on_hand < $qty) {
-                throw ValidationException::withMessages([
-                    'qty' => [
-                        "Insufficient stock. Available: {$stock->qty_on_hand}, Requested: {$qty}.",
-                    ],
-                ]);
+    protected function outstanding(InventoryItem $item, InventoryStockUnit $unit, Model $reference): BigDecimal
+    {
+        $query = InventoryTransaction::withoutBranchScope()->where('inventory_item_id', $item->id)
+            ->where('reference_type', $reference->getMorphClass())->where('reference_id', $reference->getKey())
+            ->whereIn('type', [Type::Issue->value, Type::Return->value])
+            ->where(function ($q) use ($unit) {
+                $q->where('inventory_stock_unit_id', $unit->id);
+                if (! $unit->inventory_item_variant_id) {
+                    $q->orWhereNull('inventory_stock_unit_id');
+                }
+            });
+        $net = BigDecimal::zero();
+        foreach ($query->get() as $movement) {
+            if ((int) $movement->branch_id !== (int) $item->branch_id) {
+                $this->fail('Movement branch mismatch; reconciliation required.');
             }
-
-            // Update stock quantity
-            $stock->qty_on_hand -= $qty;
-            $stock->save();
-
-            // Prepare reference data
-            $referenceType = $reference ? get_class($reference) : null;
-            $referenceId = $reference?->id;
-
-            // Create transaction record
-            return InventoryTransaction::create([
-                'branch_id' => $item->branch_id ?? BranchContext::id(),
-                'inventory_item_id' => $item->id,
-                'type' => InventoryTransactionType::Issue,
-                'qty' => -$qty, // Store as negative for issues
-                'unit_cost' => $item->default_sell_price,
-                'total_cost' => $qty * ($item->default_sell_price ?? 0),
-                'reference_type' => $referenceType,
-                'reference_id' => $referenceId,
-                'created_by' => $actor->id,
-                'note' => $note,
-            ]);
-        });
-    }
-
-    /**
-     * Return previously issued stock back to inventory.
-     *
-     * @param  InventoryItem  $item  The item to return stock to
-     * @param  float  $qty  Quantity to return (must be positive)
-     * @param  string|null  $note  Optional note
-     * @param  User  $actor  User performing the operation
-     * @param  Model|null  $reference  Reference model (e.g., Order)
-     * @return InventoryTransaction The created transaction
-     *
-     * @throws ValidationException
-     */
-    public function return(
-        InventoryItem $item,
-        float $qty,
-        ?string $note,
-        User $actor,
-        ?Model $reference = null
-    ): InventoryTransaction {
-        // Validate quantity
-        if ($qty <= 0) {
-            throw ValidationException::withMessages([
-                'qty' => ['Quantity to return must be greater than zero.'],
-            ]);
+            $net = $net->plus($movement->qty);
+        }
+        if ($net->isPositive()) {
+            $this->fail('Historical returns exceed issues; reconciliation required.');
         }
 
-        return DB::transaction(function () use ($item, $qty, $note, $actor, $reference) {
-            // Get or create stock record with lock
-            $stock = $this->getOrCreateStockWithLock($item);
-
-            // Update stock quantity
-            $stock->qty_on_hand += $qty;
-            $stock->save();
-
-            // Prepare reference data
-            $referenceType = $reference ? get_class($reference) : null;
-            $referenceId = $reference?->id;
-
-            // Create transaction record
-            return InventoryTransaction::create([
-                'branch_id' => $item->branch_id ?? BranchContext::id(),
-                'inventory_item_id' => $item->id,
-                'type' => InventoryTransactionType::Return,
-                'qty' => $qty,
-                'unit_cost' => $item->default_sell_price,
-                'total_cost' => $qty * ($item->default_sell_price ?? 0),
-                'reference_type' => $referenceType,
-                'reference_id' => $referenceId,
-                'created_by' => $actor->id,
-                'note' => $note,
-            ]);
-        });
+        return $net->negated();
     }
 
-    /**
-     * Get current stock level for an item.
-     */
+    protected function movement(InventoryItem $item, InventoryStockUnit $unit, Type $type, BigDecimal $qty, ?User $actor, ?string $note, ?Model $reference = null, ?BigDecimal $cost = null, ?string $operationKey = null): InventoryTransaction
+    {
+        // Returns follow original movement identity even after an order line changes item.
+        if ($type !== Type::Return && $reference?->getAttribute('inventory_stock_unit_id') !== null && (int) $reference->getAttribute('inventory_stock_unit_id') !== $unit->id) {
+            $this->fail('Reference points to a different stock identity.');
+        }
+
+        return InventoryTransaction::create([
+            'branch_id' => $item->branch_id, 'inventory_item_id' => $item->id, 'inventory_stock_unit_id' => $unit->id,
+            'type' => $type, 'qty' => (string) $qty, 'unit_cost' => $cost === null ? null : (string) $cost,
+            'total_cost' => $cost === null ? null : (string) $qty->multipliedBy($cost)->toScale(2, RoundingMode::HALF_UP),
+            'reference_type' => $reference?->getMorphClass(), 'reference_id' => $reference?->getKey(),
+            'created_by' => $actor?->id, 'note' => $note, 'operation_key' => $operationKey,
+        ]);
+    }
+
+    protected function decimal(float|string $value): BigDecimal
+    {
+        try {
+            return BigDecimal::of((string) $value)->toScale(2, RoundingMode::UNNECESSARY);
+        } catch (\Throwable) {
+            $this->fail('Quantity/cost must be a finite decimal with at most two decimal places.');
+        }
+    }
+
+    protected function positive(float|string $value): BigDecimal
+    {
+        $number = $this->decimal($value);
+        if (! $number->isPositive()) {
+            $this->fail('Quantity must be greater than zero.');
+        }
+
+return $number;
+    }
+
+    protected function fail(string $message): never
+    {
+        throw ValidationException::withMessages(['qty' => $message]);
+    }
+
     public function getStockLevel(InventoryItem $item): array
     {
-        $stock = $item->stock;
+        $unit = app(StockUnitResolver::class)->forItem($item);
+        $stock = $unit->stock;
 
-        return [
-            'qty_on_hand' => $stock?->qty_on_hand ?? 0,
-            'qty_reserved' => $stock?->qty_reserved ?? 0,
-            'qty_available' => ($stock?->qty_on_hand ?? 0) - ($stock?->qty_reserved ?? 0),
-            'reorder_level' => $item->reorder_level,
-            'is_low_stock' => ($stock?->qty_on_hand ?? 0) <= $item->reorder_level,
-        ];
-    }
-
-    /**
-     * Get or create stock record with database lock.
-     */
-    protected function getOrCreateStockWithLock(InventoryItem $item): InventoryStock
-    {
-        // Try to get existing stock with lock
-        $stock = InventoryStock::withoutBranchScope()
-            ->where('inventory_item_id', $item->id)
-            ->lockForUpdate()
-            ->first();
-
-        // If no stock record exists, create one
-        if (! $stock) {
-            $stock = InventoryStock::create([
-                'branch_id' => $item->branch_id ?? BranchContext::id(),
-                'inventory_item_id' => $item->id,
-                'qty_on_hand' => 0,
-                'qty_reserved' => 0,
-            ]);
-
-            // Re-lock the newly created record
-            $stock = InventoryStock::withoutBranchScope()
-                ->where('id', $stock->id)
-                ->lockForUpdate()
-                ->first();
-        }
-
-        return $stock;
+        return ['qty_on_hand' => $stock?->qty_on_hand ?? 0, 'qty_reserved' => $stock?->qty_reserved ?? 0,
+            'qty_available' => (string) BigDecimal::of($stock?->qty_on_hand ?? 0)->minus($stock?->qty_reserved ?? 0),
+            'reorder_level' => $item->reorder_level, 'is_low_stock' => ($stock?->qty_on_hand ?? 0) <= $item->reorder_level];
     }
 }
