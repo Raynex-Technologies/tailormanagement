@@ -11,6 +11,7 @@ use App\Services\Sms\SmsRetryQueue;
 use App\Support\BranchContext;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Livewire\Livewire;
 use Tests\TestCase;
 
@@ -67,6 +68,7 @@ class SmsRetryQueueTest extends TestCase
 
     public function test_worker_sends_one_job_and_duplicate_execution_does_not_send_again(): void
     {
+        Log::spy();
         $this->log();
         $this->log(['message' => 'Second notification']);
         $user = $this->operator();
@@ -84,10 +86,17 @@ class SmsRetryQueueTest extends TestCase
         $this->actingAs($user);
         $this->setBranchContext();
         $this->assertSame(0, $queue->enqueue(now()->startOfDay(), now()->endOfDay(), $user));
+        Log::shouldHaveReceived('log')->with('info', 'sms.retry.started', \Mockery::on(fn ($context) => $context['retry_id'] === 1 && $context['status'] === 'processing' && $context['attempt_number'] === 1
+        ))->once();
+        Log::shouldHaveReceived('log')->with('info', 'sms.retry.completed', \Mockery::on(fn ($context) => $context['retry_id'] === 1 && $context['status'] === 'sent' && $context['http_status'] === 200
+            && $context['attempt_log_id'] !== null && $context['branch_id'] === $this->branch->id
+            && isset($context['duration_ms']) && array_intersect(['to', 'message', 'api_key'], array_keys($context)) === []
+        ))->once();
     }
 
     public function test_failure_pauses_backlog_and_http_post_is_not_retried(): void
     {
+        Log::spy();
         $this->log();
         $this->log(['message' => 'Second']);
         $user = $this->operator();
@@ -99,6 +108,8 @@ class SmsRetryQueueTest extends TestCase
         $this->assertDatabaseHas('sms_retries', ['id' => 1, 'status' => 'failed']);
         $this->assertDatabaseHas('sms_retries', ['id' => 2, 'status' => 'paused']);
         Http::assertSentCount(1);
+        Log::shouldHaveReceived('log')->with('warning', 'sms.retry.completed', \Mockery::on(fn ($context) => $context['retry_id'] === 1 && $context['status'] === 'failed' && $context['http_status'] === 400
+        ))->once();
     }
 
     public function test_ambiguous_response_requires_review_and_cannot_be_requeued(): void
@@ -119,6 +130,7 @@ class SmsRetryQueueTest extends TestCase
 
     public function test_rate_limit_rejection_is_delayed_and_capped_at_three_actual_attempts(): void
     {
+        Log::spy();
         $this->log();
         $user = $this->operator();
         app(SmsRetryQueue::class)->enqueue(now()->startOfDay(), now()->endOfDay(), $user);
@@ -132,10 +144,13 @@ class SmsRetryQueueTest extends TestCase
             Cache::forget('sms-retries:next-send');
         }
         Http::assertSentCount(3);
+        Log::shouldHaveReceived('log')->with('info', 'sms.retry.completed', \Mockery::on(fn ($context) => $context['status'] === 'pending' && $context['http_status'] === 429 && $context['available_at'] !== null
+        ))->twice();
     }
 
     public function test_stale_claim_is_not_resent_and_worker_lock_blocks_overlap(): void
     {
+        Log::spy();
         Http::preventStrayRequests();
         $this->log();
         $user = $this->operator();
@@ -149,6 +164,8 @@ class SmsRetryQueueTest extends TestCase
         $this->artisan('sms:work-retries')->assertSuccessful();
         $this->assertDatabaseHas('sms_retries', ['status' => 'unknown']);
         Http::assertNothingSent();
+        Log::shouldHaveReceived('log')->with('warning', 'sms.retry.interrupted', \Mockery::on(fn ($context) => $context['retry_id'] === 1 && $context['status'] === 'unknown'
+        ))->once();
     }
 
     public function test_controls_are_branch_scoped_and_require_send_permission(): void

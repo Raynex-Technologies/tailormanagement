@@ -25,9 +25,18 @@ class WorkSmsRetries extends Command
         try {
             // One HTTP attempt only: automatic POST retries can duplicate accepted SMS.
             config(['beem.retry_times' => 1, 'beem.timeout' => 10]);
-            $stale = SmsRetry::withoutGlobalScopes()->where('status', 'processing')
+            $stale = 0;
+            SmsRetry::withoutGlobalScopes()->where('status', 'processing')
                 ->where('claimed_at', '<', now()->subMinutes(5))
-                ->update(['status' => 'unknown', 'reason' => 'Worker interrupted. Reconcile delivery before retrying.']);
+                ->chunkById(100, function ($retries) use ($queue, &$stale) {
+                    foreach ($retries as $retry) {
+                        if (SmsRetry::withoutGlobalScopes()->whereKey($retry->id)->where('status', 'processing')
+                            ->update(['status' => 'unknown', 'reason' => 'Worker interrupted. Reconcile delivery before retrying.'])) {
+                            $stale++;
+                            $queue->logEvent($retry->refresh(), 'sms.retry.interrupted');
+                        }
+                    }
+                });
             if ($stale) {
                 $queue->pausePending();
             }

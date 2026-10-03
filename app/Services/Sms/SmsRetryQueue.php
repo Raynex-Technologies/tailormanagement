@@ -11,6 +11,7 @@ use App\Support\Phone;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class SmsRetryQueue
 {
@@ -70,10 +71,13 @@ class SmsRetryQueue
             return;
         }
         $retry->refresh();
+        $started = microtime(true);
+        $httpStatus = null;
         $previousBranch = BranchContext::id();
         $initialized = BranchContext::isInitialized();
         BranchContext::set((int) $retry->branch_id);
         try {
+            $this->logEvent($retry, 'sms.retry.started');
             $log = SmsLog::withoutBranchScope()->where('branch_id', $retry->branch_id)->find($retry->sms_log_id);
             $actor = User::find($retry->created_by);
             if (! $log || $log->provider !== 'beem' || ! $actor || ! $actor->can('sms.send')
@@ -97,6 +101,7 @@ class SmsRetryQueue
             }
             $attempt = app(SmsService::class)->retryFailedLog($log, $actor, $retry);
             $response = json_decode($attempt->provider_response ?? '{}', true) ?: [];
+            $httpStatus = $response['http_status'] ?? null;
             $status = match ($attempt->status) {
                 SmsStatus::Sent => 'sent',
                 SmsStatus::Skipped => 'skipped',
@@ -119,7 +124,28 @@ class SmsRetryQueue
             report($exception);
         } finally {
             $initialized ? BranchContext::set($previousBranch) : BranchContext::clear();
+            $this->logEvent($retry, 'sms.retry.completed', [
+                'http_status' => $httpStatus,
+                'duration_ms' => (int) round((microtime(true) - $started) * 1000),
+            ]);
         }
+    }
+
+    public function logEvent(SmsRetry $retry, string $event, array $extra = []): void
+    {
+        // Correlate with database logs without copying recipients, message text or credentials.
+        Log::log(in_array($retry->status, ['failed', 'unknown']) ? 'warning' : 'info', $event, array_merge([
+            'retry_id' => $retry->id,
+            'branch_id' => $retry->branch_id,
+            'source_log_id' => $retry->sms_log_id,
+            'attempt_log_id' => $retry->attempt_log_id,
+            'actor_id' => $retry->created_by,
+            'provider' => 'beem',
+            'attempt_number' => $retry->attempts,
+            'status' => $retry->status,
+            'reason' => $retry->reason,
+            'available_at' => $retry->available_at?->toIso8601String(),
+        ], $extra));
     }
 
     public function pausePending(): void

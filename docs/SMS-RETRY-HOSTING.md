@@ -44,6 +44,17 @@ Bulk retries include Beem SMS only. Invalid phone numbers, known uncertain histo
 
 ## Troubleshooting
 
+Application logs rotate daily into `storage/logs/laravel-YYYY-MM-DD.log`, retaining 14 days by default. Deploy these production environment settings and run `php artisan config:cache`:
+
+```dotenv
+LOG_CHANNEL=stack
+LOG_STACK=daily
+LOG_LEVEL=info
+LOG_DAILY_DAYS=14
+```
+
+Each claimed retry writes `sms.retry.started` and `sms.retry.completed`, with retry ID, branch, original/attempt log IDs, actor, attempt number, final queue status, reason, HTTP status when available, elapsed milliseconds, and next availability. A rate-limited attempt finishes with `status=pending` and a future `available_at`. Skips are recorded too. After a killed worker, the next recovery run writes `sms.retry.interrupted` for each stale claim. These structured entries exclude phone numbers, SMS text and credentials; existing provider/service logs retain their existing behavior. Search by `retry_id` or `attempt_log_id` to correlate events. Keep the logging level at `info` or `debug` to retain successful attempts. Previously created `laravel.log` files are not removed.
+
 - Pending never changes: check cron output, actual PHP version/path, migration status, and database cache tables.
 - Paused: inspect the failed attempt in SMS Logs, correct the cause, then resume waiting retries.
 - Processing for more than five minutes: allow the next cron run to mark it unknown; verify delivery before resending.
