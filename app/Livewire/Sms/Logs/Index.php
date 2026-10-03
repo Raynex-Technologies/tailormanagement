@@ -4,7 +4,8 @@ namespace App\Livewire\Sms\Logs;
 
 use App\Enums\SmsStatus;
 use App\Models\SmsLog;
-use App\Services\Sms\SmsService;
+use App\Models\SmsRetry;
+use App\Services\Sms\SmsRetryQueue;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Carbon;
 use Livewire\Component;
@@ -133,6 +134,7 @@ class Index extends Component
         $this->authorize('sms.send');
 
         SmsLog::query()->delete();
+        SmsRetry::query()->whereIn('status', ['pending', 'paused'])->update(['status' => 'cancelled']);
 
         $this->closeDetails();
         $this->showClearLogsModal = false;
@@ -142,8 +144,9 @@ class Index extends Component
         session()->flash('success', __('All SMS logs in your current branch scope have been cleared.'));
     }
 
-    public function retryFailedMessages(SmsService $smsService): void
+    public function retryFailedMessages(SmsRetryQueue $queue): void
     {
+        $this->authorize('sms.logs.view');
         $this->authorize('sms.send');
 
         $this->validate([
@@ -154,24 +157,7 @@ class Index extends Component
         $from = Carbon::parse($this->retryDateFrom)->startOfDay();
         $to = Carbon::parse($this->retryDateTo)->endOfDay();
 
-        $failedLogs = SmsLog::query()
-            ->with('reference')
-            ->unresolvedFailedRetries()
-            ->whereBetween('created_at', [$from, $to])
-            ->oldest()
-            ->get();
-
-        $retried = 0;
-        $resolved = 0;
-
-        foreach ($failedLogs as $log) {
-            $retryLog = $smsService->retryFailedLog($log, auth()->user());
-            $retried++;
-
-            if ($retryLog->status === SmsStatus::Sent) {
-                $resolved++;
-            }
-        }
+        $retried = $queue->enqueue($from, $to, auth()->user());
 
         $this->showRetryModal = false;
         $this->resetPage();
@@ -179,13 +165,34 @@ class Index extends Component
         session()->flash(
             $retried > 0 ? 'success' : 'error',
             $retried > 0
-                ? trans_choice(
-                    'Retried :count failed message; :resolved was sent successfully and is now hidden from unresolved failures.|Retried :count failed messages; :resolved were sent successfully and are now hidden from unresolved failures.',
-                    $retried,
-                    ['count' => $retried, 'resolved' => $resolved]
-                )
-                : __('No failed messages were found in the selected date range.')
+                ? __(':count SMS retries queued. You can close this page; sending starts on the next scheduled run.', ['count' => $retried])
+                : __('No new eligible SMS retries. Messages may already be queued, require review, have invalid numbers, or belong to WhatsApp.')
         );
+    }
+
+    public function controlRetries(string $action): void
+    {
+        $this->authorize('sms.logs.view');
+        $this->authorize('sms.send');
+        abort_unless(in_array($action, ['pause', 'resume', 'cancel']), 422);
+        $states = match ($action) {
+            'pause' => ['pending'],
+            'resume' => ['paused'],
+            'cancel' => ['pending', 'paused'],
+        };
+        SmsRetry::query()->whereIn('status', $states)->update([
+            'status' => match ($action) {
+                'pause' => 'paused', 'resume' => 'pending', 'cancel' => 'cancelled'
+            },
+        ]);
+    }
+
+    public function retryEntry(int $id): void
+    {
+        $this->authorize('sms.logs.view');
+        $this->authorize('sms.send');
+        SmsRetry::query()->whereKey($id)->whereIn('status', ['failed', 'cancelled'])
+            ->where('attempts', '<', 3)->update(['status' => 'pending', 'reason' => null, 'available_at' => now()]);
     }
 
     public function getSmsStatusesProperty(): array
@@ -249,6 +256,8 @@ class Index extends Component
             'stats' => $stats,
             'hasLogsToClear' => SmsLog::query()->exists(),
             'smsStatuses' => $this->smsStatuses,
+            'retryStats' => SmsRetry::query()->selectRaw('status, COUNT(*) as total')->groupBy('status')->pluck('total', 'status'),
+            'recentRetries' => SmsRetry::query()->whereIn('status', ['failed', 'unknown', 'cancelled'])->latest('updated_at')->limit(10)->get(),
         ])->layout('layouts.app', ['title' => __('SMS Logs')]);
     }
 }

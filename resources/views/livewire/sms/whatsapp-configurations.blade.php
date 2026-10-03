@@ -14,7 +14,16 @@
             <flux:input wire:model="twilio_from" label="{{ __('WhatsApp sender number') }}" placeholder="+255..." description="{{ __('Use the registered WhatsApp sender in international format, including +.') }}"/>
         </div>
         <flux:input wire:model="twilio_auth_token" type="password" autocomplete="new-password" label="{{ __('Twilio Auth Token') }}" description="{{ filled($integration->twilio_auth_token) ? __('A token is saved. Leave blank to keep it.') : __('Enter the Auth Token from your Twilio account.') }}"/>
-        @can('sms-settings.update')<div class="flex flex-wrap gap-2"><flux:button variant="primary" wire:click="save" wire:loading.attr="disabled">{{ __('Save Settings') }}</flux:button><flux:button wire:click="testConnection" wire:loading.attr="disabled">{{ __('Test Saved Connection') }}</flux:button></div>@endcan
+        @can('sms-settings.update')
+            <flux:text>{{ __('Test Connection saves these settings and immediately checks the account credentials with Twilio.') }}</flux:text>
+            <div class="flex flex-wrap gap-2">
+                <flux:button type="button" wire:click="save" wire:loading.attr="disabled">{{ __('Save Settings') }}</flux:button>
+                <flux:button type="button" variant="primary" wire:click="testConnection" wire:loading.attr="disabled">
+                    <span wire:loading.remove wire:target="testConnection">{{ __('Test Connection') }}</span>
+                    <span wire:loading wire:target="testConnection">{{ __('Testing connection...') }}</span>
+                </flux:button>
+            </div>
+        @endcan
     </flux:card>
     <flux:card class="space-y-4">
         <flux:heading>{{ __('Incoming messages and delivery tracking') }}</flux:heading>

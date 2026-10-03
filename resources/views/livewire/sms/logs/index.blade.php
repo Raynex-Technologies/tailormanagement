@@ -1,4 +1,4 @@
-<flux:main class="space-y-6 p-0" x-data="{ filtersOpen: @js((bool) ($search || $statusFilter || $dateFrom || $dateTo || $includeResolvedFailures)) }">
+<flux:main wire:poll.15s class="space-y-6 p-0" x-data="{ filtersOpen: @js((bool) ($search || $statusFilter || $dateFrom || $dateTo || $includeResolvedFailures)) }">
     <section class="overflow-hidden rounded-2xl p-5 shadow-lg sm:p-6" style="background: linear-gradient(135deg, var(--tm-hero) 0%, color-mix(in srgb, var(--tm-hero) 88%, var(--tm-hero-foreground) 12%) 100%);" data-theme-hero data-sms-workspace-header>
         <flux:breadcrumbs class="mb-5">
             <flux:breadcrumbs.item :href="route('dashboard')" icon="home" wire:navigate />
@@ -31,6 +31,43 @@
     @endif
     @if (session('error'))
         <flux:callout variant="danger" icon="exclamation-circle">{{ session('error') }}</flux:callout>
+    @endif
+
+    @if ($retryStats->isNotEmpty())
+        <flux:card class="space-y-3">
+            <flux:heading>{{ __('SMS retry queue') }}</flux:heading>
+            <flux:text>{{ __('All dates in your branch scope. Scheduled sending continues after you close this page. Pause and cancel affect waiting messages only.') }}</flux:text>
+            <div class="flex flex-wrap gap-4 text-sm">
+                @foreach (['pending', 'processing', 'paused', 'sent', 'failed', 'unknown', 'skipped', 'cancelled'] as $state)
+                    <span>{{ __(ucfirst($state)) }}: {{ number_format($retryStats[$state] ?? 0) }}</span>
+                @endforeach
+            </div>
+            @can('sms.send')
+                <div class="flex flex-wrap gap-2">
+                    @if ($retryStats['pending'] ?? 0)
+                        <flux:button wire:click="controlRetries('pause')">{{ __('Pause waiting retries') }}</flux:button>
+                    @endif
+                    @if ($retryStats['paused'] ?? 0)
+                        <flux:button wire:click="controlRetries('resume')" wire:confirm="{{ __('Confirm that the sending issue has been corrected. Resume waiting SMS retries?') }}">{{ __('Resume waiting retries') }}</flux:button>
+                    @endif
+                    @if (($retryStats['pending'] ?? 0) + ($retryStats['paused'] ?? 0))
+                        <flux:button variant="danger" wire:click="controlRetries('cancel')" wire:confirm="{{ __('Cancel waiting SMS retries in your branch scope?') }}">{{ __('Cancel waiting retries') }}</flux:button>
+                    @endif
+                </div>
+            @endcan
+            @foreach ($recentRetries as $retry)
+                <div class="flex flex-wrap items-center gap-3 border-t border-zinc-200 pt-3 text-sm dark:border-zinc-700" wire:key="retry-{{ $retry->id }}">
+                    <span>#{{ $retry->id }} · {{ __(ucfirst($retry->status)) }} · {{ __('Attempts') }}: {{ $retry->attempts }}</span>
+                    <span>{{ __($retry->reason ?? '') }}</span>
+                    <flux:button size="sm" wire:click="showDetails({{ $retry->attempt_log_id ?? $retry->sms_log_id }})">{{ __('View log') }}</flux:button>
+                    @can('sms.send')
+                        @if (in_array($retry->status, ['failed', 'cancelled']) && $retry->attempts < 3)
+                            <flux:button size="sm" wire:click="retryEntry({{ $retry->id }})" wire:confirm="{{ __('Queue another attempt after correcting the failure?') }}">{{ __('Queue again') }}</flux:button>
+                        @endif
+                    @endcan
+                </div>
+            @endforeach
+        </flux:card>
     @endif
 
     <section aria-labelledby="sms-overview-heading">
@@ -272,7 +309,7 @@
             <div>
                 <flux:heading size="lg">{{ __('Retry Failed Messages') }}</flux:heading>
                 <flux:text class="mt-1 block text-sm text-zinc-500 dark:text-zinc-400">
-                    {{ __('Select a date range. Failed messages in that range will be sent again as new attempts.') }}
+                    {{ __('Select a date range. Eligible failed Beem SMS will be queued for gradual sending. WhatsApp messages are excluded.') }}
                 </flux:text>
             </div>
 
@@ -292,7 +329,7 @@
             </div>
 
             <flux:callout variant="warning" icon="exclamation-triangle">
-                {{ __('Original failed logs will remain unchanged. Successful retry attempts hide the original failures from unresolved failed logs by default.') }}
+                {{ __('Check that old notifications are still appropriate before queuing. Invalid numbers and uncertain delivery outcomes need review. Duplicate failures are grouped; original logs remain unchanged.') }}
             </flux:callout>
 
             <div class="flex justify-end gap-3 pt-2">
@@ -300,8 +337,8 @@
                     {{ __('Cancel') }}
                 </flux:button>
                 <flux:button type="submit" variant="primary" icon="arrow-path" wire:loading.attr="disabled">
-                    <span wire:loading.remove wire:target="retryFailedMessages">{{ __('Retry Messages') }}</span>
-                    <span wire:loading wire:target="retryFailedMessages">{{ __('Retrying...') }}</span>
+                    <span wire:loading.remove wire:target="retryFailedMessages">{{ __('Queue SMS retries') }}</span>
+                    <span wire:loading wire:target="retryFailedMessages">{{ __('Queuing...') }}</span>
                 </flux:button>
             </div>
         </form>

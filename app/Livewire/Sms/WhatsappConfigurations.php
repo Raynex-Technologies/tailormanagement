@@ -37,6 +37,14 @@ class WhatsappConfigurations extends Component
     public function save(): void
     {
         $this->authorize('sms-settings.update');
+        session()->forget(['success', 'error']);
+        if ($this->persistSettings()) {
+            session()->flash('success', __('Twilio settings saved.'));
+        }
+    }
+
+    protected function persistSettings(): ?WhatsappIntegration
+    {
         $i = $this->integration();
         $data = $this->validate([
             'enabled' => 'boolean',
@@ -47,20 +55,30 @@ class WhatsappConfigurations extends Component
         if (blank($data['twilio_auth_token']) && (blank($i->twilio_auth_token) || $i->twilio_account_sid !== $data['twilio_account_sid'])) {
             $this->addError('twilio_auth_token', __('Enter the Auth Token for this Twilio account.'));
 
-            return;
+            return null;
         }
         if (blank($data['twilio_auth_token'])) {
             unset($data['twilio_auth_token']);
         }
-        $i->update($data + ['connection_status' => 'unverified', 'webhook_status' => 'unverified', 'webhook_checked_at' => null, 'webhook_error_message' => null, 'last_error_code' => null, 'last_error_message' => null]);
+        $i->fill($data);
+        if ($i->isDirty(['twilio_account_sid', 'twilio_auth_token', 'twilio_from'])) {
+            $i->fill(['connection_status' => 'unverified', 'webhook_status' => 'unverified', 'webhook_checked_at' => null, 'webhook_error_message' => null, 'last_error_code' => null, 'last_error_message' => null]);
+        }
+        $i->save();
         $this->reset('twilio_auth_token');
-        session()->flash('success', __('Twilio settings saved. Test the connection and configure the incoming-message URL in Twilio.'));
+
+        return $i;
     }
 
     public function testConnection(WhatsAppService $service): void
     {
         $this->authorize('sms-settings.update');
-        $result = $service->testConnection($this->integration());
+        session()->forget(['success', 'error']);
+        $integration = $this->persistSettings();
+        if (! $integration) {
+            return;
+        }
+        $result = $service->testConnection($integration);
         session()->flash($result['success'] ? 'success' : 'error', $result['success'] ? __('Twilio account credentials verified. Sender registration and live delivery still require a test message.') : __($result['error_message']));
     }
 

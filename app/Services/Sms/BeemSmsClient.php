@@ -9,11 +9,17 @@ use Illuminate\Support\Facades\Log;
 class BeemSmsClient
 {
     protected string $apiKey;
+
     protected string $secretKey;
+
     protected string $senderId;
+
     protected string $baseUrl;
+
     protected int $timeout;
+
     protected int $retryTimes;
+
     protected int $retrySleep;
 
     /** @var bool|string SSL verification: true, false, or path to CA bundle */
@@ -108,7 +114,11 @@ class BeemSmsClient
             return [
                 'success' => $isSuccess,
                 'message_id' => $body['request_id'] ?? null,
-                'raw_response' => $body,
+                'raw_response' => array_merge($body, [
+                    'http_status' => $httpStatus,
+                    'outcome_unknown' => ! $isSuccess && ($httpStatus >= 500 || $httpStatus === 408
+                        || ($response->successful() && ! array_key_exists('successful', $body))),
+                ]),
                 'http_status' => $httpStatus,
             ];
         } catch (\Exception $e) {
@@ -121,7 +131,7 @@ class BeemSmsClient
             return [
                 'success' => false,
                 'message_id' => null,
-                'raw_response' => ['error' => $e->getMessage()],
+                'raw_response' => ['error' => $e->getMessage(), 'outcome_unknown' => true, 'http_status' => 0],
                 'http_status' => 0,
             ];
         }

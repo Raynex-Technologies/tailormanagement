@@ -6,6 +6,7 @@ use App\Enums\SmsStatus;
 use App\Models\BeemConfig;
 use App\Models\Customer;
 use App\Models\SmsLog;
+use App\Models\SmsRetry;
 use App\Models\SmsTemplate;
 use App\Models\User;
 use App\Models\WhatsappIntegration;
@@ -68,7 +69,7 @@ class SmsService
      * @param  User|null  $actor  The user initiating the SMS (optional)
      * @return SmsLog The SMS log record
      */
-    public function send(string $to, string $message, ?Model $reference = null, ?User $actor = null, ?string $templateCode = null): SmsLog
+    public function send(string $to, string $message, ?Model $reference = null, ?User $actor = null, ?string $templateCode = null, ?SmsRetry $retry = null): SmsLog
     {
         if ($templateCode !== null) {
             $reason = app(SmsNotificationGate::class)->reasonDisabled($templateCode);
@@ -106,6 +107,9 @@ class SmsService
             'reference_id' => $reference ? $reference->id : null,
             'created_by' => $actor?->id,
         ]);
+
+        // Persist the attempt link before any network call for interrupted-worker reconciliation.
+        $retry?->update(['attempt_log_id' => $smsLog->id]);
 
         // Check if SMS is enabled. The database setting is the operator-controlled source of truth.
         $beemConfig = BeemConfig::instance();
@@ -186,7 +190,7 @@ class SmsService
         } catch (\Exception $e) {
             $smsLog->update([
                 'status' => SmsStatus::Failed,
-                'provider_response' => json_encode(['error' => $e->getMessage()]),
+                'provider_response' => json_encode(['error' => $e->getMessage(), 'outcome_unknown' => true]),
             ]);
 
             Log::error('SMS exception', [
@@ -347,7 +351,7 @@ class SmsService
         return $smsLog->fresh();
     }
 
-    public function retryFailedLog(SmsLog $log, ?User $actor = null): SmsLog
+    public function retryFailedLog(SmsLog $log, ?User $actor = null, ?SmsRetry $retry = null): SmsLog
     {
         $reference = $log->reference;
         $provider = strtolower((string) $log->provider);
@@ -418,6 +422,7 @@ class SmsService
             reference: $reference,
             actor: $actor,
             templateCode: $log->template_code,
+            retry: $retry,
         );
     }
 
