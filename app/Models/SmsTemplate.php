@@ -323,6 +323,69 @@ class SmsTemplate extends Model
         ];
     }
 
+    /** Stable representative samples for the default template variables. */
+    public static function variableExamples(): array
+    {
+        // Representative approval/preview data, never customer records or send-time values.
+        return [
+            'customer_name' => 'Amina',
+            'order_number' => 'ORD-1001',
+            'garments' => 'Shirt, trousers',
+            'order_date' => 'Oct 05, 2026',
+            'due_date' => 'Oct 12, 2026',
+            'expected_delivery_date' => 'Oct 12, 2026',
+            'old_due_date' => 'Oct 10, 2026',
+            'new_due_date' => 'Oct 12, 2026',
+            'status' => 'Ready for pickup',
+            'total_amount' => 'TZS 100,000',
+            'amount_paid' => 'TZS 50,000',
+            'deposit' => 'TZS 50,000',
+            'balance_due' => 'TZS 50,000',
+            'package_name' => 'Tailoring package',
+            'plan_number' => 'PLAN-1001',
+            'installment_number' => '1',
+            'total_installments' => '4',
+            'installment_amount' => 'TZS 25,000',
+            'payment_amount' => 'TZS 25,000',
+            'remaining_balance' => 'TZS 75,000',
+            'next_due_date' => 'Nov 12, 2026',
+            'verification_code' => '123456',
+            'stage_label' => 'Stitching',
+            'progress_note' => 'Your garments are being stitched.',
+            'requested_payment_amount' => 'TZS 25,000',
+            'requested_payment_note' => 'Please pay before collection.',
+            'requested_payment_text' => 'Payment requested: TZS 25,000. Please pay before collection.',
+            'sale_number' => 'SALE-1001',
+            'items' => 'Shirt x 1, trousers x 1',
+            'subtotal' => 'TZS 100,000',
+            'discount_amount' => 'TZS 0',
+            'tax_amount' => 'TZS 0',
+            'change_amount' => 'TZS 0',
+            'payment_method' => 'Cash',
+            'cashier_name' => 'Neema',
+            'business_name' => 'Tailor Shop',
+            'appointment_date' => 'Oct 12, 2026',
+            'appointment_time' => '10:00 AM',
+            'message' => 'Visit us to discover our tailoring services.',
+        ];
+    }
+
+    /** All default SMS variable options, including category-specific variables. */
+    public static function variableOptions(): array
+    {
+        $options = self::variableDefinitions();
+        foreach (self::CATEGORIES as $category) {
+            foreach (self::variablesForCategory($category) as $variable) {
+                $options[$variable] ??= [
+                    'label' => \Illuminate\Support\Str::headline($variable),
+                    'description' => '',
+                ];
+            }
+        }
+
+        return $options;
+    }
+
     public static function normalizeTemplates(?array $templates): array
     {
         return array_replace(self::defaultTemplates(), $templates ?? []);

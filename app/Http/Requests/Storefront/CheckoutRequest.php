@@ -14,9 +14,10 @@ class CheckoutRequest extends FormRequest
 
     protected function prepareForValidation(): void
     {
+        $phone = \App\Support\InternationalPhone::fromInput($this->all());
         $this->merge([
             'email' => filled($this->input('email')) ? trim((string) $this->input('email')) : null,
-            'phone' => filled($this->input('phone')) ? trim((string) $this->input('phone')) : null,
+            'phone' => is_string($phone) ? (\App\Support\Phone::toE164Tz($phone) ?? trim($phone)) : $phone,
         ]);
     }
 
@@ -25,12 +26,14 @@ class CheckoutRequest extends FormRequest
         return [
             'full_name' => ['required', 'string', 'max:191'],
             'email' => ['nullable', 'email', 'max:191', 'required_without:phone'],
-            'phone' => ['nullable', 'string', 'max:50', 'required_without:email'],
+            'phone' => ['nullable', new \App\Rules\ValidPhone, 'string', 'max:50', 'required_without:email'],
             'shipping_method_code' => ['required', 'string', 'max:100'],
             'payment_method_code' => ['required', 'string', Rule::exists('payment_methods', 'code')->where('is_enabled', true)],
             'coupon_code' => ['nullable', 'string', 'max:80'],
             'notes' => ['nullable', 'string', 'max:2000'],
             'shipping_address.country' => ['required', 'string', 'min:2', 'max:3'],
+            'shipping_address.phone' => ['nullable', 'string', new \App\Rules\ValidPhone],
+            'billing_address.phone' => ['nullable', 'string', new \App\Rules\ValidPhone],
             'shipping_address.state' => ['nullable', 'string', 'max:191'],
             'shipping_address.city' => ['required', 'string', 'max:191'],
             'shipping_address.address_line1' => ['required', 'string', 'max:255'],

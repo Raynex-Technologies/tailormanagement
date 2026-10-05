@@ -75,13 +75,7 @@
                                 <div class="col-xl-6 col-lg-6 col-md-6 col-sm-12 col-12">
                                     <div class="form-group">
                                         <label class="text-dark mb-2">{{ __('Phone') }}</label>
-                                        <input
-                                            type="text"
-                                            name="phone"
-                                            value="{{ old('phone', $customer?->phone) }}"
-                                            class="form-control"
-                                            placeholder="{{ __('Phone') }}"
-                                        />
+                                        <x-storefront.phone-input name="phone" :value="old('phone', $customer?->phone)" />
                                         @error('phone')<p class="text-danger small mb-0 mt-1">{{ $message }}</p>@enderror
                                     </div>
                                 </div>

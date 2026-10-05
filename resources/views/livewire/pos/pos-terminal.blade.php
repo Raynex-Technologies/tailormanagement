@@ -274,7 +274,7 @@
 
             <div class="grid gap-4 sm:grid-cols-2">
                 <div>
-                    <flux:input wire:model="newCustomerPhone" label="{{ __('Phone') }}" />
+                    <x-phone-input wire:model="newCustomerPhone" label="{{ __('Phone') }}" />
                     @error('newCustomerPhone') <p class="mt-1 text-sm text-red-600 dark:text-red-400">{{ $message }}</p> @enderror
                 </div>
                 <div>

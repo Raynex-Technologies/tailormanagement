@@ -15,8 +15,8 @@ use App\Models\BusinessSetting;
 use App\Models\Cart;
 use App\Models\CartItem;
 use App\Models\CmsPage;
-use App\Models\CustomOrderProgressUpdate;
 use App\Models\Customer;
+use App\Models\CustomOrderProgressUpdate;
 use App\Models\InventoryCategory;
 use App\Models\InventoryItem;
 use App\Models\Order;
@@ -156,7 +156,7 @@ class StorefrontModuleTest extends TestCase
         $response = $this->actingAs($user)->post(route('storefront.checkout.place'), [
             'full_name' => $user->name,
             'email' => $user->email,
-            'phone' => '+15551234567',
+            'phone' => '+14155552671',
             'notes' => 'Please call before delivery.',
             'shipping_address' => [
                 'country' => 'US',
@@ -208,7 +208,7 @@ class StorefrontModuleTest extends TestCase
         $payload = [
             'full_name' => $user->name,
             'email' => $user->email,
-            'phone' => '+1555000111',
+            'phone' => '+14155552672',
             'shipping_method_code' => 'flat_global',
             'payment_method_code' => 'cash',
             'notes' => 'Deliver in the morning.',
@@ -296,7 +296,7 @@ class StorefrontModuleTest extends TestCase
         $response = $this->actingAs($user)->post(route('storefront.checkout.place'), [
             'full_name' => $user->name,
             'email' => $user->email,
-            'phone' => '+1555000222',
+            'phone' => '+14155552673',
             'shipping_method_code' => 'flat_global',
             'payment_method_code' => 'pesapal',
             'shipping_address' => [
@@ -600,7 +600,7 @@ class StorefrontModuleTest extends TestCase
             'user_id' => $user->id,
             'name' => $user->name,
             'email' => $user->email,
-            'phone' => '+1555'.str_pad((string) $user->id, 7, '0', STR_PAD_LEFT),
+            'phone' => '+25571'.str_pad((string) $user->id, 7, '0', STR_PAD_LEFT),
         ]);
 
         return $user->fresh();

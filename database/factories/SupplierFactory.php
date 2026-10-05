@@ -21,7 +21,7 @@ class SupplierFactory extends Factory
     {
         return [
             'name' => fake()->company(),
-            'phone' => fake()->phoneNumber(),
+            'phone' => fake()->unique()->numerify('+25571#######'),
             'email' => fake()->optional(0.8)->companyEmail(),
             'address' => fake()->address(),
             'notes' => fake()->optional(0.3)->sentence(),

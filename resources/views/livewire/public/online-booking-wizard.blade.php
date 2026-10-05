@@ -91,13 +91,11 @@
                             @error('customer_name') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
                         </div>
                         <div class="relative">
-                            <input id="customer_phone" wire:model.blur="customer_phone" placeholder=" " class="{{ $fieldBase }} @error('customer_phone') {{ $errorClass }} @else {{ $normalClass }} @enderror" />
-                            <label for="customer_phone" class="{{ $labelBase }}">Phone number</label>
+                            <x-phone-input id="customer_phone" wire:model="customer_phone" label="Phone number" />
                             @error('customer_phone') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
                         </div>
                         <div class="relative">
-                            <input id="customer_whatsapp" wire:model.blur="customer_whatsapp" placeholder=" " class="{{ $fieldBase }} @error('customer_whatsapp') {{ $errorClass }} @else {{ $normalClass }} @enderror" />
-                            <label for="customer_whatsapp" class="{{ $labelBase }}">WhatsApp number</label>
+                            <x-phone-input id="customer_whatsapp" wire:model="customer_whatsapp" label="WhatsApp number" />
                             @error('customer_whatsapp') <p class="mt-1 text-sm text-red-600">{{ $message }}</p> @enderror
                         </div>
                         <div class="relative">

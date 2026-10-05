@@ -22,6 +22,7 @@ use Livewire\Component;
 #[Layout('layouts.pos')]
 class PosTerminal extends Component
 {
+    use \App\Livewire\Concerns\ValidatesPhoneNumbers;
     use AuthorizesRequests;
     use NormalizesMoneyInputs;
 
@@ -292,6 +293,7 @@ class PosTerminal extends Component
                 'string',
                 'max:50',
                 Rule::unique('customers', 'phone')->where(fn ($query) => $query->where('branch_id', $branchId)),
+                new \App\Rules\AvailableCustomerPhone($branchId),
             ],
             'newCustomerEmail' => ['nullable', 'email', 'max:255'],
             'newCustomerAddress' => ['nullable', 'string', 'max:2000'],

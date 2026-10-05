@@ -8,6 +8,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Appointment extends Model
 {
+    use \App\Models\Concerns\StoresPhoneNumbers;
+
     public const BLOCKING_STATUSES = [
         'requested',
         'pending_approval',

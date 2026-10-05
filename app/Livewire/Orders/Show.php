@@ -34,6 +34,7 @@ use Livewire\Component;
 #[Layout('layouts.app.sidebar')]
 class Show extends Component
 {
+    use \App\Livewire\Concerns\ValidatesPhoneNumbers;
     use NormalizesMoneyInputs;
 
     public Order $order;
@@ -625,6 +626,7 @@ class Show extends Component
     public function openDeliveryNoteModal(): void
     {
         $this->authorize('createDeliveryNote', $this->order);
+        $this->validate(['receivedByPhone' => ['nullable', 'string', new \App\Rules\ValidPhone]]);
 
         if ($this->order->hasOutstandingBalance()) {
             session()->flash('error', 'Cannot create delivery note until the order balance is fully paid.');

@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class OnlineBooking extends Model
 {
+    use \App\Models\Concerns\StoresPhoneNumbers;
     use SoftDeletes;
 
     public const TYPES = [

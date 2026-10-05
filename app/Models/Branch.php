@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Branch extends Model
 {
+    use \App\Models\Concerns\StoresPhoneNumbers;
     use HasFactory;
 
     protected $fillable = [

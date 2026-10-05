@@ -1011,7 +1011,7 @@
                     placeholder="Customer or receiver name"
                 />
 
-                <flux:input
+                <x-phone-input
                     wire:model="receivedByPhone"
                     label="Received By (Phone)"
                     placeholder="Phone number"

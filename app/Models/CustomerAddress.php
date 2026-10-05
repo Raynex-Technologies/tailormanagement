@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class CustomerAddress extends Model
 {
+    use \App\Models\Concerns\StoresPhoneNumbers;
     use HasFactory;
 
     protected $fillable = [
@@ -49,6 +50,8 @@ class CustomerAddress extends Model
         return [
             'recipient_name' => $this->recipient_name,
             'phone' => $this->phone,
+            'phone_country_code' => $this->phone_country_code,
+            'phone_national_number' => $this->phone_national_number,
             'country' => $this->country,
             'state' => $this->state,
             'city' => $this->city,

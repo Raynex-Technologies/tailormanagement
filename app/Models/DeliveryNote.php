@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 
 class DeliveryNote extends Model
 {
+    use \App\Models\Concerns\StoresPhoneNumbers;
     use BranchScoped, HasFactory, SoftDeletes;
 
     protected static function booted(): void

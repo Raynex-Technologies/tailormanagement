@@ -40,6 +40,18 @@ class CheckoutService
      */
     public function placeOrder(Cart $cart, array $payload, ?User $user = null): array
     {
+        foreach (['phone', 'shipping_address.phone', 'billing_address.phone'] as $field) {
+            $value = data_get($payload, $field);
+            if (filled($value)) {
+                \Illuminate\Support\Facades\Validator::make(Arr::undot([$field => $value]), [$field => ['string', new \App\Rules\ValidPhone]])->validate();
+                $parts = \App\Support\InternationalPhone::parts($value);
+                data_set($payload, $field, $parts['e164']);
+                if ($field !== 'phone') {
+                    data_set($payload, $field.'_country_code', $parts['country_code']);
+                    data_set($payload, $field.'_national_number', $parts['national_number']);
+                }
+            }
+        }
         $cart->loadMissing('items.item.stock', 'items.variant');
 
         if ($cart->items->isEmpty()) {
@@ -275,7 +287,7 @@ class CheckoutService
                 ->first();
         } elseif ($phone !== '') {
             $customer = (clone $customerQuery)
-                ->where('phone', $phone)
+                ->wherePhoneNumber($phone)
                 ->first();
         } else {
             $customer = null;

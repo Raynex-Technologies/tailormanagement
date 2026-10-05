@@ -11,7 +11,8 @@
         <flux:switch wire:model="enabled" label="{{ __('Enable WhatsApp notifications') }}"/>
         <div class="grid gap-4 md:grid-cols-2">
             <flux:input wire:model="twilio_account_sid" label="{{ __('Twilio Account SID') }}" placeholder="AC..."/>
-            <flux:input wire:model="twilio_from" label="{{ __('WhatsApp sender number') }}" placeholder="+255..." description="{{ __('Use the registered WhatsApp sender in international format, including +.') }}"/>
+            <x-phone-input wire:model="twilio_from" label="{{ __('WhatsApp sender number') }}" required />
+            <flux:text>{{ __('Use the number registered with your WhatsApp provider.') }}</flux:text>
         </div>
         <flux:input wire:model="twilio_auth_token" type="password" autocomplete="new-password" label="{{ __('Twilio Auth Token') }}" description="{{ filled($integration->twilio_auth_token) ? __('A token is saved. Leave blank to keep it.') : __('Enter the Auth Token from your Twilio account.') }}"/>
         @can('sms-settings.update')

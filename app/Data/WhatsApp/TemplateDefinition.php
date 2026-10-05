@@ -20,4 +20,23 @@ final readonly class TemplateDefinition
     {
         return hash('sha256', json_encode($this->toArray(), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     }
+
+    public function matches(self $other): bool
+    {
+        return self::ordered($this->toArray()) === self::ordered($other->toArray());
+    }
+
+    private static function ordered(array $values): array
+    {
+        if (! array_is_list($values)) {
+            ksort($values);
+        }
+        foreach ($values as $key => $value) {
+            if (is_array($value)) {
+                $values[$key] = self::ordered($value);
+            }
+        }
+
+        return $values;
+    }
 }

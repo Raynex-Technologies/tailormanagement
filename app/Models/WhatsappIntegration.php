@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class WhatsappIntegration extends Model
 {
+    use \App\Models\Concerns\StoresPhoneNumbers;
+
     protected $fillable = ['twilio_account_sid', 'twilio_auth_token', 'twilio_from', 'branch_id', 'webhook_key', 'enabled', 'waba_id', 'phone_number_id', 'meta_app_id', 'access_token', 'app_secret', 'webhook_verify_token', 'connection_status', 'webhook_status', 'webhook_checked_at', 'webhook_error_message', 'display_phone_number', 'verified_name', 'last_checked_at', 'last_connected_at', 'last_error_code', 'last_error_message'];
 
     protected $hidden = ['twilio_auth_token', 'access_token', 'app_secret', 'webhook_verify_token'];

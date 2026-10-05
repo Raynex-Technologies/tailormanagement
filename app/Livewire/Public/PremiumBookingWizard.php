@@ -25,6 +25,7 @@ use Livewire\WithFileUploads;
 #[Title('Book a Tailoring Service')]
 class PremiumBookingWizard extends Component
 {
+    use \App\Livewire\Concerns\ValidatesPhoneNumbers;
     use WithFileUploads;
 
     #[Locked]

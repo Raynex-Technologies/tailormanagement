@@ -6,6 +6,12 @@ use Illuminate\Foundation\Http\FormRequest;
 
 class CustomerAddressRequest extends FormRequest
 {
+    protected function prepareForValidation(): void
+    {
+        $phone = \App\Support\InternationalPhone::fromInput($this->all());
+        $this->merge(['phone' => is_string($phone) ? (\App\Support\Phone::toE164Tz($phone) ?? $phone) : $phone]);
+    }
+
     public function authorize(): bool
     {
         return auth()->check();
@@ -16,7 +22,7 @@ class CustomerAddressRequest extends FormRequest
         return [
             'label' => ['nullable', 'string', 'max:100'],
             'recipient_name' => ['required', 'string', 'max:191'],
-            'phone' => ['nullable', 'string', 'max:50'],
+            'phone' => ['nullable', new \App\Rules\ValidPhone, 'string', 'max:50'],
             'country' => ['required', 'string', 'min:2', 'max:3'],
             'state' => ['nullable', 'string', 'max:191'],
             'city' => ['required', 'string', 'max:191'],

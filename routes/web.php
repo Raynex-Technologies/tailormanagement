@@ -654,7 +654,7 @@ require __DIR__.'/settings.php';
 
 Route::match(['GET', 'POST'], '/webhooks/meta/whatsapp/{webhookKey}', App\Http\Controllers\MetaWhatsappWebhookController::class)->middleware('throttle:web')->name('webhooks.meta-whatsapp');
 
-Route::middleware(['auth', 'can:sms-templates.view'])->group(function () {
+Route::middleware(['auth', 'verified', 'branch.context', 'can:sms-templates.view'])->group(function () {
     Route::get('/administration/whatsapp-templates', \App\Livewire\WhatsApp\Templates\Index::class)->name('whatsapp-templates.index');
     Route::get('/administration/whatsapp-templates/create', \App\Livewire\WhatsApp\Templates\Builder::class)->name('whatsapp-templates.create');
     Route::get('/administration/whatsapp-templates/{template}', \App\Livewire\WhatsApp\Templates\Builder::class)->whereNumber('template')->name('whatsapp-templates.edit');

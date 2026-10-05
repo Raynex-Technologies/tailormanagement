@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Customer extends Model
 {
+    use \App\Models\Concerns\StoresPhoneNumbers;
     use BranchScoped, HasFactory;
 
     protected $fillable = [
@@ -48,6 +49,9 @@ class Customer extends Model
         static::saving(function (Customer $customer) {
             if ($customer->isDirty('phone') || blank($customer->whatsapp_phone)) {
                 $customer->whatsapp_phone = \App\Support\Phone::toE164Tz($customer->phone);
+                $parts = \App\Support\InternationalPhone::parts($customer->whatsapp_phone);
+                $customer->whatsapp_phone_country_code = $parts['country_code'] ?? null;
+                $customer->whatsapp_phone_national_number = $parts['national_number'] ?? null;
             }
         });
     }
@@ -55,6 +59,17 @@ class Customer extends Model
     public function orders(): HasMany
     {
         return $this->hasMany(Order::class);
+    }
+
+    public function scopeWherePhoneNumber(\Illuminate\Database\Eloquent\Builder $query, string $phone): \Illuminate\Database\Eloquent\Builder
+    {
+        $parts = \App\Support\InternationalPhone::parts($phone);
+        if (! $parts) {
+            return $query->whereRaw('1 = 0');
+        }
+
+        return $query->where(fn ($query) => $query->where('phone', $parts['e164'])
+            ->orWhere(fn ($query) => $query->where('phone_country_code', $parts['country_code'])->where('phone_national_number', $parts['national_number'])));
     }
 
     public function posSales(): HasMany

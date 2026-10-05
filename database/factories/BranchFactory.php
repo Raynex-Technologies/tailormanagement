@@ -23,10 +23,10 @@ class BranchFactory extends Factory
         $city = fake()->randomElement($cities);
 
         return [
-            'code' => strtoupper('BR-' . fake()->unique()->lexify('???') . '-' . fake()->numerify('##')),
-            'name' => $city . ' Branch',
-            'phone' => '+255' . fake()->numerify('##########'),
-            'address' => fake()->streetAddress() . ', ' . $city,
+            'code' => strtoupper('BR-'.fake()->unique()->lexify('???').'-'.fake()->numerify('##')),
+            'name' => $city.' Branch',
+            'phone' => fake()->unique()->numerify('+25571#######'),
+            'address' => fake()->streetAddress().', '.$city,
             'is_active' => true,
         ];
     }

@@ -15,6 +15,7 @@ use Livewire\Component;
 #[Title('Twilio WhatsApp')]
 class WhatsappConfigurations extends Component
 {
+    use \App\Livewire\Concerns\ValidatesPhoneNumbers;
     use AuthorizesRequests;
 
     public bool $enabled = false;

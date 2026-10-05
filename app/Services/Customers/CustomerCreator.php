@@ -21,6 +21,8 @@ final class CustomerCreator
                 'nullable',
                 'string',
                 'max:50',
+                new \App\Rules\ValidPhone,
+                new \App\Rules\AvailableCustomerPhone($branchId),
                 Rule::unique('customers', 'phone')
                     ->where(fn ($query) => $query->where('branch_id', $branchId)),
             ],
@@ -39,6 +41,9 @@ final class CustomerCreator
             throw new AuthorizationException(__('You cannot create customers for this branch.'));
         }
 
+        if (is_string($attributes['phone'] ?? null)) {
+            $attributes['phone'] = \App\Support\Phone::toE164Tz($attributes['phone']) ?? $attributes['phone'];
+        }
         $validated = Validator::make($attributes, $this->rules($branch->id))->validate();
 
         return Customer::query()->create([

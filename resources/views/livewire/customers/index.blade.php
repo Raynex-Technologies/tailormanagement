@@ -182,7 +182,7 @@
 
                     <div>
                         <flux:label for="phone">{{ __('Phone') }}</flux:label>
-                        <flux:input id="phone" wire:model="phone" placeholder="{{ __('Phone number') }}" />
+                        <x-phone-input id="phone" wire:model="phone" placeholder="{{ __('Phone number') }}" />
                         @error('phone')
                             <flux:text class="mt-1 text-sm text-red-500">{{ $message }}</flux:text>
                         @enderror

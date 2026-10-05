@@ -14,21 +14,32 @@ use Livewire\WithPagination;
 #[Layout('layouts.app.sidebar')]
 class Index extends Component
 {
+    use \App\Livewire\Concerns\ValidatesPhoneNumbers;
     use AuthorizesRequests, WithPagination;
 
     public string $search = '';
+
     public ?int $branchFilter = null;
+
     public int $perPage = 15;
 
     // Form modal state
     public bool $showFormModal = false;
+
     public ?int $editingId = null;
+
     public ?int $branchId = null;
+
     public string $name = '';
+
     public ?string $phone = null;
+
     public ?string $email = null;
+
     public ?string $address = null;
+
     public ?string $dob = null;
+
     public ?string $notes = null;
 
     public bool $showBranchSelector = false;
@@ -49,6 +60,7 @@ class Index extends Component
         $phoneRules = ['nullable', 'string', 'max:50'];
 
         if ($targetBranchId) {
+            $phoneRules[] = new \App\Rules\AvailableCustomerPhone($targetBranchId, $this->editingId);
             $phoneUniqueRule = Rule::unique('customers', 'phone')
                 ->where(fn ($query) => $query->where('branch_id', $targetBranchId));
 

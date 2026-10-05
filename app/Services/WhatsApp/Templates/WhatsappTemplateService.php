@@ -18,7 +18,7 @@ class WhatsappTemplateService
         if ($template && ((int) $template->whatsapp_integration_id !== (int) $integration->id || (int) $template->branch_id !== (int) $integration->branch_id)) {
             abort(403);
         }
-        if (config('twilio.active') && $template && ($template->twilio_content_sid || $template->local_state === 'creation_unknown') && $definition->fingerprint() !== $template->definitionFingerprint()) {
+        if (config('twilio.active') && $template && ($template->twilio_content_sid || $template->local_state === 'creation_unknown') && ! $definition->matches($this->definition($template))) {
             throw \Illuminate\Validation\ValidationException::withMessages(['body' => 'Duplicate this template with a new name to change content already created in Twilio.']);
         }
         $values = ['branch_id' => $integration->branch_id, 'whatsapp_integration_id' => $integration->id] + $definition->toArray();

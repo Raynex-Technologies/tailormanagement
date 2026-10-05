@@ -51,7 +51,7 @@
                                 <div class="col-xl-6 col-lg-6 col-md-12 col-sm-12">
                                     <div class="form-group">
                                         <label class="small text-dark ft-medium mb-2">{{ __('Phone') }}</label>
-                                        <input type="text" name="phone" class="form-control" value="{{ old('phone') }}">
+                                        <x-storefront.phone-input name="phone" :value="old('phone')" />
                                     </div>
                                 </div>
                                 <div class="col-xl-6 col-lg-6 col-md-12 col-sm-12">
@@ -145,7 +145,7 @@
                                     <div class="col-xl-6 col-lg-6 col-md-12 col-sm-12">
                                         <div class="form-group">
                                             <label class="small text-dark ft-medium mb-2">{{ __('Phone') }}</label>
-                                            <input type="text" name="phone" class="form-control" value="{{ $address->phone }}">
+                                            <x-storefront.phone-input name="phone" :value="$address->phone" />
                                         </div>
                                     </div>
                                     <div class="col-xl-6 col-lg-6 col-md-12 col-sm-12">

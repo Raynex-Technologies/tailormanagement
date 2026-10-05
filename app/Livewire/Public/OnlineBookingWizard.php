@@ -28,6 +28,7 @@ use Livewire\WithFileUploads;
 #[Title('Book Appointment')]
 class OnlineBookingWizard extends Component
 {
+    use \App\Livewire\Concerns\ValidatesPhoneNumbers;
     use WithFileUploads;
 
     public int $step = 1;
@@ -658,7 +659,7 @@ class OnlineBookingWizard extends Component
 
     protected function matchedCustomerId(): ?int
     {
-        return Customer::query()->where('phone', Phone::toE164Tz($this->customer_phone) ?? trim($this->customer_phone))->value('id');
+        return Customer::query()->wherePhoneNumber($this->customer_phone)->value('id');
     }
 
     protected function findMatchingOrders(): void
@@ -677,7 +678,7 @@ class OnlineBookingWizard extends Component
 
         $this->matchingOrders = Order::query()
             ->with('customer:id,name,phone')
-            ->whereHas('customer', fn ($query) => $query->where('phone', Phone::toE164Tz($this->customer_phone) ?? trim($this->customer_phone)))
+            ->whereHas('customer', fn ($query) => $query->wherePhoneNumber($this->customer_phone))
             ->when($this->previous_order_no !== '', fn ($query) => $query->where('order_no', 'like', '%'.$this->previous_order_no.'%'))
             ->latest()
             ->limit(5)
@@ -713,6 +714,7 @@ class OnlineBookingWizard extends Component
 
         return is_array($state) ? $state : null;
     }
+
     protected function hasValidServerVerification(): bool
     {
         $state = $this->verificationSessionState();
@@ -724,7 +726,6 @@ class OnlineBookingWizard extends Component
             && hash_equals((string) ($state['target'] ?? ''), $destination['value'])
             && hash_equals((string) ($state['channel'] ?? ''), $destination['channel']);
     }
-
 
     protected function hydrateVerificationState(array $state): void
     {

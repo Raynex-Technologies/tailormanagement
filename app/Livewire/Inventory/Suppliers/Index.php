@@ -16,6 +16,7 @@ use Livewire\WithPagination;
 #[Title('Suppliers')]
 class Index extends Component
 {
+    use \App\Livewire\Concerns\ValidatesPhoneNumbers;
     use AuthorizesRequests;
     use WithPagination;
 

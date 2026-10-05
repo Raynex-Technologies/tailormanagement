@@ -3,12 +3,15 @@
 namespace App\Livewire\WhatsApp\Templates;
 
 use App\Contracts\WhatsAppProvider;
+use App\Data\WhatsApp\TemplateDefinition;
+use App\Models\SmsTemplate;
 use App\Models\WhatsappIntegration;
 use App\Models\WhatsappTemplate;
 use App\Services\WhatsApp\Templates\WhatsappTemplateService;
 use App\Support\BranchContext;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Validation\ValidationException;
 use Livewire\Attributes\Layout;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -51,6 +54,7 @@ use Livewire\WithFileUploads;
     public function mount(?int $template = null): void
     {
         $this->authorize('sms-templates.view');
+        abort_unless(BranchContext::hasBranch(), 403, 'Select an active branch before managing WhatsApp templates.');
         if ($template) {
             $t = WhatsappTemplate::where('branch_id', BranchContext::requireId())->findOrFail($template);
             $this->templateId = $t->id;
@@ -59,13 +63,23 @@ use Livewire\WithFileUploads;
             $this->language = $t->language;
             $this->variable_mappings = $t->variable_mappings ?: [];
             $this->hydrateComponents($t->components ?: []);
+            $this->updatedBody();
             $this->validation = $t->validation_result ?: [];
+            $this->fillVariableExamples($t);
+            if (! $this->matchesSavedDefinition($t)) {
+                $this->validation = [];
+            }
+            $this->showValidationErrors();
         }
     }
 
     public function saveDraft(WhatsappTemplateService $service): void
     {
         $this->authorize('sms-templates.update');
+        session()->forget(['success', 'error']);
+        $this->resetErrorBag();
+        $this->updatedName();
+        $this->fillVariableExamples($this->template());
         $this->validateBasic();
         $t = $service->saveDraft($this->integration(), $this->definition(), $this->template());
         $this->templateId = $t->id;
@@ -78,18 +92,23 @@ use Livewire\WithFileUploads;
         $this->saveDraft($service);
         $result = $service->validate($this->template());
         $this->validation = $result->toArray();
-        session()->flash($result->valid() ? 'success' : 'error', $result->valid() ? __('No known structural problems found. Ready to submit.') : __('Resolve the blocking validation errors.'));
+        session()->forget(['success', 'error']);
+        $this->showValidationErrors();
+        if ($result->valid()) {
+            session()->flash('success', __('Draft saved and validated. Ready to submit to Twilio.'));
+        }
     }
 
     public function submit(WhatsappTemplateService $service): void
     {
         $this->authorize('sms-templates.update');
+        session()->forget(['success', 'error']);
         if (! $this->templateId) {
             session()->flash('error', __('Save and validate the draft first.'));
 
             return;
         }$persisted = $this->template();
-        if (\App\Data\WhatsApp\TemplateDefinition::fromArray($this->definition())->fingerprint() !== $persisted->definitionFingerprint()) {
+        if (! $this->matchesSavedDefinition($persisted)) {
             session()->flash('error', __('Save and validate your latest changes before submitting.'));
 
             return;
@@ -138,11 +157,75 @@ use Livewire\WithFileUploads;
         $this->example_handle = null;
     }
 
-    public function addVariable(): void
+    public function addVariable(string $variable): void
     {
-        $next = count($this->examples) + 1;
-        $this->examples[(string) $next] = '';
-        $this->variable_mappings[(string) $next] = '';
+        $this->authorize('sms-templates.update');
+        if (! array_key_exists($variable, SmsTemplate::variableOptions())) {
+            throw ValidationException::withMessages(['variableOptions' => __('Choose a default SMS template variable.')]);
+        }
+        $this->resetErrorBag('variableOptions');
+        preg_match_all('/\{\{(\d+)\}\}/', $this->body, $matches);
+        $next = max([0, ...array_map('intval', $matches[1]), ...array_map('intval', array_keys($this->examples))]) + 1;
+        if ($next > 1024) {
+            $this->addError('body', __('Fix the placeholder numbering before adding another variable.'));
+
+            return;
+        }
+        $this->examples[(string) $next] = SmsTemplate::variableExamples()[$variable] ?? '';
+        $this->variable_mappings[(string) $next] = $variable;
+        $this->body .= (filled($this->body) && ! preg_match('/\s$/', $this->body) ? ' ' : '').'{{'.$next.'}}';
+    }
+
+    public function updatedName(): void
+    {
+        $name = preg_replace('/[^a-z0-9_\s\p{Z}]/u', '', strtolower($this->name)) ?? '';
+        $this->name = preg_replace('/[\s\p{Z}]+/u', '_', trim($name)) ?? '';
+        $this->resetErrorBag('name');
+    }
+
+    public function updatingVariableMappings($value, $key): void
+    {
+        $template = $this->template();
+        if ($template && ($template->twilio_content_sid || $template->local_state === 'creation_unknown')) {
+            return;
+        }
+        $samples = SmsTemplate::variableExamples();
+        $old = $this->variable_mappings[$key] ?? null;
+        if (is_string($value) && isset($samples[$value]) &&
+            (blank($this->examples[$key] ?? null) || (is_string($old) && ($this->examples[$key] ?? null) === ($samples[$old] ?? null)))) {
+            $this->examples[$key] = $samples[$value];
+        }
+    }
+
+    public function updatedVariableMappings(): void
+    {
+        $this->fillVariableExamples($this->template());
+    }
+
+    protected function fillVariableExamples(?WhatsappTemplate $template): void
+    {
+        if ($template && ($template->twilio_content_sid || $template->local_state === 'creation_unknown')) {
+            return;
+        }
+        $samples = SmsTemplate::variableExamples();
+        foreach ($this->variable_mappings as $number => $variable) {
+            if (is_string($variable) && isset($samples[$variable]) && blank($this->examples[$number] ?? null)) {
+                $this->examples[$number] = $samples[$variable];
+                $this->resetErrorBag('examples.'.$number);
+            }
+        }
+    }
+
+    public function updatedBody(): void
+    {
+        preg_match_all('/\{\{(\d+)\}\}/', $this->body, $matches);
+        foreach (array_unique($matches[1]) as $number) {
+            if ((int) $number < 1 || (int) $number > 1024) {
+                continue;
+            }
+            $this->examples[$number] ??= '';
+            $this->variable_mappings[$number] ??= '';
+        }
     }
 
     public function addButton(): void
@@ -202,14 +285,48 @@ use Livewire\WithFileUploads;
 
     public function render()
     {
-        return view('livewire.whatsapp.templates.builder', ['template' => $this->template(), 'preview' => $this->preview()]);
+        $template = $this->template();
+
+        return view('livewire.whatsapp.templates.builder', [
+            'template' => $template,
+            'preview' => $this->preview(),
+            'variableOptions' => SmsTemplate::variableOptions(),
+            'canSubmit' => $template
+                && $template->local_state === 'ready_to_submit'
+                && data_get($template->validation_result, 'valid') === true
+                && $this->matchesSavedDefinition($template)
+                && $template->validation_fingerprint === $template->definitionFingerprint()
+                && ! in_array($template->twilio_status, ['PENDING', 'APPROVED', 'REJECTED', 'PAUSED', 'DISABLED', 'DELETED'], true),
+        ]);
+    }
+
+    protected function showValidationErrors(): void
+    {
+        foreach ($this->validation['errors'] ?? [] as $error) {
+            $field = $error['field'];
+            if (preg_match('/^components\.\d+\.examples\.(\d+)$/', $field, $matches)) {
+                $field = 'examples.'.$matches[1];
+            } elseif (str_starts_with($field, 'components')) {
+                $field = 'body';
+            }
+            $this->addError($field, $error['message']);
+        }
+    }
+
+    protected function matchesSavedDefinition(WhatsappTemplate $template): bool
+    {
+        return TemplateDefinition::fromArray($this->definition())->matches(
+            TemplateDefinition::fromArray($template->only(['name', 'language', 'category', 'components', 'variable_mappings']))
+        );
     }
 
     protected function preview(): string
     {
         $text = $this->body;
         foreach ($this->examples as $n => $value) {
-            $text = str_replace('{{'.$n.'}}', (string) $value, $text);
+            if (filled($value)) {
+                $text = str_replace('{{'.$n.'}}', (string) $value, $text);
+            }
         }
 
         return $text;

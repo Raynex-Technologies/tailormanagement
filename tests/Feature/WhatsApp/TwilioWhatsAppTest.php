@@ -239,7 +239,7 @@ class TwilioWhatsAppTest extends TestCase
     public function test_builder_renders_and_unsaved_changes_cannot_submit(): void
     {
         $t = $this->draft();
-        Livewire::test(Builder::class, ['template' => $t->id])->assertSee('Submit through Twilio')
+        Livewire::test(Builder::class, ['template' => $t->id])->assertSee('Submit to Twilio')
             ->set('body', 'Unsaved change')->call('submit')->assertSee('Save and validate your latest changes');
         Http::assertNothingSent();
     }

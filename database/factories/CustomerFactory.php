@@ -21,7 +21,7 @@ class CustomerFactory extends Factory
     {
         return [
             'name' => fake()->name(),
-            'phone' => fake()->unique()->numerify('+2557########'),
+            'phone' => fake()->unique()->numerify('+25571#######'),
             'email' => fake()->unique()->safeEmail(),
             'address' => fake()->address(),
             'dob' => fake()->optional(0.7)->dateTimeBetween('-60 years', '-18 years'),

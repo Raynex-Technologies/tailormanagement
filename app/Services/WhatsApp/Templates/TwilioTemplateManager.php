@@ -3,6 +3,7 @@
 namespace App\Services\WhatsApp\Templates;
 
 use App\Data\WhatsApp\TemplateDefinition;
+use App\Models\SmsTemplate;
 use App\Models\WhatsappIntegration;
 use App\Models\WhatsappTemplate;
 use App\Services\WhatsApp\TwilioWhatsAppProvider;
@@ -16,6 +17,12 @@ class TwilioTemplateManager
     {
         $base = app(MetaWhatsappTemplateValidator::class)->validate($definition);
         $errors = $base->errors;
+        $options = SmsTemplate::variableOptions();
+        foreach ($definition->variableMappings as $number => $variable) {
+            if (filled($variable) && (! is_string($variable) || ! array_key_exists($variable, $options))) {
+                $errors[] = ['field' => "variable_mappings.$number", 'rule' => 'sms_variable', 'message' => "Choose a default SMS variable for placeholder {{$number}}."];
+            }
+        }
         if (count($definition->components) !== 1 || ($definition->components[0]['type'] ?? '') !== 'BODY') {
             $errors[] = ['field' => 'components', 'rule' => 'text_only', 'message' => 'Twilio submission supports a text body with variables. Headers, footers, media, and buttons are not supported in this editor.'];
         }

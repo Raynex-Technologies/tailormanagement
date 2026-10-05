@@ -16,6 +16,7 @@ use Livewire\WithPagination;
 #[Title('Branches')]
 class Index extends Component
 {
+    use \App\Livewire\Concerns\ValidatesPhoneNumbers;
     use PasswordValidationRules, WithPagination;
 
     #[Url]
@@ -138,7 +139,7 @@ class Index extends Component
     {
         $branch = $this->editingId !== null
             ? $this->findAccessibleBranch($this->editingId)
-            : new Branch();
+            : new Branch;
 
         if ($this->editingId !== null) {
             $this->authorize('update', $branch);
@@ -265,7 +266,7 @@ class Index extends Component
             ->withCount(['users', 'orders'])
             ->when(! $user->isGlobalAdmin(), fn ($builder) => $builder->whereKey($user->branch_id))
             ->when($this->search !== '', function ($builder) {
-                $term = '%' . $this->search . '%';
+                $term = '%'.$this->search.'%';
 
                 $builder->where(function ($searchQuery) use ($term) {
                     $searchQuery->where('name', 'like', $term)

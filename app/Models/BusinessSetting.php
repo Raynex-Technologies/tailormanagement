@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class BusinessSetting extends Model
 {
+    use \App\Models\Concerns\StoresPhoneNumbers;
     use HasFactory;
 
     protected $fillable = [

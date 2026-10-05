@@ -26,6 +26,9 @@ use Livewire\WithPagination;
     public function sync(WhatsappTemplateSyncService $service): void
     {
         $this->authorize('sms-templates.update');
+        if (! $this->hasSelectedBranch()) {
+            return;
+        }
         $i = WhatsappIntegration::forBranch(BranchContext::requireId());
         $result = $service->sync($i);
         Log::info('WhatsApp templates manually synchronized', ['branch_id' => $i->branch_id, 'success' => $result['success'], 'actor_id' => auth()->id()]);
@@ -35,6 +38,9 @@ use Livewire\WithPagination;
     public function duplicate(int $id, WhatsappTemplateService $service): void
     {
         $this->authorize('sms-templates.update');
+        if (! $this->hasSelectedBranch()) {
+            return;
+        }
         $t = WhatsappTemplate::where('branch_id', BranchContext::requireId())->findOrFail($id);
         $copy = $service->duplicate($t);
         session()->flash('success', __('Draft duplicated.'));
@@ -44,14 +50,32 @@ use Livewire\WithPagination;
     public function delete(int $id, WhatsappTemplateService $service): void
     {
         $this->authorize('sms-templates.update');
+        if (! $this->hasSelectedBranch()) {
+            return;
+        }
         $t = WhatsappTemplate::where('branch_id', BranchContext::requireId())->findOrFail($id);
         $result = $service->delete($t);
         Log::info('WhatsApp template deletion requested', ['branch_id' => $t->branch_id, 'template_id' => $t->id, 'success' => $result['success'], 'actor_id' => auth()->id()]);
         session()->flash($result['success'] ? 'success' : 'error', $result['success'] ? __('Template deleted.') : __($result['error_message']));
     }
 
+    protected function hasSelectedBranch(): bool
+    {
+        if (! BranchContext::hasBranch()) {
+            $this->addError('branch', __('Select an active branch before managing WhatsApp templates.'));
+
+            return false;
+        }
+
+        return true;
+    }
+
     public function render()
     {
+        if (! BranchContext::hasBranch()) {
+            return view('livewire.whatsapp.templates.branch-required');
+        }
+
         return view('livewire.whatsapp.templates.index', ['templates' => WhatsappTemplate::query()->where('branch_id', BranchContext::requireId())->latest()->paginate(20)]);
     }
 }

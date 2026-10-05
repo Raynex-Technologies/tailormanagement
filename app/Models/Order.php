@@ -19,6 +19,7 @@ use Illuminate\Support\Collection;
 
 class Order extends Model
 {
+    use \App\Models\Concerns\StoresPhoneNumbers;
     use BranchScoped, HasFactory, SoftDeletes;
 
     protected static function booted(): void

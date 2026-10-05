@@ -63,7 +63,7 @@
                     @endforeach
                 </flux:select>
                 <flux:input wire:model.blur="storefront_contact_email" type="email" label="{{ __('Storefront Contact Email') }}" />
-                <flux:input wire:model.blur="storefront_contact_phone" label="{{ __('Storefront Contact Phone') }}" />
+                <x-phone-input wire:model.blur="storefront_contact_phone" label="{{ __('Storefront Contact Phone') }}" />
                 <flux:input wire:model.blur="storefront_seo_title" label="{{ __('SEO Title') }}" />
                 <flux:input wire:model.blur="storefront_announcement_text" label="{{ __('Announcement Text') }}" />
                 <flux:input wire:model.blur="storefront_announcement_link" label="{{ __('Announcement Link URL') }}" />

@@ -25,8 +25,8 @@
             <flux:card class="mt-6">
                 <div class="grid gap-4 sm:grid-cols-2">
                     <flux:input wire:model.blur="business_name" label="{{ __('Business Name') }}" required />
-                    <flux:input wire:model.blur="phone" label="{{ __('Phone') }}" />
-                    <flux:input wire:model.blur="alternate_phone" label="{{ __('Alternate Phone') }}" />
+                    <x-phone-input wire:model.blur="phone" label="{{ __('Phone') }}" />
+                    <x-phone-input wire:model.blur="alternate_phone" label="{{ __('Alternate Phone') }}" />
                     <flux:input wire:model.blur="email" type="email" label="{{ __('Email') }}" />
                     <flux:input wire:model.blur="tin_number" label="{{ __('TIN Number (Optional)') }}" />
                 </div>

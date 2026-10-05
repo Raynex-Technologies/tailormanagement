@@ -21,6 +21,7 @@ use Throwable;
 #[Title('Business Settings')]
 class BusinessSettings extends Component
 {
+    use \App\Livewire\Concerns\ValidatesPhoneNumbers;
     use WithFileUploads;
 
     public string $tab = 'business';

@@ -46,6 +46,7 @@ use Livewire\Component;
 class Form extends Component
 {
     use \App\Livewire\Concerns\SelectsOrderInventory;
+    use \App\Livewire\Concerns\ValidatesPhoneNumbers;
     use NormalizesMoneyInputs;
 
     private const ORDER_EXPENSE_DESCRIPTIONS = [

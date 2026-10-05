@@ -660,7 +660,7 @@
                         @error('newCustomerName')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
                     </div>
                     <div>
-                        <flux:input wire:model="newCustomerPhone" label="{{ __('Phone') }}" autocomplete="tel" />
+                        <x-phone-input wire:model="newCustomerPhone" label="{{ __('Phone') }}" />
                         @error('newCustomerPhone')<p class="mt-1 text-sm text-red-600">{{ $message }}</p>@enderror
                     </div>
                     <div>

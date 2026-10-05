@@ -15,6 +15,7 @@ use Livewire\WithFileUploads;
 #[Title('Storefront Settings')]
 class Settings extends Component
 {
+    use \App\Livewire\Concerns\ValidatesPhoneNumbers;
     use WithFileUploads;
 
     public bool $storefront_enabled = false;

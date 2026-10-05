@@ -32,7 +32,7 @@
                     <p class="text-sm font-semibold text-amber-700">{{ __('Your details') }}</p><h2 class="mt-2 text-2xl font-semibold">{{ __('Let us know how to reach you') }}</h2>
                     <div class="mt-8 grid gap-5 sm:grid-cols-2">
                         <flux:input wire:model="fullName" label="{{ __('Full name') }}" required />
-                        <flux:input wire:model="phone" label="{{ __('Mobile number') }}" placeholder="0712 345 678" required />
+                        <x-phone-input wire:model="phone" label="{{ __('Mobile number') }}" placeholder="0712 345 678" required />
                         <flux:input wire:model="email" type="email" label="{{ __('Email (optional)') }}" />
                         <flux:input wire:model="location" label="{{ __('Location (optional)') }}" />
                     </div>
